@@ -14,7 +14,7 @@ import { NavLink } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { cn } from '../../lib/utils'
 import { Avatar } from '../ui/Avatar'
-import { Logo } from './Logo'
+import { SidebarBrandHeader } from './Logo'
 
 export function Sidebar() {
   const { pets } = useApp()
@@ -35,20 +35,23 @@ export function Sidebar() {
   ]
 
   return (
-    <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-[#E8E4DC] lg:bg-white/95 lg:backdrop-blur-md z-30">
-      <div className="flex h-full flex-col px-4 py-6 justify-between">
-        <div>
-          <div className="px-3 pb-6 border-b border-[#F0EDE6]">
-            <Logo />
-          </div>
+    <aside
+      className="hidden lg:flex lg:w-[260px] lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-[#E8E4DC]/70 z-30"
+      style={{ backgroundColor: '#FAF8F5' }}
+    >
+      <SidebarBrandHeader />
 
-          <div className="mt-6 px-3">
+      <div className="mx-4 h-px bg-[#E8E4DC]/60" />
+
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-5 justify-between overflow-y-auto">
+        <div>
+          <div className="px-3">
             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A3AEA7]">
               Hlavní menu
             </span>
           </div>
 
-          <nav className="mt-2 flex flex-col gap-1">
+          <nav className="mt-3 flex flex-col gap-1">
             {mainNav.map(({ to, label, icon: Icon, badge }) => (
               <NavLink
                 key={to}
@@ -59,7 +62,7 @@ export function Sidebar() {
                     'group relative flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
                     isActive
                       ? 'bg-[#EBF2EE] text-[#2C4A3E] font-semibold shadow-xs'
-                      : 'text-[#4A564F] hover:bg-[#FAF8F5] hover:text-[#191E1B]',
+                      : 'text-[#4A564F] hover:bg-white/60 hover:text-[#191E1B]',
                   )
                 }
               >
@@ -119,7 +122,7 @@ export function Sidebar() {
                     'flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-[#EBF2EE] text-[#2C4A3E] font-semibold'
-                      : 'text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#191E1B]',
+                      : 'text-[#7D8B82] hover:bg-white/60 hover:text-[#191E1B]',
                   )
                 }
               >
@@ -130,7 +133,7 @@ export function Sidebar() {
           </nav>
 
           <div className="mt-4 pt-4 border-t border-[#F0EDE6]">
-            <div className="flex items-center gap-3 rounded-xl p-2 bg-[#FAF8F5] border border-[#E8E4DC]">
+            <div className="flex items-center gap-3 rounded-xl p-2 bg-white/70 border border-[#E8E4DC]/80">
               <Avatar
                 src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
                 alt="Tereza V."
