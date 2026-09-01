@@ -357,7 +357,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 1,
     location: 'Kutná Hora',
     distance: '7,5 km',
-    image: 'https://images.unsplash.com/photo-1513360309081-38f0762daed1?auto=format&fit=crop&w=800&q=85',
+    image: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=85',
     popular: false,
     verified: true,
     ownerName: 'Lucie R.',

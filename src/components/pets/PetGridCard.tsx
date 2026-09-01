@@ -1,4 +1,4 @@
-import { ArrowUpRight, ShieldCheck, Heart } from 'lucide-react'
+import { ArrowUpRight, Scale, Stethoscope, Syringe } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { healthStatusLabel, petTypeLabel } from '../../data/mockData'
 import type { Pet } from '../../types'
@@ -59,40 +59,54 @@ export function PetGridCard({ pet }: PetGridCardProps) {
         </div>
 
         {/* Content details */}
-        <div className="p-5">
-          <div className="grid grid-cols-2 gap-3 py-2 border-b border-[#F0EDE6] text-xs">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Hmotnost</span>
-              <p className="font-semibold text-[#191E1B] mt-0.5">{pet.weight} kg</p>
+        <div className="p-4">
+          <div className="mb-3 flex items-center gap-2.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EBF2EE] text-[#2C4A3E]">
+              <Scale size={17} strokeWidth={1.75} />
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Mikročip</span>
-              <p className="font-mono text-[11px] text-[#4A564F] mt-0.5 truncate">{pet.microchip}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Poslední návštěva</span>
-              <p className="font-medium text-[#191E1B] mt-0.5">{pet.lastVetVisit}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Očkování</span>
-              <p className="font-medium text-[#2C4A3E] mt-0.5">{pet.nextVaccination}</p>
+              <p className="text-xs font-medium text-[#7D8B82]">Hmotnost</p>
+              <p className="text-lg font-bold tracking-tight text-[#191E1B]">
+                {pet.weight} kg
+              </p>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-xs text-[#7D8B82]">
-            <span className="flex items-center gap-1">
-              <ShieldCheck size={13} className="text-[#2C4A3E]" />
-              Zdravotní skóre: <strong className="text-[#191E1B]">{pet.healthScore || 95}%</strong>
-            </span>
-            <span className="flex items-center gap-1">
-              <Heart size={13} className="text-[#B8934A]" />
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF8F5] px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700 shadow-sm">
+                <Stethoscope size={14} strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-[#7D8B82]">Poslední návštěva</p>
+                <p className="text-sm font-semibold text-[#191E1B]">{pet.lastVetVisit}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF8F5] px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[#234B54] shadow-sm">
+                <Syringe size={14} strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-[#7D8B82]">Příští očkování</p>
+                <p className="text-sm font-semibold text-[#234B54]">{pet.nextVaccination}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-[10px] text-[#A3AEA7]">
+              Mikročip{' '}
+              <span className="font-mono text-[#B8C2BC]">{pet.microchip}</span>
+            </p>
+            <Badge variant="outline" size="sm" className="shrink-0">
               {pet.neutered ? 'Kastrovaný' : 'Nekastrovaný'}
-            </span>
+            </Badge>
           </div>
         </div>
       </div>
 
-      <div className="px-5 pb-5 pt-1">
+      <div className="px-4 pb-4 pt-0">
         <Link to={`/pets/${pet.id}`} className="block w-full">
           <Button
             variant="outline"

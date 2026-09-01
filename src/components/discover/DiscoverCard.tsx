@@ -20,9 +20,9 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
     <Card
       variant="elevated"
       padding="none"
-      className="overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(25,30,27,0.08)] hover:border-[#D1E0D8] flex flex-col justify-between"
+      className="overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(25,30,27,0.08)] hover:border-[#D1E0D8] flex h-full flex-col"
     >
-      <div>
+      <div className="flex flex-1 flex-col">
         {/* Photo with Overlay */}
         <div className="relative aspect-square overflow-hidden bg-stone-100">
           <img
@@ -69,28 +69,28 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
         </div>
 
         {/* Card Body */}
-        <div className="p-4 sm:p-5">
-          <div className="flex items-center justify-between text-xs text-[#7D8B82] pb-3 border-b border-[#F0EDE6]">
-            <span className="flex items-center gap-1 font-medium text-[#4A564F]">
-              <MapPin size={13} className="text-[#B8934A]" />
-              {pet.location} {pet.distance && `(${pet.distance})`}
+        <div className="flex flex-1 flex-col p-4">
+          <div className="flex items-center justify-between gap-2 text-xs text-[#7D8B82] pb-3 border-b border-[#F0EDE6]">
+            <span className="flex min-w-0 items-center gap-1 font-medium text-[#4A564F]">
+              <MapPin size={13} className="shrink-0 text-[#B8934A]" />
+              <span className="truncate">
+                {pet.location} {pet.distance && `(${pet.distance})`}
+              </span>
             </span>
             {pet.ownerName && (
-              <span className="text-[11px] font-medium text-[#7D8B82]">
+              <span className="shrink-0 text-[11px] font-medium text-[#7D8B82]">
                 Majitel: {pet.ownerName}
               </span>
             )}
           </div>
 
-          {pet.bio && (
-            <p className="mt-3 text-xs text-[#4A564F] line-clamp-2 leading-relaxed">
-              {pet.bio}
-            </p>
-          )}
+          <p className="mt-3 min-h-[2.75rem] text-xs text-[#4A564F] line-clamp-2 leading-relaxed">
+            {pet.bio || '\u00A0'}
+          </p>
         </div>
       </div>
 
-      <div className="px-4 pb-4 sm:px-5 sm:pb-5 pt-1">
+      <div className="px-4 pb-4 pt-0">
         <Button
           variant="outline"
           fullWidth
