@@ -1,8 +1,5 @@
 import {
   Bell,
-  Sun,
-  Sunset,
-  Moon,
   Search,
   CheckCheck,
 } from 'lucide-react'
@@ -12,15 +9,15 @@ import { useApp } from '../../context/AppContext'
 import { petCountLabel } from '../../lib/dashboardDates'
 import { Avatar } from '../ui/Avatar'
 
-function getGreetingData(): { greeting: string; icon: typeof Sun } {
+function getGreetingData(): { greeting: string; emoji: string } {
   const hour = new Date().getHours()
-  if (hour < 12) return { greeting: 'Dobré ráno', icon: Sun }
-  if (hour < 18) return { greeting: 'Dobré odpoledne', icon: Sunset }
-  return { greeting: 'Dobré večer', icon: Moon }
+  if (hour < 12) return { greeting: 'Dobré ráno', emoji: '☀️' }
+  if (hour < 18) return { greeting: 'Dobré odpoledne', emoji: '🌤️' }
+  return { greeting: 'Dobré večer', emoji: '🌙' }
 }
 
 export function Header() {
-  const { greeting, icon: GreetingIcon } = getGreetingData()
+  const { greeting, emoji } = getGreetingData()
   const { pets, setDiscoverSearch } = useApp()
   const navigate = useNavigate()
   const [showNotifications, setShowNotifications] = useState(false)
@@ -56,11 +53,14 @@ export function Header() {
 
   return (
     <header className="relative mb-6 pb-5 border-b border-[#E8E4DC]">
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#EBF2EE]/60 to-transparent"
+        aria-hidden
+      />
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-[#191E1B] sm:text-[1.65rem] flex items-center gap-2">
-            <span>{greeting}, Terezo</span>
-            <GreetingIcon size={20} className="text-[#B8934A] shrink-0" />
+          <h1 className="text-2xl font-bold tracking-tight text-[#191E1B] sm:text-[1.65rem]">
+            <span>{greeting}, Terezo {emoji}</span>
           </h1>
           <p className="mt-0.5 text-sm text-[#7D8B82] font-medium">
             {petCountLabel(pets.length)}

@@ -1,70 +1,138 @@
 import { Link } from 'react-router-dom'
-import { healthStatusLabel, petTypeLabel } from '../../data/mockData'
+import { PawPrint } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
-import { formatAge, formatWeight } from '../../lib/dashboardDates'
+import { formatAge, getPetStatusBadge } from '../../lib/dashboardDates'
 import { AddMenuButton } from './AddMenuButton'
-import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
-function healthDotColor(status: Pet['healthStatus']) {
-  if (status === 'excellent') return 'bg-emerald-500'
-  if (status === 'good') return 'bg-[#2C4A3E]'
-  return 'bg-amber-500'
+function statusDotClass(variant: ReturnType<typeof getPetStatusBadge>['variant']) {
+  if (variant === 'success') return 'bg-emerald-400'
+  if (variant === 'warning') return 'bg-amber-400'
+  if (variant === 'gold') return 'bg-[#B8934A]'
+  return 'bg-white/90'
 }
 
-function PetCardCompact({ pet }: { pet: Pet }) {
-  return (
-    <Link to={`/pets/${pet.id}`} className="group block">
-      <Card
-        variant="elevated"
-        padding="none"
-        className="overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(25,30,27,0.06)] hover:border-[#D1E0D8]"
-      >
-        <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
-          <img
-            src={pet.image}
-            alt={pet.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          <span
-            className={cn(
-              'absolute top-2.5 right-2.5 h-2.5 w-2.5 rounded-full ring-2 ring-white',
-              healthDotColor(pet.healthStatus),
-            )}
-            title={healthStatusLabel[pet.healthStatus]}
-          />
-        </div>
+function EditorialPetTile({
+  pet,
+  className,
+  imageClassName,
+  featured = false,
+}: {
+  pet: Pet
+  className?: string
+  imageClassName?: string
+  featured?: boolean
+}) {
+  const { calendarEvents } = useApp()
+  const status = getPetStatusBadge(pet, calendarEvents)
 
-        <div className="p-3.5">
-          <h3 className="text-base font-bold text-[#191E1B] group-hover:text-[#2C4A3E] transition-colors">
-            {pet.name}
-          </h3>
-          <p className="mt-0.5 text-xs text-[#7D8B82] truncate">
-            {petTypeLabel[pet.type]} · {pet.breed}
-          </p>
-          <p className="mt-1 text-xs font-medium text-[#4A564F]">
-            {formatAge(pet.age)} · {formatWeight(pet.weight)}
-          </p>
-        </div>
-      </Card>
+  return (
+    <Link
+      to={`/pets/${pet.id}`}
+      className={cn(
+        'group relative block overflow-hidden rounded-2xl sm:rounded-3xl',
+        className,
+      )}
+    >
+      <img
+        src={pet.image}
+        alt={pet.name}
+        className={cn(
+          'absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]',
+          imageClassName,
+        )}
+      />
+      <div
+        className={cn(
+          'absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-black/5',
+          featured && 'from-black/70 via-black/25',
+        )}
+      />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2C4A3E]/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+      {featured && (
+        <PawPrint
+          size={48}
+          strokeWidth={1.25}
+          className="pointer-events-none absolute right-4 top-4 text-white/15"
+          aria-hidden
+        />
+      )}
+
+      <div
+        className={cn(
+          'absolute inset-x-0 bottom-0',
+          featured ? 'p-5 sm:p-6 lg:p-7' : 'p-3.5 sm:p-4',
+        )}
+      >
+        <h3
+          className={cn(
+            'font-bold tracking-tight text-white drop-shadow-sm',
+            featured
+              ? 'text-2xl sm:text-3xl lg:text-[2rem]'
+              : 'text-lg sm:text-xl',
+          )}
+        >
+          {pet.name}
+        </h3>
+        <p
+          className={cn(
+            'mt-0.5 font-medium text-white/85',
+            featured ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
+          )}
+        >
+          {pet.breed} · {formatAge(pet.age)}
+        </p>
+        <p
+          className={cn(
+            'mt-2 flex items-center gap-2 font-medium text-white/75',
+            featured ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs',
+          )}
+        >
+          <span
+            className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(status.variant))}
+          />
+          {status.label}
+        </p>
+      </div>
     </Link>
   )
 }
 
 export function MyPetsSection() {
   const { pets } = useApp()
+  const [luna, milo, bella] = pets
+
+  if (!luna) return null
 
   return (
     <section>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold tracking-tight text-[#191E1B]">Moji mazlíčci</h2>
+      <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
+        <h2 className="text-xl font-bold tracking-tight text-[#191E1B] sm:text-2xl">
+          Moji mazlíčci
+        </h2>
         <AddMenuButton />
       </div>
-      <div className="mt-4 grid gap-4 grid-cols-2 sm:grid-cols-3">
-        {pets.slice(0, 3).map((pet) => (
-          <PetCardCompact key={pet.id} pet={pet} />
-        ))}
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-12 lg:grid-rows-2 lg:gap-4">
+        <EditorialPetTile
+          pet={luna}
+          featured
+          className="col-span-2 min-h-[300px] sm:min-h-[340px] lg:col-span-8 lg:row-span-2 lg:min-h-[400px] lg:max-h-[460px]"
+        />
+        {milo && (
+          <EditorialPetTile
+            pet={milo}
+            className="min-h-[150px] sm:min-h-[170px] lg:col-span-4 lg:min-h-0 lg:h-full"
+          />
+        )}
+        {bella && (
+          <EditorialPetTile
+            pet={bella}
+            className="min-h-[150px] sm:min-h-[170px] lg:col-span-4 lg:min-h-0 lg:h-full"
+          />
+        )}
       </div>
     </section>
   )

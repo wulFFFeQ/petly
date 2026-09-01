@@ -1,32 +1,16 @@
-import {
-  Pill,
-  Stethoscope,
-  Syringe,
-  UtensilsCrossed,
-  Scissors,
-} from 'lucide-react'
+import { Stethoscope, Syringe, Scissors, UtensilsCrossed, Pill } from 'lucide-react'
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import type { CalendarEvent, EventType } from '../../types'
 import {
   APP_TODAY,
+  formatTodayHeader,
   formatUpcomingDate,
+  getEventTypeLabel,
   isSameDay,
   parseEventDate,
 } from '../../lib/dashboardDates'
-import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
-
-const typeConfig: Record<
-  EventType,
-  { label: string; icon: typeof Pill; color: string }
-> = {
-  medication: { label: 'Lék', icon: Pill, color: 'text-amber-700' },
-  feeding: { label: 'Krmení', icon: UtensilsCrossed, color: 'text-emerald-700' },
-  vet: { label: 'Veterinář', icon: Stethoscope, color: 'text-sky-700' },
-  vaccination: { label: 'Očkování', icon: Syringe, color: 'text-[#2C4A3E]' },
-  grooming: { label: 'Péče o srst', icon: Scissors, color: 'text-purple-700' },
-}
 
 function sortByDateTime(a: CalendarEvent, b: CalendarEvent) {
   const dateCompare = a.date.localeCompare(b.date)
@@ -34,64 +18,122 @@ function sortByDateTime(a: CalendarEvent, b: CalendarEvent) {
   return (a.time ?? '').localeCompare(b.time ?? '')
 }
 
-function EventRow({
+const eventAccent: Record<
+  EventType,
+  { icon: typeof Pill; iconClass: string; ring: string }
+> = {
+  vet: {
+    icon: Stethoscope,
+    iconClass: 'text-sky-700 bg-sky-50/90',
+    ring: 'ring-sky-100/80',
+  },
+  vaccination: {
+    icon: Syringe,
+    iconClass: 'text-[#2C4A3E] bg-[#EBF2EE]',
+    ring: 'ring-[#D1E0D8]/80',
+  },
+  medication: {
+    icon: Pill,
+    iconClass: 'text-amber-700 bg-amber-50/90',
+    ring: 'ring-amber-100/80',
+  },
+  feeding: {
+    icon: UtensilsCrossed,
+    iconClass: 'text-emerald-700 bg-emerald-50/80',
+    ring: 'ring-emerald-100/80',
+  },
+  grooming: {
+    icon: Scissors,
+    iconClass: 'text-purple-700 bg-purple-50/80',
+    ring: 'ring-purple-100/80',
+  },
+}
+
+function ScheduleEventRow({
   event,
-  showTime = true,
+  timeLabel,
+  highlighted = false,
 }: {
   event: CalendarEvent
-  showTime?: boolean
+  timeLabel: string
+  highlighted?: boolean
 }) {
-  const config = typeConfig[event.type]
-  const Icon = config.icon
+  const accent = eventAccent[event.type]
+  const Icon = accent.icon
 
   return (
-    <li className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+    <li
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 transition-colors duration-200',
+        'hover:bg-white/55',
+        highlighted && 'bg-white/45',
+      )}
+    >
       <div
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FAF8F5]',
-          config.color,
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ring-1',
+          accent.iconClass,
+          accent.ring,
         )}
       >
-        <Icon size={16} strokeWidth={2} />
+        <Icon size={16} strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[#191E1B]">{event.petName}</p>
-        <p className="text-xs text-[#7D8B82]">{config.label}</p>
+        <p
+          className={cn(
+            'font-semibold text-[#191E1B]',
+            highlighted ? 'text-[15px]' : 'text-sm',
+          )}
+        >
+          {event.petName}
+        </p>
+        <p className="mt-0.5 text-xs text-[#7D8B82]">
+          {getEventTypeLabel(event.type)}
+        </p>
       </div>
-      {showTime && event.time && (
-        <span className="shrink-0 text-xs font-semibold text-[#4A564F] tabular-nums">
-          {event.time}
-        </span>
-      )}
-      {!showTime && (
-        <span className="shrink-0 text-xs font-semibold text-[#4A564F]">
-          {formatUpcomingDate(event.date, event.time)}
-        </span>
-      )}
+      <span
+        className={cn(
+          'shrink-0 tabular-nums',
+          highlighted
+            ? 'text-sm font-bold text-[#2C4A3E]'
+            : 'text-xs font-semibold text-[#4A564F]',
+        )}
+      >
+        {timeLabel}
+      </span>
     </li>
   )
 }
 
 function SchedulePanel({
   title,
+  accentClass,
   children,
-  isEmpty,
-  emptyMessage,
 }: {
   title: string
+  accentClass: string
   children: React.ReactNode
-  isEmpty: boolean
-  emptyMessage: string
 }) {
   return (
-    <Card variant="elevated" padding="md" className="h-full">
-      <h2 className="text-lg font-bold tracking-tight text-[#191E1B]">{title}</h2>
-      {isEmpty ? (
-        <p className="mt-6 text-sm text-[#7D8B82]">{emptyMessage}</p>
-      ) : (
-        <ul className="mt-4 divide-y divide-[#F0EDE6]">{children}</ul>
-      )}
-    </Card>
+    <section className="relative self-start overflow-hidden rounded-xl sm:rounded-2xl border border-[#E8E4DC]/30 bg-[#FAF8F5]/60">
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-[#EBF2EE]/25 via-transparent to-[#FAF4E6]/20"
+        aria-hidden
+      />
+      <div
+        className={cn(
+          'absolute -right-8 -top-8 h-14 w-14 rounded-full blur-2xl opacity-50',
+          accentClass,
+        )}
+        aria-hidden
+      />
+      <div className="relative px-3.5 py-3 sm:px-4 sm:py-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7D8B82]">
+          {title}
+        </p>
+        {children}
+      </div>
+    </section>
   )
 }
 
@@ -112,25 +154,46 @@ export function DashboardSchedule() {
   }, [calendarEvents])
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid items-start gap-4 sm:gap-5 lg:grid-cols-2 lg:gap-6">
       <SchedulePanel
-        title="Dnes"
-        isEmpty={todayEvents.length === 0}
-        emptyMessage="Dnes je vše hotovo."
+        title={`Dnes · ${formatTodayHeader()}`}
+        accentClass="bg-[#2C4A3E]/6"
       >
-        {todayEvents.map((event) => (
-          <EventRow key={event.id} event={event} />
-        ))}
+        {todayEvents.length === 0 ? (
+          <p className="mt-2.5 text-sm font-medium text-[#7D8B82]">
+            Dnes je vše hotovo ✓
+          </p>
+        ) : (
+          <ul className="mt-2.5 space-y-1">
+            {todayEvents.map((event, index) => (
+              <ScheduleEventRow
+                key={event.id}
+                event={event}
+                timeLabel={event.time ?? ''}
+                highlighted={index === 0}
+              />
+            ))}
+          </ul>
+        )}
       </SchedulePanel>
 
-      <SchedulePanel
-        title="Nadchází"
-        isEmpty={upcomingEvents.length === 0}
-        emptyMessage="Žádné nadcházející události."
-      >
-        {upcomingEvents.map((event) => (
-          <EventRow key={event.id} event={event} showTime={false} />
-        ))}
+      <SchedulePanel title="Nadchází" accentClass="bg-[#B8934A]/8">
+        {upcomingEvents.length === 0 ? (
+          <p className="mt-2.5 text-sm font-medium text-[#7D8B82]">
+            Žádné nadcházející události.
+          </p>
+        ) : (
+          <ul className="mt-2.5 space-y-1">
+            {upcomingEvents.map((event, index) => (
+              <ScheduleEventRow
+                key={event.id}
+                event={event}
+                timeLabel={formatUpcomingDate(event.date, event.time)}
+                highlighted={index === 0}
+              />
+            ))}
+          </ul>
+        )}
       </SchedulePanel>
     </div>
   )
