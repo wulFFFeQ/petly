@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #FAF8F5;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #FDFCFB;
+  --color-surface-muted: #F5F2EC;
+  
+  --color-primary: #2C4A3E;
+  --color-primary-hover: #21382F;
+  --color-primary-dark: #182B24;
+  --color-primary-light: #EBF2EE;
+  --color-primary-subtle: #F3F7F5;
+  --color-primary-border: #D1E0D8;
+  
+  --color-secondary: #EFECE6;
+  --color-secondary-dark: #DFD9CE;
+  
+  --color-accent-gold: #B8934A;
+  --color-accent-gold-light: #FAF4E6;
+  --color-accent-gold-border: #E8D8B5;
+  --color-accent-gold-hover: #9E7D3A;
+
+  --color-text: #191E1B;
+  --color-text-secondary: #4A564F;
+  --color-text-muted: #7D8B82;
+  --color-text-subtle: #A3AEA7;
+
+  --color-border: #E8E4DC;
+  --color-border-subtle: #F0EDE6;
+  --color-border-focus: #2C4A3E;
+
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D9D4CB;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8B2A6;
+}
+
+/* Subtle luxury animations & utility styling */
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.96); }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 3s infinite ease-in-out;
+}
+
+@keyframes floatGentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-float {
+  animation: floatGentle 4s ease-in-out infinite;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 228, 220, 0.8);
+}
+
+.gold-shimmer {
+  background: linear-gradient(135deg, #B8934A 0%, #D4B26F 50%, #B8934A 100%);
+}
+
+.subtle-ring {
+  box-shadow: 0 0 0 1px rgba(44, 74, 62, 0.08), 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.luxury-card-shadow {
+  box-shadow: 0 1px 2px rgba(25, 30, 27, 0.02), 0 4px 16px rgba(25, 30, 27, 0.04);
+}
+
+.luxury-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.luxury-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(25, 30, 27, 0.08);
+}

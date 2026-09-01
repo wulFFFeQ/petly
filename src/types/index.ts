@@ -1,0 +1,154 @@
+export type PetType = 'dog' | 'cat' | 'other'
+export type HealthStatus = 'excellent' | 'good' | 'attention'
+export type EventType = 'vaccination' | 'medication' | 'vet' | 'grooming' | 'feeding'
+export type HealthRecordType = 'vaccination' | 'vet' | 'medication'
+export type ModalType = 'addPet' | 'addHealthRecord' | 'bookVet' | 'addActivity' | 'addPhoto' | null
+
+export interface Pet {
+  id: string
+  name: string
+  type: PetType
+  breed: string
+  age: number
+  image: string
+  healthStatus: HealthStatus
+  dateOfBirth: string
+  gender: string
+  weight: number
+  microchip: string
+  neutered: boolean
+  lastVetVisit: string
+  nextVaccination: string
+  healthScore?: number
+  favoriteToy?: string
+  diet?: string
+}
+
+export interface HealthRecord {
+  id: string
+  petId: string
+  type: HealthRecordType
+  title: string
+  subtitle: string
+  date: string
+  doctor?: string
+  clinic?: string
+  status?: 'completed' | 'scheduled' | 'active'
+}
+
+export interface TimelineEvent {
+  id: string
+  petId: string
+  title: string
+  date: string
+  category?: 'milestone' | 'medical' | 'adoption' | 'birthday'
+  description?: string
+}
+
+export interface OverviewItem {
+  id: string
+  type: EventType
+  petName: string
+  label: string
+  detail: string
+  timeBadge?: string
+  isUrgent?: boolean
+}
+
+export interface ActivityItem {
+  id: string
+  text: string
+  time: string
+  petName?: string
+  category?: 'health' | 'photo' | 'routine' | 'appointment'
+}
+
+export interface DiscoverPet {
+  id: string
+  name: string
+  type: PetType
+  breed: string
+  age: number
+  location: string
+  image: string
+  popular?: boolean
+  distance?: string
+  verified?: boolean
+  ownerName?: string
+  bio?: string
+}
+
+export interface PostComment {
+  id: string
+  author: string
+  avatar: string
+  text: string
+  time: string
+}
+
+export interface CommunityPost {
+  id: string
+  author: string
+  avatar: string
+  badge?: string
+  time: string
+  text: string
+  image?: string
+  likes: number
+  liked: boolean
+  petTag?: string
+  commentsCount: number
+  comments?: PostComment[]
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  petName: string
+  type: EventType
+  date: string
+  time?: string
+  location?: string
+  notes?: string
+}
+
+export interface Message {
+  id: string
+  sender: 'me' | 'them'
+  text: string
+  time: string
+}
+
+export interface Conversation {
+  id: string
+  name: string
+  avatar: string
+  role?: string
+  online?: boolean
+  lastMessage: string
+  time: string
+  unread: number
+  messages: Message[]
+}
+
+export interface WeightDataPoint {
+  month: string
+  weight: number
+  target?: number
+}
+
+export interface NewPetForm {
+  name: string
+  type: PetType
+  breed: string
+  age: number
+  gender?: string
+  weight?: number
+}
+
+export interface ToastMessage {
+  id: string
+  title: string
+  description?: string
+  type?: 'success' | 'info' | 'gold'
+}
