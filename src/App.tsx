@@ -13,8 +13,10 @@ import { PetProfilePage } from './pages/PetProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
 
 function App() {
+  const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AppProvider>
         <Routes>
           <Route element={<AppLayout />}>
