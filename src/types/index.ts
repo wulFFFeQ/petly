@@ -34,6 +34,12 @@ export interface HealthRecord {
   doctor?: string
   clinic?: string
   status?: 'completed' | 'scheduled' | 'active'
+  vaccineName?: string
+  nextDueDate?: string
+  dosage?: string
+  scheduleTime?: string
+  reminderEnabled?: boolean
+  notes?: string
 }
 
 export interface TimelineEvent {
@@ -41,8 +47,35 @@ export interface TimelineEvent {
   petId: string
   title: string
   date: string
-  category?: 'milestone' | 'medical' | 'adoption' | 'birthday'
+  category?: 'milestone' | 'medical' | 'adoption' | 'birthday' | 'memory'
   description?: string
+  source?: 'manual' | 'health_record' | 'vaccination' | 'medication' | 'vet'
+  sourceId?: string
+}
+
+export interface PetDocument {
+  id: string
+  petId: string
+  name: string
+  size: string
+  updatedAt: string
+  expiresAt?: string
+  type: 'passport' | 'chip' | 'insurance' | 'lab' | 'other'
+}
+
+export interface PetPhoto {
+  id: string
+  petId: string
+  url: string
+  caption?: string
+}
+
+export interface WeightMeasurement {
+  id: string
+  petId: string
+  date: string
+  weight: number
+  note?: string
 }
 
 export interface OverviewItem {
@@ -191,4 +224,29 @@ export interface PetTravelPackage {
   microchip: string
   healthRecordCount: number
   documents: { label: string; ready: boolean }[]
+}
+
+export type TravelRequirementCheck =
+  | 'eu_passport'
+  | 'rabies'
+  | 'microchip'
+  | 'tapeworm'
+  | 'health_cert'
+  | 'insurance'
+  | 'import_permit'
+
+export interface TravelDestinationRequirement {
+  id: string
+  category: 'vaccination' | 'passport' | 'document' | 'microchip' | 'other'
+  label: string
+  detail: string
+  check: TravelRequirementCheck
+}
+
+export interface TravelDestination {
+  id: string
+  country: string
+  emoji: string
+  summary: string
+  requirements: TravelDestinationRequirement[]
 }

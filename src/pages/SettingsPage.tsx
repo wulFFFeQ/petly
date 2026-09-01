@@ -15,6 +15,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { useApp } from '../context/AppContext'
+import { BRAND_NAME } from '../lib/brand'
 import { cn } from '../lib/utils'
 
 const VET_DATA_ACCESS = [
@@ -199,7 +200,7 @@ export function SettingsPage() {
             <span>Soukromí a přístup k veterinárním datům</span>
           </h3>
           <p className="text-xs text-[#4A564F] mb-5 leading-relaxed">
-            PETLY uchovává zdravotní a klinické záznamy vašich mazlíčků v šifrované podobě.
+            {BRAND_NAME} uchovává zdravotní a klinické záznamy vašich mazlíčků v šifrované podobě.
             U každého ověřeného veterináře si můžete přesně nastavit, ke kterým údajům má
             přístup — a tento přístup kdykoliv odebrat.
           </p>

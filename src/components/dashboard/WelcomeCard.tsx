@@ -1,5 +1,6 @@
 import { ArrowRight, Sparkles, ShieldCheck, HeartHandshake } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { BRAND_NAME } from '../../lib/brand'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -17,7 +18,7 @@ export function WelcomeCard() {
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="gold" size="sm">
                 <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-                Kompletní péče PETLY
+                Kompletní péče {BRAND_NAME}
               </Badge>
               <span className="text-xs font-semibold text-[#7D8B82] tracking-wider uppercase">
                 Rodinné centrum

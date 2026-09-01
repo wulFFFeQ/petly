@@ -8,8 +8,12 @@ import type {
   ImportantContact,
   OverviewItem,
   Pet,
+  PetDocument,
+  PetPhoto,
   PetTravelPackage,
   TimelineEvent,
+  TravelDestination,
+  WeightMeasurement,
   WeightDataPoint,
 } from '../types'
 
@@ -154,6 +158,9 @@ export const healthRecords: HealthRecord[] = [
     doctor: 'MUDr. Martin Novák',
     clinic: 'PetCare Central Praha',
     status: 'completed',
+    vaccineName: 'Vzteklina (Nobivac Rabies) + leptospiróza',
+    nextDueDate: '24. 9. 2026',
+    notes: 'Bez komplikací, doporučen klid po aplikaci 24 hodin.',
   },
   {
     id: 'hr2',
@@ -165,6 +172,7 @@ export const healthRecords: HealthRecord[] = [
     doctor: 'MUDr. Martin Novák',
     clinic: 'PetCare Central Praha',
     status: 'completed',
+    notes: 'Hmotnost v normě, doporučena pravidelná kontrola kloubů.',
   },
   {
     id: 'hr3',
@@ -175,6 +183,10 @@ export const healthRecords: HealthRecord[] = [
     date: 'Denně k večeři',
     clinic: 'Domácí péče',
     status: 'active',
+    dosage: '2 kapsle (1000 mg)',
+    scheduleTime: '19:00',
+    reminderEnabled: true,
+    notes: 'Podávat s jídlem pro lepší vstřebávání.',
   },
   {
     id: 'hr8',
@@ -186,6 +198,7 @@ export const healthRecords: HealthRecord[] = [
     doctor: 'MUDr. Martin Novák',
     clinic: 'PetCare Central Praha',
     status: 'completed',
+    notes: 'Biochemie v referenčním rozmezí, doporučena kontrola za 12 měsíců.',
   },
   {
     id: 'hr4',
@@ -197,6 +210,9 @@ export const healthRecords: HealthRecord[] = [
     doctor: 'MUDr. Helena Králová',
     clinic: 'Feline Care Studio Praha',
     status: 'completed',
+    vaccineName: 'FVRCP (Purevax)',
+    nextDueDate: '15. 10. 2026',
+    notes: 'Kočka reagovala klidně, bez otoků v místě vpichu.',
   },
   {
     id: 'hr5',
@@ -218,6 +234,10 @@ export const healthRecords: HealthRecord[] = [
     date: 'Denně ráno',
     clinic: 'Domácí péče',
     status: 'active',
+    dosage: '1 tableta (500 mg)',
+    scheduleTime: '08:00',
+    reminderEnabled: true,
+    notes: 'Podávat s jídlem, sledovat pohyblivost.',
   },
   {
     id: 'hr7',
@@ -229,6 +249,7 @@ export const healthRecords: HealthRecord[] = [
     doctor: 'MUDr. Martin Novák',
     clinic: 'PetCare Central Praha',
     status: 'completed',
+    notes: 'Srdce v dobrém stavu, doporučena mírná zátěž.',
   },
 ]
 
@@ -289,6 +310,82 @@ export const timelineEvents: TimelineEvent[] = [
     category: 'birthday',
     description: 'Všechno nejlepší k 4. narozeninám naší holčičce!',
   },
+]
+
+export const petDocuments: PetDocument[] = [
+  {
+    id: 'doc_luna_1',
+    petId: 'luna',
+    name: 'Oficiální pas mazlíčka a certifikát vztekliny.pdf',
+    size: '2,4 MB',
+    updatedAt: 'srp 2026',
+    expiresAt: '12. 2028',
+    type: 'passport',
+  },
+  {
+    id: 'doc_luna_2',
+    petId: 'luna',
+    name: 'Národní certifikát registrace mikročipu.pdf',
+    size: '1,1 MB',
+    updatedAt: 'úno 2023',
+    type: 'chip',
+  },
+  {
+    id: 'doc_luna_3',
+    petId: 'luna',
+    name: 'Komplexní pojistná smlouva zdravotního pojištění.pdf',
+    size: '4,8 MB',
+    updatedAt: 'led 2026',
+    expiresAt: '1. 2027',
+    type: 'insurance',
+  },
+  {
+    id: 'doc_luna_4',
+    petId: 'luna',
+    name: 'Kompletní krevní a biochemický panel.pdf',
+    size: '1,7 MB',
+    updatedAt: 'čvc 2026',
+    type: 'lab',
+  },
+  {
+    id: 'doc_milo_1',
+    petId: 'milo',
+    name: 'EU pas a očkovací list.pdf',
+    size: '1,9 MB',
+    updatedAt: 'čvn 2026',
+    expiresAt: '6. 2027',
+    type: 'passport',
+  },
+  {
+    id: 'doc_bella_1',
+    petId: 'bella',
+    name: 'Pas a certifikát šampiona.pdf',
+    size: '3,2 MB',
+    updatedAt: 'říj 2022',
+    expiresAt: '3. 2026',
+    type: 'passport',
+  },
+]
+
+export const petPhotos: PetPhoto[] = [
+  { id: 'ph_luna_1', petId: 'luna', url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
+  { id: 'ph_luna_2', petId: 'luna', url: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=85', caption: 'Procházka v parku' },
+  { id: 'ph_luna_3', petId: 'luna', url: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=800&q=85', caption: 'Agility trénink' },
+  { id: 'ph_luna_4', petId: 'luna', url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=800&q=85', caption: 'Odpočinek doma' },
+  { id: 'ph_milo_1', petId: 'milo', url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
+  { id: 'ph_milo_2', petId: 'milo', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85', caption: 'Okno a sluníčko' },
+  { id: 'ph_bella_1', petId: 'bella', url: 'https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
+  { id: 'ph_bella_2', petId: 'bella', url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=85', caption: 'Frisbee na louce' },
+]
+
+export const weightMeasurements: WeightMeasurement[] = [
+  { id: 'wm_luna_1', petId: 'luna', date: '1. 3. 2026', weight: 27.2, note: 'Po zimním období' },
+  { id: 'wm_luna_2', petId: 'luna', date: '1. 5. 2026', weight: 27.8 },
+  { id: 'wm_luna_3', petId: 'luna', date: '1. 8. 2026', weight: 28.0, note: 'Ideální kondice' },
+  { id: 'wm_milo_1', petId: 'milo', date: '1. 4. 2026', weight: 5.0 },
+  { id: 'wm_milo_2', petId: 'milo', date: '1. 8. 2026', weight: 5.2 },
+  { id: 'wm_bella_1', petId: 'bella', date: '1. 2. 2026', weight: 17.8 },
+  { id: 'wm_bella_2', petId: 'bella', date: '1. 8. 2026', weight: 18.0 },
 ]
 
 export const discoverPets: DiscoverPet[] = [
@@ -691,6 +788,196 @@ export const petTravelPackages: PetTravelPackage[] = [
       { label: 'Potvrzení o čipu', ready: true },
       { label: 'Zdravotní souhrn', ready: true },
       { label: 'Pojišťovací kartička', ready: true },
+    ],
+  },
+]
+
+export const travelDestinations: TravelDestination[] = [
+  {
+    id: 'de',
+    country: 'Německo',
+    emoji: '🇩🇪',
+    summary: 'Cestování v rámci EU – standardní pravidla pro domácí mazlíčky.',
+    requirements: [
+      {
+        id: 'de_passport',
+        category: 'passport',
+        label: 'Platný EU pas',
+        detail: 'Pas musí být platný po celou dobu pobytu.',
+        check: 'eu_passport',
+      },
+      {
+        id: 'de_rabies',
+        category: 'vaccination',
+        label: 'Očkování proti vzteklině',
+        detail: 'Platné min. 21 dní před cestou, ne starší než 1 rok (posilovač dle schématu).',
+        check: 'rabies',
+      },
+      {
+        id: 'de_chip',
+        category: 'microchip',
+        label: 'Mikročip ISO',
+        detail: 'Čip musí být načitelný a zapsaný v pasu.',
+        check: 'microchip',
+      },
+      {
+        id: 'de_insurance',
+        category: 'document',
+        label: 'Cestovní pojištění mazlíčka',
+        detail: 'Doporučeno pro veterinární péči v zahraničí.',
+        check: 'insurance',
+      },
+    ],
+  },
+  {
+    id: 'at',
+    country: 'Rakousko',
+    emoji: '🇦🇹',
+    summary: 'EU destinace – bez karantény při splnění standardních podmínek.',
+    requirements: [
+      {
+        id: 'at_passport',
+        category: 'passport',
+        label: 'Platný EU pas',
+        detail: 'Pas vydaný v EU s údaji o čipu a očkování.',
+        check: 'eu_passport',
+      },
+      {
+        id: 'at_rabies',
+        category: 'vaccination',
+        label: 'Očkování proti vzteklině',
+        detail: 'Platné očkování zapsané v pasu mazlíčka.',
+        check: 'rabies',
+      },
+      {
+        id: 'at_chip',
+        category: 'microchip',
+        label: 'Mikročip ISO',
+        detail: 'Povinný identifikátor pro vstup do Rakouska.',
+        check: 'microchip',
+      },
+    ],
+  },
+  {
+    id: 'hr',
+    country: 'Chorvatsko',
+    emoji: '🇭🇷',
+    summary: 'Oblíbená letní destinace – platí EU pravidla, doporučena prevence proti klíšťatům.',
+    requirements: [
+      {
+        id: 'hr_passport',
+        category: 'passport',
+        label: 'Platný EU pas',
+        detail: 'Pas platný minimálně po dobu plánovaného pobytu.',
+        check: 'eu_passport',
+      },
+      {
+        id: 'hr_rabies',
+        category: 'vaccination',
+        label: 'Očkování proti vzteklině',
+        detail: 'Povinné pro vstup, zapsané v EU pasu.',
+        check: 'rabies',
+      },
+      {
+        id: 'hr_chip',
+        category: 'microchip',
+        label: 'Mikročip ISO',
+        detail: 'Čip musí odpovídat údajům v pasu.',
+        check: 'microchip',
+      },
+      {
+        id: 'hr_insurance',
+        category: 'document',
+        label: 'Cestovní pojištění mazlíčka',
+        detail: 'Doporučeno pro pobyt u moře a aktivní dovolenou.',
+        check: 'insurance',
+      },
+    ],
+  },
+  {
+    id: 'gb',
+    country: 'Velká Británie',
+    emoji: '🇬🇧',
+    summary: 'Po Brexitu platí přísnější pravidla – nutné ošetření proti tasemnicím.',
+    requirements: [
+      {
+        id: 'gb_passport',
+        category: 'passport',
+        label: 'Platný EU pas',
+        detail: 'Pas platný po celou dobu pobytu ve Velké Británii.',
+        check: 'eu_passport',
+      },
+      {
+        id: 'gb_rabies',
+        category: 'vaccination',
+        label: 'Očkování proti vzteklině',
+        detail: 'Min. 21 dní před vstupem, zapsáno v pasu.',
+        check: 'rabies',
+      },
+      {
+        id: 'gb_chip',
+        category: 'microchip',
+        label: 'Mikročip ISO',
+        detail: 'Povinný pro vstup do Velké Británie.',
+        check: 'microchip',
+      },
+      {
+        id: 'gb_tapeworm',
+        category: 'other',
+        label: 'Ošetření proti tasemnicím',
+        detail: 'Povinné 24–120 hodin před vstupem – záznam od veterináře v pasu.',
+        check: 'tapeworm',
+      },
+      {
+        id: 'gb_health',
+        category: 'document',
+        label: 'Oficiální zdravotní certifikát',
+        detail: 'Vystavený oprávněným veterinářem před cestou.',
+        check: 'health_cert',
+      },
+    ],
+  },
+  {
+    id: 'us',
+    country: 'Spojené státy',
+    emoji: '🇺🇸',
+    summary: 'Mimo EU – nutný importní souhlas CDC a veterinární certifikát.',
+    requirements: [
+      {
+        id: 'us_rabies',
+        category: 'vaccination',
+        label: 'Očkování proti vzteklině',
+        detail: 'Platné očkování splňující požadavky CDC pro daný stát.',
+        check: 'rabies',
+      },
+      {
+        id: 'us_chip',
+        category: 'microchip',
+        label: 'Mikročip ISO',
+        detail: 'Povinná identifikace pro import do USA.',
+        check: 'microchip',
+      },
+      {
+        id: 'us_health',
+        category: 'document',
+        label: 'Mezinárodní zdravotní certifikát',
+        detail: 'Oficiální certifikát v angličtině, max. 30 dní starý.',
+        check: 'health_cert',
+      },
+      {
+        id: 'us_import',
+        category: 'document',
+        label: 'Importní povolení CDC',
+        detail: 'Nutno vyřídit online před odletem dle pravidel daného státu.',
+        check: 'import_permit',
+      },
+      {
+        id: 'us_insurance',
+        category: 'document',
+        label: 'Cestovní pojištění mazlíčka',
+        detail: 'Doporučeno – veterinární péče v USA je nákladná.',
+        check: 'insurance',
+      },
     ],
   },
 ]

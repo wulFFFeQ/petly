@@ -8,6 +8,7 @@ import {
   BellRing,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { BRAND_NAME } from '../../lib/brand'
 import { useApp } from '../../context/AppContext'
 import type { CalendarEvent, EventType } from '../../types'
 import { cn } from '../../lib/utils'
@@ -112,7 +113,7 @@ export function CalendarGrid() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   const handleSyncCalendar = () => {
-    showToast('Kalendář synchronizován', 'Události PETLY synchronizovány s kalendářem Apple / Google.', 'gold')
+    showToast('Kalendář synchronizován', `Události ${BRAND_NAME} synchronizovány s kalendářem Apple / Google.`, 'gold')
   }
 
   return (
