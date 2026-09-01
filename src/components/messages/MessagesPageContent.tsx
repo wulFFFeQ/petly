@@ -7,15 +7,62 @@ import {
   Video,
   ShieldCheck,
   CheckCheck,
+  ClipboardPlus,
+  FileText,
+  ExternalLink,
+  Syringe,
+  Pill,
+  Stethoscope,
+  FlaskConical,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { conversations as initialConversations } from '../../data/mockData'
+import { Link } from 'react-router-dom'
+import { conversations as initialConversations, healthRecords } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
-import type { Conversation } from '../../types'
+import type { Conversation, HealthRecord } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
+
+type ShareCategory = 'vaccination' | 'medication' | 'visit' | 'results'
+
+const SHARE_GROUPS: {
+  id: ShareCategory
+  label: string
+  icon: typeof Syringe
+}[] = [
+  { id: 'vaccination', label: 'Očkování', icon: Syringe },
+  { id: 'medication', label: 'Léky', icon: Pill },
+  { id: 'visit', label: 'Návštěvy', icon: Stethoscope },
+  { id: 'results', label: 'Výsledky', icon: FlaskConical },
+]
+
+function getShareCategory(record: HealthRecord): ShareCategory {
+  if (record.type === 'vaccination') return 'vaccination'
+  if (record.type === 'medication') return 'medication'
+  if (/laborator|výsledk/i.test(record.title)) return 'results'
+  return 'visit'
+}
+
+function buildHealthShareMessage(record: HealthRecord, index: number) {
+  const now = new Date()
+  const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
+  return {
+    id: `m_share_${Date.now()}_${index}`,
+    sender: 'me' as const,
+    text: `Sdílen zdravotní záznam: ${record.title}`,
+    time: timeString,
+    attachment: {
+      kind: 'health_record' as const,
+      recordId: record.id,
+      title: record.title,
+      subtitle: record.subtitle,
+      date: record.date,
+      category: getShareCategory(record),
+    },
+  }
+}
 
 export function MessagesPageContent() {
   const { showToast } = useApp()
@@ -24,13 +71,96 @@ export function MessagesPageContent() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [mobileShowChat, setMobileShowChat] = useState(false)
+  const [shareMenuOpen, setShareMenuOpen] = useState(false)
+  const [selectedShareIds, setSelectedShareIds] = useState<string[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const shareMenuRef = useRef<HTMLDivElement>(null)
 
   const active = conversations.find((c) => c.id === activeId)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [active?.messages])
+
+  useEffect(() => {
+    setShareMenuOpen(false)
+    setSelectedShareIds([])
+  }, [activeId])
+
+  useEffect(() => {
+    if (!shareMenuOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setShareMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [shareMenuOpen])
+
+  const shareableRecords = active?.petId
+    ? healthRecords.filter((r) => r.petId === active.petId)
+    : []
+
+  const toggleShareSelection = (recordId: string) => {
+    setSelectedShareIds((prev) =>
+      prev.includes(recordId)
+        ? prev.filter((id) => id !== recordId)
+        : [...prev, recordId],
+    )
+  }
+
+  const handleShareSelectedRecords = () => {
+    if (!activeId || selectedShareIds.length === 0) return
+
+    const records = shareableRecords.filter((r) => selectedShareIds.includes(r.id))
+    const newMsgs = records.map((record, index) => buildHealthShareMessage(record, index))
+    const lastMsg = newMsgs[newMsgs.length - 1]
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeId
+          ? {
+              ...c,
+              lastMessage: lastMsg.text,
+              time: 'Právě teď',
+              messages: [...c.messages, ...newMsgs],
+            }
+          : c,
+      ),
+    )
+    setShareMenuOpen(false)
+    setSelectedShareIds([])
+
+    const countLabel =
+      records.length === 1
+        ? '1 zdravotní záznam'
+        : `${records.length} zdravotní záznamy`
+    showToast('Záznamy sdíleny', `${countLabel} odeslán${records.length > 1 ? 'y' : ''} veterináři.`, 'gold')
+
+    if (activeId === 'conv2') {
+      setTimeout(() => {
+        const replyMsg = {
+          id: `m_reply_${Date.now()}`,
+          sender: 'them' as const,
+          text: 'Děkuji za sdílené údaje. Projdu je a doplním do klinické karty Luny.',
+          time: `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, '0')}`,
+        }
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeId
+              ? {
+                  ...c,
+                  lastMessage: replyMsg.text,
+                  time: 'Právě teď',
+                  messages: [...c.messages, replyMsg],
+                }
+              : c,
+          ),
+        )
+      }, 1400)
+    }
+  }
 
   const selectConversation = (id: string) => {
     setActiveId(id)
@@ -98,7 +228,8 @@ export function MessagesPageContent() {
   const filteredConversations = conversations.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.lastMessage.toLowerCase().includes(search.toLowerCase()),
+      c.lastMessage.toLowerCase().includes(search.toLowerCase()) ||
+      c.petContext.toLowerCase().includes(search.toLowerCase()),
   )
 
   return (
@@ -179,6 +310,10 @@ export function MessagesPageContent() {
                     </p>
                   )}
 
+                  <p className="mt-0.5 text-[10px] font-semibold text-[#234B54] truncate">
+                    {conv.petContext}
+                  </p>
+
                   <p
                     className={cn(
                       'text-xs truncate mt-1',
@@ -240,6 +375,31 @@ export function MessagesPageContent() {
                     {active.online ? 'Právě online' : 'Naposledy aktivní před 2 h'}
                     {active.role && ` · ${active.role}`}
                   </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[#234B54]">
+                    {active.petContext}
+                  </p>
+                  {(active.petId || active.contactType === 'vet') && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      {active.petId && (
+                        <Link
+                          to={`/pets/${active.petId}`}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#234B54] hover:text-[#B8934A] transition-colors"
+                        >
+                          <ExternalLink size={10} />
+                          Profil mazlíčka
+                        </Link>
+                      )}
+                      {active.contactType === 'vet' && active.petId && (
+                        <Link
+                          to="/health"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#234B54] hover:text-[#B8934A] transition-colors"
+                        >
+                          <FileText size={10} />
+                          Zdravotní záznamy
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -290,7 +450,65 @@ export function MessagesPageContent() {
                           : 'bg-white border border-[#E8E4DC] text-[#191E1B] rounded-bl-xs',
                       )}
                     >
-                      <p>{msg.text}</p>
+                      {msg.attachment?.kind === 'health_record' ? (
+                        <div
+                          className={cn(
+                            'rounded-xl border px-3 py-2.5',
+                            isMe
+                              ? 'border-white/20 bg-white/10'
+                              : 'border-[#E8E4DC] bg-[#FAF8F5]',
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className={cn(
+                                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                                isMe ? 'bg-white/15 text-white' : 'bg-[#E0EAEC] text-[#234B54]',
+                              )}
+                            >
+                              <FileText size={13} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="font-bold">{msg.attachment.title}</p>
+                                {msg.attachment.category && (
+                                  <span
+                                    className={cn(
+                                      'rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide',
+                                      isMe
+                                        ? 'bg-white/15 text-white/90'
+                                        : 'bg-[#E0EAEC] text-[#234B54]',
+                                    )}
+                                  >
+                                    {
+                                      SHARE_GROUPS.find((g) => g.id === msg.attachment?.category)
+                                        ?.label
+                                    }
+                                  </span>
+                                )}
+                              </div>
+                              <p
+                                className={cn(
+                                  'mt-0.5',
+                                  isMe ? 'text-white/80' : 'text-[#5A6660]',
+                                )}
+                              >
+                                {msg.attachment.subtitle}
+                              </p>
+                              <p
+                                className={cn(
+                                  'mt-1 text-[10px] font-medium',
+                                  isMe ? 'text-white/70' : 'text-[#7D8B82]',
+                                )}
+                              >
+                                {msg.attachment.date}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p>{msg.text}</p>
+                      )}
                       <div
                         className={cn(
                           'mt-1 flex items-center justify-end gap-1 text-[10px]',
@@ -310,8 +528,128 @@ export function MessagesPageContent() {
             {/* Chat Input Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="flex items-center gap-2 border-t border-[#E8E4DC] bg-white p-3 sm:p-4"
+              className="relative flex items-center gap-2 border-t border-[#E8E4DC] bg-white p-3 sm:p-4"
             >
+              {active.contactType === 'vet' && active.petId && (
+                <div className="relative" ref={shareMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShareMenuOpen((open) => !open)}
+                    className={cn(
+                      'rounded-xl p-2 transition-colors cursor-pointer',
+                      shareMenuOpen
+                        ? 'bg-[#E0EAEC] text-[#234B54]'
+                        : 'text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#234B54]',
+                    )}
+                    aria-label="Sdílet zdravotní záznamy"
+                    aria-expanded={shareMenuOpen}
+                  >
+                    <ClipboardPlus size={18} />
+                  </button>
+                  {shareMenuOpen && (
+                    <div className="absolute bottom-full left-0 z-20 mb-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#E8E4DC] bg-white shadow-lg">
+                      <div className="border-b border-[#F0EDE6] px-3 py-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
+                          Sdílet zdravotní údaje
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-[#5A6660]">
+                          Vyberte záznamy, které chcete odeslat veterináři.
+                        </p>
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto py-1">
+                        {SHARE_GROUPS.map((group) => {
+                          const groupRecords = shareableRecords.filter(
+                            (r) => getShareCategory(r) === group.id,
+                          )
+                          if (groupRecords.length === 0) return null
+                          const GroupIcon = group.icon
+
+                          return (
+                            <div key={group.id} className="px-2 py-1">
+                              <div className="flex items-center gap-1.5 px-1 py-1.5">
+                                <GroupIcon size={12} className="text-[#234B54]" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
+                                  {group.label}
+                                </span>
+                              </div>
+                              <ul>
+                                {groupRecords.map((record) => {
+                                  const isSelected = selectedShareIds.includes(record.id)
+                                  return (
+                                    <li key={record.id}>
+                                      <label
+                                        className={cn(
+                                          'flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 transition-colors',
+                                          isSelected
+                                            ? 'bg-[#EBF2EE]'
+                                            : 'hover:bg-[#FAF8F5]',
+                                        )}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => toggleShareSelection(record.id)}
+                                          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-[#C5D0CB] text-[#234B54] focus:ring-[#234B54]/20"
+                                        />
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block text-xs font-bold text-[#191E1B]">
+                                            {record.title}
+                                          </span>
+                                          <span className="mt-0.5 block text-[11px] text-[#5A6660]">
+                                            {record.subtitle}
+                                          </span>
+                                          <span className="mt-0.5 block text-[10px] font-medium text-[#7D8B82]">
+                                            {record.date}
+                                          </span>
+                                        </span>
+                                      </label>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </div>
+                          )
+                        })}
+
+                        {shareableRecords.length === 0 && (
+                          <p className="px-3 py-4 text-center text-[11px] text-[#7D8B82]">
+                            Pro tohoto mazlíčka zatím nejsou dostupné záznamy.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 border-t border-[#F0EDE6] bg-[#FAF8F5] px-3 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedShareIds(
+                              selectedShareIds.length === shareableRecords.length
+                                ? []
+                                : shareableRecords.map((r) => r.id),
+                            )
+                          }
+                          disabled={shareableRecords.length === 0}
+                          className="text-[11px] font-semibold text-[#234B54] hover:text-[#B8934A] disabled:opacity-40 cursor-pointer"
+                        >
+                          {selectedShareIds.length === shareableRecords.length
+                            ? 'Zrušit výběr'
+                            : 'Vybrat vše'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleShareSelectedRecords}
+                          disabled={selectedShareIds.length === 0}
+                          className="rounded-lg bg-[#234B54] px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-[#1a383f] disabled:opacity-40 cursor-pointer"
+                        >
+                          Sdílet{selectedShareIds.length > 0 ? ` (${selectedShareIds.length})` : ''}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => showToast('Příloha souboru', 'Vyberte veterinární PDF nebo fotografii.', 'info')}

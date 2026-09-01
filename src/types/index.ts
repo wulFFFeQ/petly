@@ -117,6 +117,14 @@ export interface Message {
   sender: 'me' | 'them'
   text: string
   time: string
+  attachment?: {
+    kind: 'health_record'
+    recordId: string
+    title: string
+    subtitle: string
+    date: string
+    category?: 'vaccination' | 'medication' | 'visit' | 'results'
+  }
 }
 
 export interface Conversation {
@@ -124,6 +132,9 @@ export interface Conversation {
   name: string
   avatar: string
   role?: string
+  petContext: string
+  petId?: string
+  contactType: 'vet' | 'trainer' | 'community'
   online?: boolean
   lastMessage: string
   time: string
@@ -151,4 +162,33 @@ export interface ToastMessage {
   title: string
   description?: string
   type?: 'success' | 'info' | 'gold'
+}
+
+export type ImportantContactType =
+  | 'emergency'
+  | 'vet'
+  | 'insurance'
+  | 'registry'
+  | 'emergency_person'
+
+export interface ImportantContact {
+  id: string
+  type: ImportantContactType
+  label: string
+  name: string
+  phone: string
+  note?: string
+}
+
+export interface PetTravelPackage {
+  petId: string
+  euPassport: {
+    number: string
+    validUntil: string
+    status: 'valid' | 'expiring' | 'missing'
+  }
+  vaccinationSummary: string
+  microchip: string
+  healthRecordCount: number
+  documents: { label: string; ready: boolean }[]
 }

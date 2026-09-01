@@ -17,10 +17,10 @@ export function MessagesPage() {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
-            Zprávy a konzultace
+            Zprávy
           </h1>
           <p className="mt-1 text-sm text-[#4A564F]">
-            Přímá komunikace s veterináři, venčiteli psů a přáteli z komunity.
+            Komunikujte s veterináři, trenéry a komunitou.
           </p>
         </div>
       </div>
