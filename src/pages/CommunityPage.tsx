@@ -8,11 +8,11 @@ export function CommunityPage() {
   const { posts } = useApp()
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             <Badge variant="gold" size="sm">
               <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
               Společenský kruh
@@ -24,13 +24,13 @@ export function CommunityPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
             Komunita
           </h1>
-          <p className="mt-1 text-sm text-[#4A564F]">
+          <p className="mt-0.5 text-sm text-[#4A564F]">
             Spojte se s majiteli mazlíčků ve vašem okolí, sdílejte ověřené tipy a slavte milníky.
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-4">
         <CreatePostInput />
         {posts.map((post) => (
           <PostCard key={post.id} post={post} />

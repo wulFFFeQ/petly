@@ -57,7 +57,7 @@ export function HealthPage() {
       <HealthSummary />
       <WeightChart />
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
         <UpcomingHealthEvents />
         <HealthRecordsList />
       </div>

@@ -17,13 +17,13 @@ export function CreatePostInput() {
   }
 
   return (
-    <Card variant="elevated" padding="md">
+    <Card variant="default" padding="sm" className="border-[#E8E4DC]/80">
       <form onSubmit={handleShare}>
-        <div className="flex items-start gap-3.5">
+        <div className="flex items-start gap-3">
           <Avatar
             src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
             alt="Tereza"
-            size="md"
+            size="sm"
             goldRing
           />
           <div className="flex-1">
@@ -32,35 +32,35 @@ export function CreatePostInput() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={2}
-              className="w-full text-sm text-[#191E1B] placeholder:text-[#A3AEA7] outline-none resize-none bg-transparent"
+              className="w-full text-sm leading-relaxed text-[#191E1B] placeholder:text-[#A3AEA7] outline-none resize-none bg-transparent"
             />
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-[#F0EDE6] flex items-center justify-between">
-          <div className="flex items-center gap-1 sm:gap-2">
+        <div className="mt-2.5 pt-2.5 border-t border-[#F0EDE6]/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <button
               type="button"
               onClick={() => showToast('Výběr fotografie připraven', 'Nahrajte fotografii mazlíčka ve formátu JPG nebo PNG.', 'info')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#4A564F] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
             >
-              <Image size={15} className="text-[#2C4A3E]" />
+              <Image size={14} className="text-[#2C4A3E]" />
               <span className="hidden sm:inline">Fotografie</span>
             </button>
             <button
               type="button"
               onClick={() => showToast('Lokalita nastavena', 'Označen psí park v Kolíně.', 'info')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#4A564F] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
             >
-              <MapPin size={15} className="text-[#B8934A]" />
+              <MapPin size={14} className="text-[#B8934A]" />
               <span className="hidden sm:inline">Lokalita</span>
             </button>
             <button
               type="button"
               onClick={() => showToast('Označení mazlíčka', 'Označena Luna, zlatý retrívr.', 'info')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#4A564F] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
             >
-              <Sparkles size={15} className="text-amber-600" />
+              <Sparkles size={14} className="text-amber-600" />
               <span className="hidden sm:inline">Označit mazlíčka</span>
             </button>
           </div>
@@ -70,7 +70,7 @@ export function CreatePostInput() {
             size="sm"
             disabled={!text.trim()}
             variant="primary"
-            className="gap-1.5 shadow-sm"
+            className="gap-1.5 shrink-0"
           >
             <span>Publikovat</span>
             <Send size={13} />
