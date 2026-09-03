@@ -4,6 +4,7 @@ import {
   Copy,
   AlertTriangle,
   Camera,
+  ImagePlus,
   Phone,
   Share2,
   ShieldAlert,
@@ -26,7 +27,7 @@ import {
   formatOptionalWeight,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
-import { getPetCoverImage } from '../../lib/petBreedImages'
+import { getPetCoverColor } from '../../lib/petCoverColors'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl } from '../../lib/readImageFile'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -42,8 +43,10 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [emergencyOpen, setEmergencyOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const { setActiveModal, showToast, updatePetImage } = useApp()
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage } = useApp()
 
   const statusVariant =
     pet.healthStatus === 'excellent'
@@ -53,7 +56,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         : 'warning'
 
   const microchipValue = pet.microchip?.trim() ?? ''
-  const coverImage = getPetCoverImage(pet)
+  const coverColor = getPetCoverColor(pet)
 
   const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
   const mainVet = importantContacts.find((c) => c.type === 'vet')
@@ -75,16 +78,25 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
     setTimeout(() => setLinkCopied(false), 2500)
   }
 
-  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    kind: 'photo' | 'banner',
+  ) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
 
-    setUploadingPhoto(true)
+    const setUploading = kind === 'photo' ? setUploadingPhoto : setUploadingBanner
+    setUploading(true)
     try {
       const dataUrl = await readImageFileAsDataUrl(file)
-      updatePetImage(pet.id, dataUrl)
-      showToast('Profilová fotografie aktualizována', undefined, 'success')
+      if (kind === 'photo') {
+        updatePetImage(pet.id, dataUrl)
+        showToast('Profilová fotografie aktualizována', undefined, 'success')
+      } else {
+        updatePetCoverImage(pet.id, dataUrl)
+        showToast('Banner aktualizován', undefined, 'success')
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'read_failed'
       if (reason === 'unsupported_type') {
@@ -95,7 +107,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         showToast('Nahrání se nezdařilo', 'Zkuste to prosím znovu.', 'info')
       }
     } finally {
-      setUploadingPhoto(false)
+      setUploading(false)
     }
   }
 
@@ -144,14 +156,17 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-[#E8E4DC] bg-white shadow-[0_4px_25px_rgba(25,30,27,0.05)]">
-        <div className="relative h-48 sm:h-64 lg:h-72 w-full overflow-hidden bg-stone-100">
-          <img
-            src={coverImage}
-            alt=""
-            className="h-full w-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
+        <div
+          className="relative h-48 sm:h-64 lg:h-72 w-full overflow-hidden group/banner"
+          style={{ backgroundColor: coverColor }}
+        >
+          {pet.coverImage && (
+            <img
+              src={pet.coverImage}
+              alt=""
+              className="h-full w-full object-cover object-center"
+            />
+          )}
           <div className="absolute top-4 right-4 flex items-center gap-2">
             {hasMicrochip(microchipValue) && (
               <Badge variant="gold" size="sm" className="bg-white/95 backdrop-blur-md">
@@ -159,7 +174,25 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 Ověřený pas
               </Badge>
             )}
+            <button
+              type="button"
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={uploadingBanner}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#234B54] shadow-sm backdrop-blur-md transition-opacity hover:bg-white disabled:cursor-wait"
+              aria-label="Změnit fotku banneru"
+              title="Změnit fotku banneru"
+            >
+              <ImagePlus size={14} />
+              <span>Změnit banner</span>
+            </button>
           </div>
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept={PET_IMAGE_ACCEPT}
+            className="sr-only"
+            onChange={(event) => handleImageUpload(event, 'banner')}
+          />
         </div>
 
         <div className="p-6 sm:p-8">
@@ -184,7 +217,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                   type="file"
                   accept={PET_IMAGE_ACCEPT}
                   className="sr-only"
-                  onChange={handlePhotoSelect}
+                  onChange={(event) => handleImageUpload(event, 'photo')}
                 />
               </div>
               <div className="pb-1">

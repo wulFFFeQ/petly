@@ -102,9 +102,11 @@ function EditorialPetTile({
 
 export function MyPetsSection() {
   const { pets } = useApp()
-  const [luna, milo, bella] = pets
+  const featured = pets[0]
+  const secondary = pets.slice(1, 3)
+  const extra = pets.slice(3)
 
-  if (!luna) return null
+  if (!featured) return null
 
   return (
     <section>
@@ -117,23 +119,30 @@ export function MyPetsSection() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-12 lg:grid-rows-2 lg:gap-4">
         <EditorialPetTile
-          pet={luna}
+          pet={featured}
           featured
           className="col-span-2 min-h-[300px] sm:min-h-[340px] lg:col-span-8 lg:row-span-2 lg:min-h-[400px] lg:max-h-[460px]"
         />
-        {milo && (
+        {secondary.map((pet) => (
           <EditorialPetTile
-            pet={milo}
+            key={pet.id}
+            pet={pet}
             className="min-h-[150px] sm:min-h-[170px] lg:col-span-4 lg:min-h-0 lg:h-full"
           />
-        )}
-        {bella && (
-          <EditorialPetTile
-            pet={bella}
-            className="min-h-[150px] sm:min-h-[170px] lg:col-span-4 lg:min-h-0 lg:h-full"
-          />
-        )}
+        ))}
       </div>
+
+      {extra.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-4">
+          {extra.map((pet) => (
+            <EditorialPetTile
+              key={pet.id}
+              pet={pet}
+              className="min-h-[150px] sm:min-h-[170px]"
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

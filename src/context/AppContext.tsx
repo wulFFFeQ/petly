@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   calendarEvents as initialCalendarEvents,
   communityPosts as initialPosts,
   myPets as initialPets,
 } from '../data/mockData'
-import { getDefaultBreedCoverImage, getDefaultBreedImage } from '../lib/petBreedImages'
+import { getDefaultBreedImage } from '../lib/petBreedImages'
+import { localizeBreedName } from '../lib/petBreeds'
+import { pickRandomCoverColor } from '../lib/petCoverColors'
 import type {
   CalendarEvent,
   CommunityPost,
@@ -15,6 +17,24 @@ import type {
 } from '../types'
 
 export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'other' | 'nearby' | 'popular'
+
+const PETS_STORAGE_KEY = 'lovedandknown.pets'
+
+function loadPets(): Pet[] {
+  if (typeof window === 'undefined') return initialPets
+  try {
+    const raw = window.localStorage.getItem(PETS_STORAGE_KEY)
+    if (!raw) return initialPets
+    const parsed = JSON.parse(raw) as Pet[]
+    if (!Array.isArray(parsed) || parsed.length === 0) return initialPets
+    return parsed.map((pet) => ({
+      ...pet,
+      breed: localizeBreedName(pet.breed),
+    }))
+  } catch {
+    return initialPets
+  }
+}
 
 interface AppContextValue {
   pets: Pet[]
@@ -31,6 +51,7 @@ interface AppContextValue {
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
   updatePetImage: (petId: string, image: string) => void
+  updatePetCoverImage: (petId: string, coverImage: string) => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -41,7 +62,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [pets, setPets] = useState<Pet[]>(initialPets)
+  const [pets, setPets] = useState<Pet[]>(loadPets)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
   const [activeModal, setActiveModal] = useState<ModalType>(null)
@@ -66,6 +87,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }
 
+  useEffect(() => {
+    window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
+  }, [pets])
+
   const addPet = (form: NewPetForm) => {
     const slug =
       form.name
@@ -81,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       type: form.type,
       breed: form.breed,
       image: getDefaultBreedImage(form.type, form.breed),
-      coverImage: getDefaultBreedCoverImage(form.type, form.breed),
+      coverColor: pickRandomCoverColor(),
       ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
       ...(form.gender ? { gender: form.gender } : {}),
       ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
@@ -98,6 +123,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updatePetImage = (petId: string, image: string) => {
     setPets((prev) =>
       prev.map((pet) => (pet.id === petId ? { ...pet, image } : pet)),
+    )
+  }
+
+  const updatePetCoverImage = (petId: string, coverImage: string) => {
+    setPets((prev) =>
+      prev.map((pet) => (pet.id === petId ? { ...pet, coverImage } : pet)),
     )
   }
 
@@ -169,6 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setNotificationsOpen,
         addPet,
         updatePetImage,
+        updatePetCoverImage,
         toggleLike,
         addComment,
         addCalendarEvent,

@@ -450,7 +450,26 @@ export const CAT_BREEDS = [
   'Turecká van',
 ] as const
 
+const ENGLISH_BREED_TO_CZECH: Record<string, string> = {
+  'Golden Retriever': 'Zlatý retriever',
+  'Labrador Retriever': 'Labradorský retriever',
+  Labrador: 'Labradorský retriever',
+  'Border Collie': 'Border kolie',
+  'British Shorthair': 'Britská krátkosrstá kočka',
+  'Maine Coon': 'Mainská kočka mývalí',
+  Siamese: 'Siamská kočka',
+  'Siberian Husky': 'Sibiřský husky',
+  'French Bulldog': 'Francouzský buldoček',
+  'German Shepherd': 'Německý ovčák',
+}
+
+export function localizeBreedName(breed: string): string {
+  return ENGLISH_BREED_TO_CZECH[breed] ?? breed
+}
+
 export function getBreedsForType(type: PetType): readonly string[] {
+  return type === 'dog' ? DOG_BREEDS : CAT_BREEDS
+}
   return type === 'dog' ? DOG_BREEDS : CAT_BREEDS
 }
 
