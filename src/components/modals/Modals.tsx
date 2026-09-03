@@ -8,6 +8,7 @@ import {
 } from '../../lib/petTypes'
 import type { NewPetForm } from '../../types'
 import { Button } from '../ui/Button'
+import { BreedSelect } from '../ui/BreedSelect'
 import { Input, Select, Textarea } from '../ui/Input'
 import { PetTypeSelect } from '../ui/PetTypeSelect'
 import { Modal } from '../ui/Modal'
@@ -132,7 +133,9 @@ export function Modals() {
                 setPetForm({
                   ...petForm,
                   type,
+                  breed: '',
                   gender: normalizeGenderForType(petForm.gender, type),
+                  weight: getDefaultWeight(type),
                 })
               }}
             />
@@ -147,13 +150,12 @@ export function Modals() {
             />
           </div>
 
-          <Input
+          <BreedSelect
             id="pet-breed"
             label="Plemeno / rodokmen"
-            placeholder="např. zlatý retrívr, siamská kočka..."
+            petType={petForm.type}
             value={petForm.breed}
-            onChange={(e) => setPetForm({ ...petForm, breed: e.target.value })}
-            required
+            onChange={(breed) => setPetForm({ ...petForm, breed })}
           />
 
           <div className="grid grid-cols-2 gap-3">

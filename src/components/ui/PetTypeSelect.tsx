@@ -1,46 +1,18 @@
 import {
-  Bird,
-  Bug,
   Cat,
   Check,
   ChevronDown,
   Dog,
-  Fish,
-  Rabbit,
-  Turtle,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PET_TYPES, petTypeLabel, type PetType } from '../../lib/petTypes'
 import { cn } from '../../lib/utils'
-import {
-  FrogIcon,
-  GoatIcon,
-  HorseHeadIcon,
-  SpiderIcon,
-} from './petTypeCustomIcons'
 
-type PetTypeIconProps = {
-  size?: number
-  strokeWidth?: number
-  className?: string
-}
-
-type PetTypeIcon = LucideIcon | ComponentType<PetTypeIconProps>
-
-const petTypeIcons: Record<PetType, PetTypeIcon> = {
+const petTypeIcons: Record<PetType, LucideIcon> = {
   dog: Dog,
   cat: Cat,
-  birds: Bird,
-  'small-mammals': Rabbit,
-  reptiles: Turtle,
-  amphibians: FrogIcon,
-  fish: Fish,
-  insects: Bug,
-  'other-invertebrates': SpiderIcon,
-  'horses-donkeys': HorseHeadIcon,
-  'farm-animals': GoatIcon,
 }
 
 interface PetTypeSelectProps {
