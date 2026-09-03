@@ -6,10 +6,8 @@ export const PET_TYPES = [
   { value: 'reptiles', label: 'Plazi' },
   { value: 'amphibians', label: 'Obojživelníci' },
   { value: 'fish', label: 'Ryby' },
-  { value: 'aquatic-invertebrates', label: 'Vodní bezobratlí' },
-  { value: 'arachnids', label: 'Pavoukovci' },
   { value: 'insects', label: 'Hmyz' },
-  { value: 'other-invertebrates', label: 'Ostatní bezobratlí' },
+  { value: 'other-invertebrates', label: 'Bezobratlí' },
   { value: 'horses-donkeys', label: 'Koně a osli' },
   { value: 'farm-animals', label: 'Hospodářská zvířata' },
 ] as const
@@ -49,9 +47,6 @@ export const petPlaceholderImages: Record<PetType, string> = {
   reptiles: 'https://images.unsplash.com/photo-1559251606-623115f2f9a9?auto=format&fit=crop&w=800&q=85',
   amphibians: 'https://images.unsplash.com/photo-1559251606-623115f2f9a9?auto=format&fit=crop&w=800&q=85',
   fish: 'https://images.unsplash.com/photo-1524704654690-b56c05a4a760?auto=format&fit=crop&w=800&q=85',
-  'aquatic-invertebrates':
-    'https://images.unsplash.com/photo-1524704654690-b56c05a4a760?auto=format&fit=crop&w=800&q=85',
-  arachnids: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=800&q=85',
   insects: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=800&q=85',
   'other-invertebrates':
     'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=800&q=85',
