@@ -250,62 +250,71 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 rounded-2xl bg-[#FAF8F5] p-4 sm:p-5 border border-[#E8E4DC]">
-            <div>
+          <div
+            className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 sm:gap-x-6 sm:p-5"
+            style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}
+          >
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Datum narození
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B] flex items-center gap-1">
-                <Calendar size={13} className="text-[#234B54]" />
+              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                <Calendar size={13} className="shrink-0 text-[#234B54]" />
                 {formatOptionalText(pet.dateOfBirth)}
               </p>
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Věk a stádium
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
                 {formatOptionalAge(pet.age)}
               </p>
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Pohlaví
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">{formatOptionalText(pet.gender)}</p>
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                {formatOptionalText(pet.gender)}
+              </p>
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Aktuální hmotnost
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">{formatOptionalWeight(pet.weight)}</p>
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                {formatOptionalWeight(pet.weight)}
+              </p>
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 ID mikročipu
               </p>
               {hasMicrochip(microchipValue) ? (
                 <button
                   onClick={handleCopyChip}
-                  className="mt-1 flex items-center gap-1.5 text-xs font-mono font-bold text-[#234B54] hover:underline cursor-pointer"
+                  className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
                   title="Klikněte pro zkopírování ID mikročipu"
                 >
-                  <span className="truncate max-w-[90px]">{microchipValue}</span>
+                  <span>{microchipValue}</span>
                   {copied ? (
-                    <Check size={12} className="text-emerald-600 shrink-0" />
+                    <Check size={12} className="shrink-0 text-emerald-600" />
                   ) : (
-                    <Copy size={12} className="text-[#A3AEA7] shrink-0" />
+                    <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
                   )}
                 </button>
               ) : (
-                <p className="mt-1 text-sm font-bold text-[#7D8B82]">{EMPTY_PROFILE_LABEL}</p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  {EMPTY_PROFILE_LABEL}
+                </p>
               )}
             </div>
-            <div>
+            <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Kastrace
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
                 {formatNeuteredStatus(pet.neutered)}
               </p>
             </div>

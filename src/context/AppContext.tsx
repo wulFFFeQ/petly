@@ -173,17 +173,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addPetPhotos = (petId: string, urls: string[]) => {
     if (urls.length === 0) return
+    const pet = pets.find((item) => item.id === petId)
+    const stamp = Date.now()
     const added: PetPhoto[] = urls.map((url, index) => ({
-      id: `ph_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `ph_${stamp}_${index}_${Math.random().toString(36).slice(2, 6)}`,
       petId,
       url,
     }))
     setPhotos((prev) => [...added, ...prev])
-    const pet = pets.find((item) => item.id === petId)
+
+    const feedPosts: CommunityPost[] = added.map((photo) => ({
+      id: `post_${photo.id}`,
+      author: 'Tereza V.',
+      avatar:
+        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
+      badge: 'Nová fotografie z galerie',
+      time: 'Právě teď',
+      text: pet
+        ? `Přidala jsem novou fotografii ${pet.name} do galerie.`
+        : 'Přidala jsem novou fotografii do galerie.',
+      image: photo.url,
+      likes: 0,
+      liked: false,
+      petTag: pet ? `${pet.name} · ${pet.breed}` : undefined,
+      commentsCount: 0,
+      comments: [],
+      sourcePhotoId: photo.id,
+    }))
+    setPosts((prev) => [...feedPosts, ...prev])
+
     setActiveModal(null)
     showToast(
       urls.length === 1 ? 'Fotografie nahrána' : `${urls.length} fotografie nahrány`,
-      pet ? `Přidáno do galerie mazlíčka ${pet.name}.` : 'Přidáno do fotogalerie.',
+      pet
+        ? `Přidáno do galerie ${pet.name} a do komunitního feedu.`
+        : 'Přidáno do galerie a do komunitního feedu.',
       'gold',
     )
   }
@@ -192,10 +216,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPhotos((prev) =>
       prev.map((photo) => (photo.id === photoId ? { ...photo, ...updates } : photo)),
     )
+
+    if ('caption' in updates) {
+      const caption = updates.caption?.trim()
+      const linkedPet = pets.find((item) =>
+        photos.some((photo) => photo.id === photoId && photo.petId === item.id),
+      )
+      const fallback = linkedPet
+        ? `Přidala jsem novou fotografii ${linkedPet.name} do galerie.`
+        : 'Přidala jsem novou fotografii do galerie.'
+
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.sourcePhotoId === photoId
+            ? { ...post, text: caption || fallback }
+            : post,
+        ),
+      )
+    }
   }
 
   const deletePetPhoto = (photoId: string) => {
     setPhotos((prev) => prev.filter((photo) => photo.id !== photoId))
+    setPosts((prev) => prev.filter((post) => post.sourcePhotoId !== photoId))
   }
 
   const toggleLike = (postId: string) => {

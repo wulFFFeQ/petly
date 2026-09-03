@@ -69,6 +69,16 @@ body {
   background: #B8B2A6;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Subtle luxury animations & utility styling */
 @keyframes pulseSubtle {
   0%, 100% { opacity: 1; transform: scale(1); }

@@ -238,6 +238,11 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     showToast('Popisek uložen', 'Fotografie byla aktualizována.', 'gold')
   }
 
+  const openCaptionEditor = (photo: (typeof photos)[number]) => {
+    setEditingPhoto(photo)
+    setPhotoCaption(photo.caption || '')
+  }
+
   const handleGalleryUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget
     const files = takeSelectedFiles(input)
@@ -997,33 +1002,9 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
         )}
       </Modal>
 
-      {/* Photo edit caption */}
-      <Modal
-        open={!!editingPhoto}
-        onClose={() => setEditingPhoto(null)}
-        title="Upravit fotografii"
-        subtitle="Změňte popisek snímku"
-      >
-        <div className="space-y-3">
-          {editingPhoto && (
-            <img src={editingPhoto.url} alt="" className="w-full h-40 object-cover rounded-xl" />
-          )}
-          <input
-            type="text"
-            value={photoCaption}
-            onChange={(e) => setPhotoCaption(e.target.value)}
-            placeholder="Popisek fotografie"
-            className="w-full h-10 rounded-xl border border-[#E8E4DC] px-3 text-sm outline-none focus:border-[#234B54]"
-          />
-          <Button variant="primary" fullWidth onClick={handleSavePhotoCaption}>
-            Uložit
-          </Button>
-        </div>
-      </Modal>
-
       {/* Full-screen gallery */}
       {activeGalleryPhoto && galleryIndex !== null && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-md">
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black/95 backdrop-blur-md">
           <div className="flex items-center justify-between p-4 text-white">
             <span className="text-sm font-medium">
               {galleryIndex + 1} / {photos.length}
@@ -1031,12 +1012,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setEditingPhoto(activeGalleryPhoto)
-                  setPhotoCaption(activeGalleryPhoto.caption || '')
-                }}
+                onClick={() => openCaptionEditor(activeGalleryPhoto)}
                 className="rounded-xl p-2 hover:bg-white/10 cursor-pointer"
                 aria-label="Upravit popisek"
+                title="Upravit popisek"
               >
                 <Pencil size={18} />
               </button>
@@ -1050,7 +1029,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </button>
               <button
                 type="button"
-                onClick={() => setGalleryIndex(null)}
+                onClick={() => {
+                  setGalleryIndex(null)
+                  setEditingPhoto(null)
+                }}
                 className="rounded-xl p-2 hover:bg-white/10 cursor-pointer"
                 aria-label="Zavřít galerii"
               >
@@ -1062,7 +1044,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
           <div className="relative flex flex-1 items-center justify-center px-4">
             <button
               type="button"
-              onClick={() => setGalleryIndex((i) => (i !== null && i > 0 ? i - 1 : photos.length - 1))}
+              onClick={() => {
+                setEditingPhoto(null)
+                setGalleryIndex((i) => (i !== null && i > 0 ? i - 1 : photos.length - 1))
+              }}
               className="absolute left-2 sm:left-6 rounded-full p-2 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
               aria-label="Předchozí"
             >
@@ -1075,7 +1060,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
             />
             <button
               type="button"
-              onClick={() => setGalleryIndex((i) => (i !== null && i < photos.length - 1 ? i + 1 : 0))}
+              onClick={() => {
+                setEditingPhoto(null)
+                setGalleryIndex((i) => (i !== null && i < photos.length - 1 ? i + 1 : 0))
+              }}
               className="absolute right-2 sm:right-6 rounded-full p-2 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
               aria-label="Další"
             >
@@ -1083,9 +1071,48 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
             </button>
           </div>
 
-          <p className="text-center text-sm text-white/80 pb-6 px-4">
-            {activeGalleryPhoto.caption || 'Bez popisku'}
-          </p>
+          <div className="px-4 pb-6">
+            {editingPhoto && editingPhoto.id === activeGalleryPhoto.id ? (
+              <div className="mx-auto flex w-full max-w-lg flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="text"
+                  autoFocus
+                  value={photoCaption}
+                  onChange={(e) => setPhotoCaption(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSavePhotoCaption()
+                    if (e.key === 'Escape') setEditingPhoto(null)
+                  }}
+                  placeholder="Napište popisek fotografie…"
+                  className="h-10 flex-1 rounded-xl border border-white/20 bg-white/10 px-3 text-sm text-white placeholder:text-white/50 outline-none focus:border-white/50"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="gold"
+                    size="sm"
+                    onClick={handleSavePhotoCaption}
+                    className="flex-1 sm:flex-none"
+                  >
+                    Uložit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingPhoto(null)}
+                    className="flex-1 border-white/20 bg-transparent text-white hover:bg-white/10 sm:flex-none"
+                  >
+                    Zrušit
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-sm text-white/80">
+                {activeGalleryPhoto.caption || 'Bez popisku'}
+              </p>
+            )}
+          </div>
         </div>
       )}
     </>

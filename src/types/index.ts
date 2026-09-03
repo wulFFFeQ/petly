@@ -137,6 +137,8 @@ export interface CommunityPost {
   petTag?: string
   commentsCount: number
   comments?: PostComment[]
+  /** When set, post was created from a gallery photo upload. */
+  sourcePhotoId?: string
 }
 
 export interface CalendarEvent {

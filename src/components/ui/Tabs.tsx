@@ -63,7 +63,7 @@ export function Tabs({
   }
 
   return (
-    <div className={cn('flex gap-2 border-b border-[#E8E4DC] overflow-x-auto no-scrollbar', className)}>
+    <div className={cn('flex w-full border-b border-[#E8E4DC]', className)}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id
         return (
@@ -71,7 +71,7 @@ export function Tabs({
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={cn(
-              'px-4 py-3 text-sm font-medium transition-all duration-200 -mb-px relative whitespace-nowrap cursor-pointer flex items-center gap-2',
+              'flex-1 min-w-0 px-2 py-3 text-sm font-medium transition-all duration-200 -mb-px relative whitespace-nowrap cursor-pointer flex items-center justify-center gap-2',
               isActive
                 ? 'text-[#2C4A3E] font-semibold'
                 : 'text-[#7D8B82] hover:text-[#191E1B]',
