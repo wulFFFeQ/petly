@@ -22,7 +22,7 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -37,14 +37,12 @@ import {
   timelineEvents as staticTimelineEvents,
   weightMeasurements as initialWeightMeasurements,
   petDocuments as initialPetDocuments,
-  petPhotos as initialPetPhotos,
 } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type {
   HealthRecord,
   Pet,
   PetDocument,
-  PetPhoto,
   TimelineEvent,
   WeightMeasurement,
 } from '../../types'
@@ -64,6 +62,7 @@ import {
   formatOptionalText,
   formatOptionalWeight,
 } from '../../lib/petProfileDisplay'
+import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 
 interface PetProfileTabContentProps {
   pet: Pet
@@ -72,7 +71,16 @@ interface PetProfileTabContentProps {
 }
 
 export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfileTabContentProps) {
-  const { setActiveModal, showToast } = useApp()
+  const {
+    setActiveModal,
+    showToast,
+    photos: allPhotos,
+    addPetPhotos,
+    updatePetPhoto,
+    deletePetPhoto,
+  } = useApp()
+  const galleryFileInputRef = useRef<HTMLInputElement>(null)
+  const [galleryUploading, setGalleryUploading] = useState(false)
 
   const [allRecords, setAllRecords] = useState<HealthRecord[]>(initialHealthRecords)
   const [weightData, setWeightData] = useState<WeightMeasurement[]>(() =>
@@ -81,15 +89,13 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   const [documents, setDocuments] = useState<PetDocument[]>(() =>
     initialPetDocuments.filter((d) => d.petId === pet.id),
   )
-  const [photos, setPhotos] = useState<PetPhoto[]>(() =>
-    initialPetPhotos.filter((p) => p.petId === pet.id),
-  )
+  const photos = allPhotos.filter((p) => p.petId === pet.id)
   const [customTimeline, setCustomTimeline] = useState<TimelineEvent[]>([])
 
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
   const [documentPreview, setDocumentPreview] = useState<PetDocument | null>(null)
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
-  const [editingPhoto, setEditingPhoto] = useState<PetPhoto | null>(null)
+  const [editingPhoto, setEditingPhoto] = useState<(typeof photos)[number] | null>(null)
   const [photoCaption, setPhotoCaption] = useState('')
   const [addEventOpen, setAddEventOpen] = useState(false)
   const [newWeight, setNewWeight] = useState('')
@@ -220,20 +226,43 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   }
 
   const handleDeletePhoto = (photoId: string) => {
-    setPhotos((prev) => prev.filter((p) => p.id !== photoId))
+    deletePetPhoto(photoId)
     setGalleryIndex(null)
     showToast('Fotografie smazána', 'Snímek byl odstraněn z galerie.', 'info')
   }
 
   const handleSavePhotoCaption = () => {
     if (!editingPhoto) return
-    setPhotos((prev) =>
-      prev.map((p) =>
-        p.id === editingPhoto.id ? { ...p, caption: photoCaption.trim() || undefined } : p,
-      ),
-    )
+    updatePetPhoto(editingPhoto.id, { caption: photoCaption.trim() || undefined })
     setEditingPhoto(null)
     showToast('Popisek uložen', 'Fotografie byla aktualizována.', 'gold')
+  }
+
+  const handleGalleryUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    const files = takeSelectedFiles(input)
+    if (files.length === 0) return
+
+    setGalleryUploading(true)
+    try {
+      const urls: string[] = []
+      for (const file of files) {
+        urls.push(await readImageFileAsDataUrl(file))
+      }
+      addPetPhotos(pet.id, urls)
+      onTabChange('photos')
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Použijte JPG, PNG, WEBP nebo GIF.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrání se nezdařilo', 'Zkuste to prosím znovu.', 'info')
+      }
+    } finally {
+      setGalleryUploading(false)
+    }
   }
 
   const activeGalleryPhoto = galleryIndex !== null ? photos[galleryIndex] : null
@@ -703,7 +732,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 Otevřete, stáhněte, nahraďte nebo nastavte platnost dokumentů
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setActiveModal('addPhoto')}>
+            <Button variant="outline" size="sm" onClick={() => setActiveModal('addPhoto', pet.id)}>
               Nahrát dokument
             </Button>
           </div>
@@ -790,38 +819,77 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
       {activeTab === 'photos' && (
         <Card variant="elevated">
-          <div className="mb-6 pb-4 border-b border-[#F0EDE6] flex items-center justify-between">
+          <input
+            ref={galleryFileInputRef}
+            type="file"
+            accept={PET_IMAGE_ACCEPT}
+            multiple
+            className="sr-only"
+            disabled={galleryUploading}
+            onChange={handleGalleryUpload}
+          />
+
+          <div className="mb-6 pb-4 border-b border-[#F0EDE6] flex items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-bold text-[#191E1B]">Fotografické vzpomínky a milníky</h3>
               <p className="text-xs text-[#7D8B82] mt-0.5">
                 Full-screen galerie · upravit popisek nebo smazat fotografii
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setActiveModal('addPhoto')}>
-              Nahrát fotografii
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={galleryUploading}
+              onClick={() => galleryFileInputRef.current?.click()}
+            >
+              <Plus size={14} />
+              {galleryUploading ? 'Nahrávám…' : 'Nahrát fotografii'}
             </Button>
           </div>
 
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-            {photos.map((photo, i) => (
-              <div
-                key={photo.id}
-                onClick={() => setGalleryIndex(i)}
-                className="group relative aspect-square overflow-hidden rounded-2xl bg-stone-100 cursor-pointer shadow-xs border border-[#E8E4DC]"
-              >
-                <img
-                  src={photo.url}
-                  alt={photo.caption || `${pet.name} – fotografie ${i + 1}`}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                  <p className="text-[10px] font-medium text-white truncate">
-                    {photo.caption || 'Bez popisku'}
-                  </p>
-                </div>
+          {photos.length === 0 ? (
+            <button
+              type="button"
+              disabled={galleryUploading}
+              onClick={() => galleryFileInputRef.current?.click()}
+              className={cn(
+                'flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#D1E0D8] bg-[#FAF8F5] px-6 py-12 text-center transition-colors hover:border-[#2C4A3E] hover:bg-[#EBF2EE]',
+                galleryUploading && 'pointer-events-none opacity-60',
+              )}
+            >
+              <Plus size={22} className="text-[#2C4A3E]" />
+              <div>
+                <p className="text-sm font-bold text-[#191E1B]">
+                  {galleryUploading ? 'Nahrávám fotografii…' : 'Přidejte první fotografii'}
+                </p>
+                <p className="mt-1 text-xs text-[#7D8B82]">
+                  Klepněte sem a vyberte JPG, PNG, WEBP nebo GIF (do 25 MB)
+                </p>
               </div>
-            ))}
-          </div>
+            </button>
+          ) : (
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+              {photos.map((photo, i) => (
+                <div
+                  key={photo.id}
+                  onClick={() => setGalleryIndex(i)}
+                  className="group relative aspect-square overflow-hidden rounded-2xl bg-stone-100 cursor-pointer shadow-xs border border-[#E8E4DC]"
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.caption || `${pet.name} – fotografie ${i + 1}`}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <p className="text-[10px] font-medium text-white truncate">
+                      {photo.caption || 'Bez popisku'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 

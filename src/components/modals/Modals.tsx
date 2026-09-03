@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import {
   getGenderOptions,
   normalizeGenderForType,
 } from '../../lib/petTypes'
+import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 import type { NewPetForm } from '../../types'
 import { Button } from '../ui/Button'
 import { BreedSelect } from '../ui/BreedSelect'
@@ -26,9 +28,17 @@ export function Modals() {
     setActiveModal,
     addPet,
     addCalendarEvent,
+    addPetPhotos,
     showToast,
     pets,
+    modalPetId,
   } = useApp()
+  const location = useLocation()
+  const pendingPhotoPetIdRef = useRef('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoDragOver, setPhotoDragOver] = useState(false)
+  const [selectedPhotoPetId, setSelectedPhotoPetId] = useState('')
+  const [fileDialogOpen, setFileDialogOpen] = useState(false)
 
   const [petForm, setPetForm] = useState<NewPetForm>(getDefaultPetForm())
 
@@ -87,9 +97,54 @@ export function Modals() {
     setVetForm({ petName: 'Luna', date: '2026-09-10', time: '14:30', notes: '' })
   }
 
-  const handlePhotoUploadSim = () => {
-    showToast('Fotografie úspěšně nahrána', 'Přidáno do soukromých fotografických vzpomínek Luny.', 'gold')
-    setActiveModal(null)
+  const routePetId = location.pathname.match(/^\/pets\/([^/]+)/)?.[1]
+  const photoPetId = modalPetId || selectedPhotoPetId || routePetId || pets[0]?.id || ''
+
+  useEffect(() => {
+    if (activeModal === 'addPhoto' && photoPetId) {
+      pendingPhotoPetIdRef.current = photoPetId
+      if (!selectedPhotoPetId) setSelectedPhotoPetId(photoPetId)
+    }
+  }, [activeModal, photoPetId, selectedPhotoPetId])
+
+  useEffect(() => {
+    if (!fileDialogOpen) return
+    const handleWindowFocus = () => {
+      window.setTimeout(() => setFileDialogOpen(false), 400)
+    }
+    window.addEventListener('focus', handleWindowFocus)
+    return () => window.removeEventListener('focus', handleWindowFocus)
+  }, [fileDialogOpen])
+
+  const uploadPhotoFiles = async (files: FileList | File[], petIdOverride?: string) => {
+    const list = Array.from(files)
+    if (list.length === 0) return
+    const targetPetId = petIdOverride || pendingPhotoPetIdRef.current || photoPetId
+    if (!targetPetId) {
+      showToast('Vyberte mazlíčka', 'Nejdřív zvolte, do které galerie fotku uložit.', 'info')
+      return
+    }
+
+    setPhotoUploading(true)
+    try {
+      const urls: string[] = []
+      for (const file of list) {
+        urls.push(await readImageFileAsDataUrl(file))
+      }
+      addPetPhotos(targetPetId, urls)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Použijte JPG, PNG, WEBP nebo GIF.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrání se nezdařilo', 'Zkuste to prosím znovu.', 'info')
+      }
+    } finally {
+      setPhotoUploading(false)
+      setFileDialogOpen(false)
+    }
   }
 
   const handleActivitySubmit = (e: React.FormEvent) => {
@@ -388,31 +443,72 @@ export function Modals() {
       {/* 5. Add Photo Modal */}
       <Modal
         open={activeModal === 'addPhoto'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          if (fileDialogOpen || photoUploading) return
+          setActiveModal(null)
+        }}
+        closeOnBackdrop={!fileDialogOpen && !photoUploading}
         title="Nahrát fotografii ve vysokém rozlišení"
         subtitle="Přidejte vzpomínky do osobní časové osy vašeho mazlíčka."
       >
-        <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#D1E0D8] bg-[#FAF8F5] p-8 text-center">
-          <div className="h-12 w-12 rounded-2xl bg-white border border-[#E8E4DC] flex items-center justify-center text-[#2C4A3E] shadow-xs">
-            <Upload size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-[#191E1B]">
-              Přetáhněte fotografii ve vysokém rozlišení sem
-            </p>
-            <p className="text-xs text-[#7D8B82] mt-0.5">
-              Podporované formáty JPG, PNG, WEBP do 25 MB
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handlePhotoUploadSim}
-            className="mt-2"
+        <div className="flex flex-col gap-4">
+          {pets.length > 1 && (
+            <Select
+              id="photo-pet"
+              label="Mazlíček"
+              value={photoPetId}
+              onChange={(e) => {
+                setSelectedPhotoPetId(e.target.value)
+                pendingPhotoPetIdRef.current = e.target.value
+              }}
+              options={pets.map((pet) => ({ value: pet.id, label: pet.name }))}
+            />
+          )}
+          <label
+            className={`flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
+              photoDragOver ? 'border-[#2C4A3E] bg-[#EBF2EE]' : 'border-[#D1E0D8] bg-[#FAF8F5]'
+            } ${photoUploading ? 'pointer-events-none opacity-60' : ''}`}
+            onDragOver={(event) => {
+              event.preventDefault()
+              setPhotoDragOver(true)
+            }}
+            onDragLeave={() => setPhotoDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault()
+              setPhotoDragOver(false)
+              pendingPhotoPetIdRef.current = photoPetId
+              void uploadPhotoFiles(event.dataTransfer.files)
+            }}
           >
-            Vybrat ze zařízení
-          </Button>
+            <div className="h-12 w-12 rounded-2xl bg-white border border-[#E8E4DC] flex items-center justify-center text-[#2C4A3E] shadow-xs">
+              <Upload size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#191E1B]">
+                {photoUploading ? 'Nahrávám…' : 'Klepněte sem nebo přetáhněte fotografii'}
+              </p>
+              <p className="text-xs text-[#7D8B82] mt-0.5">
+                Podporované formáty JPG, PNG, WEBP, GIF do 25 MB
+              </p>
+            </div>
+            <span className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#E8E4DC] bg-white px-3.5 text-xs font-medium text-[#191E1B]">
+              Vybrat ze zařízení
+            </span>
+            <input
+              type="file"
+              accept={PET_IMAGE_ACCEPT}
+              multiple
+              className="sr-only"
+              disabled={photoUploading}
+              onChange={(event) => {
+                const files = takeSelectedFiles(event.currentTarget)
+                setFileDialogOpen(false)
+                pendingPhotoPetIdRef.current = photoPetId
+                if (files.length) void uploadPhotoFiles(files)
+              }}
+              onClick={() => setFileDialogOpen(true)}
+            />
+          </label>
         </div>
       </Modal>
     </>

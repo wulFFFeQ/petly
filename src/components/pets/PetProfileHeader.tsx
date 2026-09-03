@@ -28,7 +28,7 @@ import {
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
 import { getPetCoverColor } from '../../lib/petCoverColors'
-import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl } from '../../lib/readImageFile'
+import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -82,8 +82,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
     event: React.ChangeEvent<HTMLInputElement>,
     kind: 'photo' | 'banner',
   ) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
+    const [file] = takeSelectedFiles(event.currentTarget)
     if (!file) return
 
     const setUploading = kind === 'photo' ? setUploadingPhoto : setUploadingBanner

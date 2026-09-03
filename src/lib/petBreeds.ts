@@ -470,8 +470,6 @@ export function localizeBreedName(breed: string): string {
 export function getBreedsForType(type: PetType): readonly string[] {
   return type === 'dog' ? DOG_BREEDS : CAT_BREEDS
 }
-  return type === 'dog' ? DOG_BREEDS : CAT_BREEDS
-}
 
 export function getBreedOptions(type: PetType) {
   return getBreedsForType(type).map((breed) => ({ value: breed, label: breed }))

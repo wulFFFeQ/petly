@@ -10,6 +10,8 @@ interface ModalProps {
   children: ReactNode
   className?: string
   maxWidth?: 'sm' | 'md' | 'lg'
+  /** When false, clicking the dimmed backdrop does not close the modal. */
+  closeOnBackdrop?: boolean
 }
 
 const maxSizes = {
@@ -26,6 +28,7 @@ export function Modal({
   children,
   className,
   maxWidth = 'md',
+  closeOnBackdrop = true,
 }: ModalProps) {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -47,7 +50,9 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
       <div
         className="fixed inset-0 bg-[#171B18]/45 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={() => {
+          if (closeOnBackdrop) onClose()
+        }}
         aria-hidden
       />
       <div
@@ -60,7 +65,6 @@ export function Modal({
           className,
         )}
       >
-        {/* Subtle decorative gold top bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#2C4A3E] via-[#B8934A] to-[#2C4A3E]" />
 
         <div className="mb-6 flex items-start justify-between gap-4">

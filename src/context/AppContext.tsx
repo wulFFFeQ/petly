@@ -3,6 +3,7 @@ import {
   calendarEvents as initialCalendarEvents,
   communityPosts as initialPosts,
   myPets as initialPets,
+  petPhotos as initialPetPhotos,
 } from '../data/mockData'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
@@ -13,12 +14,14 @@ import type {
   ModalType,
   NewPetForm,
   Pet,
+  PetPhoto,
   ToastMessage,
 } from '../types'
 
 export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'other' | 'nearby' | 'popular'
 
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
+const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') return initialPets
@@ -36,22 +39,40 @@ function loadPets(): Pet[] {
   }
 }
 
+function loadPhotos(): PetPhoto[] {
+  if (typeof window === 'undefined') return initialPetPhotos
+  try {
+    const raw = window.localStorage.getItem(PHOTOS_STORAGE_KEY)
+    if (!raw) return initialPetPhotos
+    const parsed = JSON.parse(raw) as PetPhoto[]
+    if (!Array.isArray(parsed)) return initialPetPhotos
+    return parsed
+  } catch {
+    return initialPetPhotos
+  }
+}
+
 interface AppContextValue {
   pets: Pet[]
+  photos: PetPhoto[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
   activeModal: ModalType
+  modalPetId: string | null
   discoverSearch: string
   discoverFilter: DiscoverFilter
   toasts: ToastMessage[]
   notificationsOpen: boolean
-  setActiveModal: (modal: ModalType) => void
+  setActiveModal: (modal: ModalType, petId?: string) => void
   setDiscoverSearch: (query: string) => void
   setDiscoverFilter: (filter: DiscoverFilter) => void
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
   updatePetImage: (petId: string, image: string) => void
   updatePetCoverImage: (petId: string, coverImage: string) => void
+  addPetPhotos: (petId: string, urls: string[]) => void
+  updatePetPhoto: (photoId: string, updates: Partial<Pick<PetPhoto, 'caption'>>) => void
+  deletePetPhoto: (photoId: string) => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -63,9 +84,11 @@ const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [pets, setPets] = useState<Pet[]>(loadPets)
+  const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
-  const [activeModal, setActiveModal] = useState<ModalType>(null)
+  const [activeModal, setActiveModalState] = useState<ModalType>(null)
+  const [modalPetId, setModalPetId] = useState<string | null>(null)
   const [discoverSearch, setDiscoverSearch] = useState('')
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>('all')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -90,6 +113,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    try {
+      const payload = JSON.stringify(photos)
+      // Keep gallery uploads in memory even if browser storage is full.
+      if (payload.length > 4_500_000) return
+      window.localStorage.setItem(PHOTOS_STORAGE_KEY, payload)
+    } catch {
+      // Ignore quota errors — photos remain available in the current session.
+    }
+  }, [photos])
+
+  const setActiveModal = (modal: ModalType, petId?: string) => {
+    setActiveModalState(modal)
+    setModalPetId(modal ? petId ?? null : null)
+  }
 
   const addPet = (form: NewPetForm) => {
     const slug =
@@ -130,6 +169,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((pet) => (pet.id === petId ? { ...pet, coverImage } : pet)),
     )
+  }
+
+  const addPetPhotos = (petId: string, urls: string[]) => {
+    if (urls.length === 0) return
+    const added: PetPhoto[] = urls.map((url, index) => ({
+      id: `ph_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      petId,
+      url,
+    }))
+    setPhotos((prev) => [...added, ...prev])
+    const pet = pets.find((item) => item.id === petId)
+    setActiveModal(null)
+    showToast(
+      urls.length === 1 ? 'Fotografie nahrána' : `${urls.length} fotografie nahrány`,
+      pet ? `Přidáno do galerie mazlíčka ${pet.name}.` : 'Přidáno do fotogalerie.',
+      'gold',
+    )
+  }
+
+  const updatePetPhoto = (photoId: string, updates: Partial<Pick<PetPhoto, 'caption'>>) => {
+    setPhotos((prev) =>
+      prev.map((photo) => (photo.id === photoId ? { ...photo, ...updates } : photo)),
+    )
+  }
+
+  const deletePetPhoto = (photoId: string) => {
+    setPhotos((prev) => prev.filter((photo) => photo.id !== photoId))
   }
 
   const toggleLike = (postId: string) => {
@@ -187,9 +253,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         pets,
+        photos,
         posts,
         calendarEvents,
         activeModal,
+        modalPetId,
         discoverSearch,
         discoverFilter,
         toasts,
@@ -201,6 +269,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addPet,
         updatePetImage,
         updatePetCoverImage,
+        addPetPhotos,
+        updatePetPhoto,
+        deletePetPhoto,
         toggleLike,
         addComment,
         addCalendarEvent,
