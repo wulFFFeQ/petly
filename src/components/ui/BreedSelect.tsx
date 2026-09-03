@@ -190,11 +190,19 @@ export function BreedSelect({
         <input
           ref={inputRef}
           id={id}
+          name="pet-breed-search"
           type="text"
           role="combobox"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={open ? listboxId : undefined}
+          data-1p-ignore
+          data-lpignore="true"
+          data-form-type="other"
           value={query}
           placeholder="Hledejte nebo vyberte plemeno"
           onFocus={() => setOpen(true)}

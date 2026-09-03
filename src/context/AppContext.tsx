@@ -4,7 +4,7 @@ import {
   communityPosts as initialPosts,
   myPets as initialPets,
 } from '../data/mockData'
-import { petPlaceholderImages } from '../lib/petTypes'
+import { getDefaultBreedCoverImage, getDefaultBreedImage } from '../lib/petBreedImages'
 import type {
   CalendarEvent,
   CommunityPost,
@@ -30,6 +30,7 @@ interface AppContextValue {
   setDiscoverFilter: (filter: DiscoverFilter) => void
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
+  updatePetImage: (petId: string, image: string) => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -79,7 +80,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       name: form.name,
       type: form.type,
       breed: form.breed,
-      image: petPlaceholderImages[form.type],
+      image: getDefaultBreedImage(form.type, form.breed),
+      coverImage: getDefaultBreedCoverImage(form.type, form.breed),
       ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
       ...(form.gender ? { gender: form.gender } : {}),
       ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
@@ -90,6 +92,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       `${newPet.name} přidán mezi vaše mazlíčky`,
       'Doplňte profil podle potřeby — ostatní údaje zůstávají prázdné.',
       'gold',
+    )
+  }
+
+  const updatePetImage = (petId: string, image: string) => {
+    setPets((prev) =>
+      prev.map((pet) => (pet.id === petId ? { ...pet, image } : pet)),
     )
   }
 
@@ -160,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDiscoverFilter,
         setNotificationsOpen,
         addPet,
+        updatePetImage,
         toggleLike,
         addComment,
         addCalendarEvent,

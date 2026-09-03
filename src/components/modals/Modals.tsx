@@ -109,7 +109,7 @@ export function Modals() {
         title="Registrace nového mazlíčka"
         subtitle="Vytvořte oficiální digitální zdravotní profil a pas."
       >
-        <form onSubmit={handleAddPet} className="flex flex-col gap-4">
+        <form autoComplete="off" onSubmit={handleAddPet} className="flex flex-col gap-4">
           <Input
             id="pet-name"
             label="Jméno mazlíčka"

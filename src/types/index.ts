@@ -12,6 +12,7 @@ export interface Pet {
   type: PetType
   breed: string
   image: string
+  coverImage?: string
   age?: number
   healthStatus?: HealthStatus
   dateOfBirth?: string

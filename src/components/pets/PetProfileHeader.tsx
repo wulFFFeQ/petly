@@ -3,6 +3,7 @@ import {
   Check,
   Copy,
   AlertTriangle,
+  Camera,
   Phone,
   Share2,
   ShieldAlert,
@@ -10,7 +11,7 @@ import {
   Calendar,
   Stethoscope,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
@@ -25,6 +26,8 @@ import {
   formatOptionalWeight,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
+import { getPetCoverImage } from '../../lib/petBreedImages'
+import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl } from '../../lib/readImageFile'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -38,7 +41,9 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [shareOpen, setShareOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
-  const { setActiveModal, showToast } = useApp()
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const { setActiveModal, showToast, updatePetImage } = useApp()
 
   const statusVariant =
     pet.healthStatus === 'excellent'
@@ -48,6 +53,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         : 'warning'
 
   const microchipValue = pet.microchip?.trim() ?? ''
+  const coverImage = getPetCoverImage(pet)
 
   const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
   const mainVet = importantContacts.find((c) => c.type === 'vet')
@@ -67,6 +73,30 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
     setLinkCopied(true)
     showToast('Odkaz zkopírován', 'Profil mazlíčka je připraven ke sdílení.', 'gold')
     setTimeout(() => setLinkCopied(false), 2500)
+  }
+
+  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setUploadingPhoto(true)
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file)
+      updatePetImage(pet.id, dataUrl)
+      showToast('Profilová fotografie aktualizována', undefined, 'success')
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Použijte JPG, PNG nebo WEBP.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrání se nezdařilo', 'Zkuste to prosím znovu.', 'info')
+      }
+    } finally {
+      setUploadingPhoto(false)
+    }
   }
 
   return (
@@ -116,8 +146,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       <div className="overflow-hidden rounded-3xl border border-[#E8E4DC] bg-white shadow-[0_4px_25px_rgba(25,30,27,0.05)]">
         <div className="relative h-48 sm:h-64 lg:h-72 w-full overflow-hidden bg-stone-100">
           <img
-            src={pet.image}
-            alt={pet.name}
+            src={coverImage}
+            alt=""
             className="h-full w-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
@@ -135,8 +165,27 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         <div className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 -mt-16 sm:-mt-20 mb-6">
             <div className="flex items-end gap-4">
-              <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-stone-200 shrink-0">
+              <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-stone-200 shrink-0 group">
                 <img src={pet.image} alt={pet.name} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/35 focus-visible:bg-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#234B54] focus-visible:ring-offset-2 disabled:cursor-wait"
+                  aria-label="Změnit profilovou fotku"
+                  title="Změnit profilovou fotku"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#234B54] text-white shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+                    <Camera size={16} />
+                  </span>
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept={PET_IMAGE_ACCEPT}
+                  className="sr-only"
+                  onChange={handlePhotoSelect}
+                />
               </div>
               <div className="pb-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
