@@ -11,19 +11,20 @@ export interface Pet {
   name: string
   type: PetType
   breed: string
-  age: number
   image: string
-  healthStatus: HealthStatus
-  dateOfBirth: string
-  gender: string
-  weight: number
-  microchip: string
-  neutered: boolean
-  lastVetVisit: string
-  nextVaccination: string
+  age?: number
+  healthStatus?: HealthStatus
+  dateOfBirth?: string
+  gender?: string
+  weight?: number
+  microchip?: string
+  neutered?: boolean
+  lastVetVisit?: string
+  nextVaccination?: string
   healthScore?: number
   favoriteToy?: string
   diet?: string
+  supplements?: string
 }
 
 export interface HealthRecord {
@@ -187,7 +188,7 @@ export interface NewPetForm {
   name: string
   type: PetType
   breed: string
-  age: number
+  age?: number
   gender?: string
   weight?: number
 }

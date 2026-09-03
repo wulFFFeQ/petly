@@ -58,7 +58,12 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { cn } from '../../lib/utils'
-import { healthStatusLabel } from '../../data/mockData'
+import {
+  EMPTY_PROFILE_LABEL,
+  formatHealthStatus,
+  formatOptionalText,
+  formatOptionalWeight,
+} from '../../lib/petProfileDisplay'
 
 interface PetProfileTabContentProps {
   pet: Pet
@@ -124,7 +129,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
   const yDomain = useMemo((): [number, number] => {
     const weights = chartData.map((d) => d.weight)
-    if (weights.length === 0) return [pet.weight - 2, pet.weight + 2]
+    if (weights.length === 0) {
+      const base = pet.weight && pet.weight > 0 ? pet.weight : 5
+      return [Math.max(0, base - 2), base + 2]
+    }
     const min = Math.min(...weights)
     const max = Math.max(...weights)
     const pad = Math.max((max - min) * 0.25, 0.4)
@@ -243,7 +251,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <ShieldCheck size={16} className="text-[#234B54]" />
               </div>
               <p className="mt-2 text-xl font-bold text-[#191E1B]">
-                {healthStatusLabel[pet.healthStatus]}
+                {formatHealthStatus(pet.healthStatus)}
               </p>
               <p className="text-xs text-[#234B54] font-medium mt-1">
                 Klepnutím otevřete zdravotní sekci
@@ -258,7 +266,9 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <Activity size={16} className="text-emerald-700" />
               </div>
               <p className="mt-2 text-xl font-bold text-[#191E1B]">
-                {weightData[weightData.length - 1]?.weight ?? pet.weight} kg
+                {weightData.length > 0
+                  ? formatOptionalWeight(weightData[weightData.length - 1]?.weight)
+                  : formatOptionalWeight(pet.weight)}
               </p>
               <p className="text-xs text-[#7D8B82] font-medium mt-1">
                 Sledujte vývoj a přidávejte měření
@@ -272,7 +282,9 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 </span>
                 <Stethoscope size={16} className="text-sky-700" />
               </div>
-              <p className="mt-2 text-xl font-bold text-[#191E1B]">{pet.lastVetVisit}</p>
+              <p className="mt-2 text-xl font-bold text-[#191E1B]">
+                {formatOptionalText(pet.lastVetVisit)}
+              </p>
               <p className="text-xs text-[#7D8B82] font-medium mt-1">Zobrazit klinické záznamy</p>
             </Card>
 
@@ -283,7 +295,9 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 </span>
                 <Syringe size={16} className="text-[#B8934A]" />
               </div>
-              <p className="mt-2 text-xl font-bold text-[#234B54]">{pet.nextVaccination}</p>
+              <p className="mt-2 text-xl font-bold text-[#234B54]">
+                {formatOptionalText(pet.nextVaccination)}
+              </p>
               <p className="text-xs text-[#B8934A] font-medium mt-1">Detail vakcíny a veterináře</p>
             </Card>
           </div>
@@ -305,7 +319,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     Hlavní výživa
                   </span>
                   <p className="font-semibold text-[#191E1B] mt-0.5">
-                    {pet.diet || 'Bezobilná receptura s vysokým obsahem bílkovin a probiotiky'}
+                    {formatOptionalText(pet.diet)}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]">
@@ -313,7 +327,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     Denní doplňky stravy
                   </span>
                   <p className="font-semibold text-[#191E1B] mt-0.5">
-                    Omega-3 olej z divokého lososa (2 střiky k večeři)
+                    {formatOptionalText(pet.supplements)}
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]">
@@ -321,7 +335,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     Oblíbené hračky a stimulace
                   </span>
                   <p className="font-semibold text-[#191E1B] mt-0.5">
-                    {pet.favoriteToy || 'Plyšová kachna, Kong hlavolam a frisbee'}
+                    {formatOptionalText(pet.favoriteToy)}
                   </p>
                 </div>
               </div>
@@ -338,8 +352,15 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     <p className="text-xs text-[#7D8B82]">Propojeno s léky a připomínkami</p>
                   </div>
                 </div>
-                <Badge variant="success" size="sm">100 % splněno</Badge>
+                {medications.length > 0 && (
+                  <Badge variant="success" size="sm">100 % splněno</Badge>
+                )}
               </div>
+              {medications.length === 0 ? (
+                <p className="text-sm text-[#7D8B82] py-6 text-center">
+                  {EMPTY_PROFILE_LABEL}. Přidejte léky nebo péči ve zdravotní sekci.
+                </p>
+              ) : (
               <div className="space-y-2.5">
                 {medications.map((med) => (
                   <button
@@ -365,6 +386,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   </button>
                 ))}
               </div>
+              )}
             </Card>
           </div>
         </div>

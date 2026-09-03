@@ -4,11 +4,7 @@ import {
   communityPosts as initialPosts,
   myPets as initialPets,
 } from '../data/mockData'
-import {
-  getDefaultGender,
-  getDefaultWeight,
-  petPlaceholderImages,
-} from '../lib/petTypes'
+import { petPlaceholderImages } from '../lib/petTypes'
 import type {
   CalendarEvent,
   CommunityPost,
@@ -70,28 +66,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const addPet = (form: NewPetForm) => {
+    const slug =
+      form.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '') || 'pet'
+
     const newPet: Pet = {
-      id: form.name.toLowerCase().replace(/\s+/g, '-'),
+      id: `${slug}-${Date.now()}`,
       name: form.name,
       type: form.type,
       breed: form.breed,
-      age: form.age,
       image: petPlaceholderImages[form.type],
-      healthStatus: 'excellent',
-      dateOfBirth: `${new Date().getFullYear() - form.age}. 1. 2020`,
-      gender: form.gender || getDefaultGender(form.type),
-      weight: form.weight || getDefaultWeight(form.type),
-      microchip: `98511200${Math.floor(1000000 + Math.random() * 9000000)}`,
-      neutered: true,
-      lastVetVisit: 'Preventivní prohlídka čeká',
-      nextVaccination: 'Brzy naplánovat',
-      healthScore: 96,
-      favoriteToy: 'Měkká hračka a kost',
-      diet: 'Bezobilninová strava s vysokým podílem bílkovin',
+      ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
+      ...(form.gender ? { gender: form.gender } : {}),
+      ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
     }
     setPets((prev) => [...prev, newPet])
     setActiveModal(null)
-    showToast(`${newPet.name} přidán mezi vaše mazlíčky`, 'Profil a záznamy jsou nyní aktivní.', 'gold')
+    showToast(
+      `${newPet.name} přidán mezi vaše mazlíčky`,
+      'Doplňte profil podle potřeby — ostatní údaje zůstávají prázdné.',
+      'gold',
+    )
   }
 
   const toggleLike = (postId: string) => {

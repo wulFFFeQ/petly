@@ -1,7 +1,14 @@
 import { ArrowUpRight, Scale, Stethoscope, Syringe } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { healthStatusLabel, petTypeLabel } from '../../data/mockData'
+import { petTypeLabel } from '../../data/mockData'
 import type { Pet } from '../../types'
+import {
+  formatHealthStatus,
+  formatOptionalText,
+  formatOptionalWeight,
+  hasMicrochip,
+} from '../../lib/petProfileDisplay'
+import { formatAge } from '../../lib/dashboardDates'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -16,7 +23,9 @@ export function PetGridCard({ pet }: PetGridCardProps) {
       ? 'success'
       : pet.healthStatus === 'good'
         ? 'primary'
-        : 'warning'
+        : pet.healthStatus === 'attention'
+          ? 'warning'
+          : 'default'
 
   return (
     <Card
@@ -39,9 +48,11 @@ export function PetGridCard({ pet }: PetGridCardProps) {
             <Badge variant="default" size="sm" className="bg-white/90 backdrop-blur-md shadow-xs">
               {petTypeLabel[pet.type]}
             </Badge>
-            <Badge variant={statusVariant} size="sm" withDot className="bg-white/95 backdrop-blur-md shadow-xs">
-              {healthStatusLabel[pet.healthStatus]}
-            </Badge>
+            {pet.healthStatus && (
+              <Badge variant={statusVariant} size="sm" withDot className="bg-white/95 backdrop-blur-md shadow-xs">
+                {formatHealthStatus(pet.healthStatus)}
+              </Badge>
+            )}
           </div>
 
           {/* Bottom Floating Info inside photo */}
@@ -52,9 +63,11 @@ export function PetGridCard({ pet }: PetGridCardProps) {
               </h3>
               <p className="text-xs text-white/90 font-medium drop-shadow-sm">{pet.breed}</p>
             </div>
-            <span className="text-xs font-semibold bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full">
-              {pet.age} let
-            </span>
+            {pet.age != null && pet.age > 0 && (
+              <span className="text-xs font-semibold bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full">
+                {formatAge(pet.age)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -67,7 +80,7 @@ export function PetGridCard({ pet }: PetGridCardProps) {
             <div>
               <p className="text-xs font-medium text-[#7D8B82]">Hmotnost</p>
               <p className="text-lg font-bold tracking-tight text-[#191E1B]">
-                {pet.weight} kg
+                {formatOptionalWeight(pet.weight)}
               </p>
             </div>
           </div>
@@ -79,7 +92,9 @@ export function PetGridCard({ pet }: PetGridCardProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-medium text-[#7D8B82]">Poslední návštěva</p>
-                <p className="text-sm font-semibold text-[#191E1B]">{pet.lastVetVisit}</p>
+                <p className="text-sm font-semibold text-[#191E1B]">
+                  {formatOptionalText(pet.lastVetVisit)}
+                </p>
               </div>
             </div>
 
@@ -89,7 +104,9 @@ export function PetGridCard({ pet }: PetGridCardProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-medium text-[#7D8B82]">Příští očkování</p>
-                <p className="text-sm font-semibold text-[#234B54]">{pet.nextVaccination}</p>
+                <p className="text-sm font-semibold text-[#234B54]">
+                  {formatOptionalText(pet.nextVaccination)}
+                </p>
               </div>
             </div>
           </div>
@@ -97,11 +114,15 @@ export function PetGridCard({ pet }: PetGridCardProps) {
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="min-w-0 truncate text-[10px] text-[#A3AEA7]">
               Mikročip{' '}
-              <span className="font-mono text-[#B8C2BC]">{pet.microchip}</span>
+              <span className="font-mono text-[#B8C2BC]">
+                {hasMicrochip(pet.microchip) ? pet.microchip : formatOptionalText(pet.microchip)}
+              </span>
             </p>
-            <Badge variant="outline" size="sm" className="shrink-0">
-              {pet.neutered ? 'Kastrovaný' : 'Nekastrovaný'}
-            </Badge>
+            {pet.neutered != null && (
+              <Badge variant="outline" size="sm" className="shrink-0">
+                {pet.neutered ? 'Kastrovaný' : 'Nekastrovaný'}
+              </Badge>
+            )}
           </div>
         </div>
       </div>

@@ -60,7 +60,8 @@ export function getEventTypeLabel(type: EventType): string {
   return labels[type]
 }
 
-export function formatAge(age: number): string {
+export function formatAge(age?: number): string {
+  if (age == null || age <= 0) return 'věk neuveden'
   if (age === 1) return '1 rok'
   if (age >= 2 && age <= 4) return `${age} roky`
   return `${age} let`
@@ -89,7 +90,9 @@ export function getPetStatusBadge(
   pet: Pet,
   calendarEvents: CalendarEvent[],
 ): { label: string; variant: PetStatusBadgeVariant } {
-  const vaccinationFromField = parseCzechDate(pet.nextVaccination)
+  const vaccinationFromField = pet.nextVaccination
+    ? parseCzechDate(pet.nextVaccination)
+    : null
 
   const nearestVaccination = calendarEvents
     .filter(
@@ -117,5 +120,13 @@ export function getPetStatusBadge(
     return { label: 'Vše v pořádku', variant: 'success' }
   }
 
-  return { label: 'Dobrý stav', variant: 'primary' }
+  if (pet.healthStatus === 'good') {
+    return { label: 'Dobrý stav', variant: 'primary' }
+  }
+
+  if (pet.healthStatus === 'attention') {
+    return { label: 'Vyžaduje pozornost', variant: 'warning' }
+  }
+
+  return { label: 'Profil k doplnění', variant: 'primary' }
 }

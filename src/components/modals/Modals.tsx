@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import {
-  getDefaultGender,
-  getDefaultWeight,
   getGenderOptions,
   normalizeGenderForType,
 } from '../../lib/petTypes'
@@ -19,9 +17,6 @@ function getDefaultPetForm(): NewPetForm {
     name: '',
     type: 'dog',
     breed: '',
-    age: 1,
-    gender: getDefaultGender('dog'),
-    weight: getDefaultWeight('dog'),
   }
 }
 
@@ -135,18 +130,23 @@ export function Modals() {
                   type,
                   breed: '',
                   gender: normalizeGenderForType(petForm.gender, type),
-                  weight: getDefaultWeight(type),
                 })
               }}
             />
             <Select
               id="pet-gender"
               label="Pohlaví"
-              value={petForm.gender}
+              value={petForm.gender ?? ''}
               onChange={(e) =>
-                setPetForm({ ...petForm, gender: e.target.value })
+                setPetForm({
+                  ...petForm,
+                  gender: e.target.value || undefined,
+                })
               }
-              options={getGenderOptions(petForm.type)}
+              options={[
+                { value: '', label: 'Vyberte pohlaví' },
+                ...getGenderOptions(petForm.type),
+              ]}
             />
           </div>
 
@@ -165,9 +165,13 @@ export function Modals() {
               type="number"
               min={0}
               max={30}
-              value={petForm.age}
+              placeholder="např. 3"
+              value={petForm.age ?? ''}
               onChange={(e) =>
-                setPetForm({ ...petForm, age: parseInt(e.target.value) || 0 })
+                setPetForm({
+                  ...petForm,
+                  age: e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0,
+                })
               }
             />
             <Input
@@ -175,9 +179,14 @@ export function Modals() {
               label="Hmotnost (kg)"
               type="number"
               step="0.1"
-              value={petForm.weight}
+              min={0}
+              placeholder="např. 12,5"
+              value={petForm.weight ?? ''}
               onChange={(e) =>
-                setPetForm({ ...petForm, weight: parseFloat(e.target.value) || 0 })
+                setPetForm({
+                  ...petForm,
+                  weight: e.target.value === '' ? undefined : parseFloat(e.target.value) || 0,
+                })
               }
             />
           </div>

@@ -12,10 +12,19 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { healthStatusLabel, importantContacts, petTypeLabel } from '../../data/mockData'
+import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
+import {
+  EMPTY_PROFILE_LABEL,
+  formatHealthStatus,
+  formatNeuteredStatus,
+  formatOptionalAge,
+  formatOptionalText,
+  formatOptionalWeight,
+  hasMicrochip,
+} from '../../lib/petProfileDisplay'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -38,15 +47,18 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         ? 'primary'
         : 'warning'
 
+  const microchipValue = pet.microchip?.trim() ?? ''
+
   const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
   const mainVet = importantContacts.find((c) => c.type === 'vet')
   const emergencyPerson = importantContacts.find((c) => c.type === 'emergency_person')
   const shareLink = `https://lovedandknown.app/pets/${pet.id}?share=verified`
 
   const handleCopyChip = () => {
-    navigator.clipboard?.writeText(pet.microchip)
+    if (!hasMicrochip(microchipValue)) return
+    navigator.clipboard?.writeText(microchipValue)
     setCopied(true)
-    showToast('Mikročip zkopírován do schránky', pet.microchip, 'info')
+    showToast('Mikročip zkopírován do schránky', microchipValue, 'info')
     setTimeout(() => setCopied(false), 2500)
   }
 
@@ -111,10 +123,12 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
           <div className="absolute top-4 right-4 flex items-center gap-2">
-            <Badge variant="gold" size="sm" className="bg-white/95 backdrop-blur-md">
-              <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-              Ověřený pas
-            </Badge>
+            {hasMicrochip(microchipValue) && (
+              <Badge variant="gold" size="sm" className="bg-white/95 backdrop-blur-md">
+                <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
+                Ověřený pas
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -129,9 +143,11 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                   <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
                     {pet.name}
                   </h1>
-                  <Badge variant={statusVariant} size="sm" withDot pulseDot>
-                    {healthStatusLabel[pet.healthStatus]}
-                  </Badge>
+                  {pet.healthStatus && (
+                    <Badge variant={statusVariant} size="sm" withDot pulseDot>
+                      {formatHealthStatus(pet.healthStatus)}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm font-medium text-[#4A564F] mt-0.5">
                   {pet.breed} · {petTypeLabel[pet.type]}
@@ -140,14 +156,16 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
 
             <div className="flex items-center gap-3 self-start sm:self-auto">
-              <div className="text-right hidden sm:block">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Skóre vitality
-                </span>
-                <p className="text-lg font-bold text-[#234B54]">
-                  {pet.healthScore || 96} / 100
-                </p>
-              </div>
+              {pet.healthScore != null && (
+                <div className="text-right hidden sm:block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                    Skóre vitality
+                  </span>
+                  <p className="text-lg font-bold text-[#234B54]">
+                    {pet.healthScore} / 100
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -158,7 +176,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               </p>
               <p className="mt-1 text-sm font-bold text-[#191E1B] flex items-center gap-1">
                 <Calendar size={13} className="text-[#234B54]" />
-                {pet.dateOfBirth}
+                {formatOptionalText(pet.dateOfBirth)}
               </p>
             </div>
             <div>
@@ -166,44 +184,48 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 Věk a stádium
               </p>
               <p className="mt-1 text-sm font-bold text-[#191E1B]">
-                {pet.age} let ({pet.age >= 7 ? 'Starší' : 'Dospělý'})
+                {formatOptionalAge(pet.age)}
               </p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Pohlaví
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">{pet.gender}</p>
+              <p className="mt-1 text-sm font-bold text-[#191E1B]">{formatOptionalText(pet.gender)}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Aktuální hmotnost
               </p>
-              <p className="mt-1 text-sm font-bold text-[#191E1B]">{pet.weight} kg</p>
+              <p className="mt-1 text-sm font-bold text-[#191E1B]">{formatOptionalWeight(pet.weight)}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 ID mikročipu
               </p>
-              <button
-                onClick={handleCopyChip}
-                className="mt-1 flex items-center gap-1.5 text-xs font-mono font-bold text-[#234B54] hover:underline cursor-pointer"
-                title="Klikněte pro zkopírování ID mikročipu"
-              >
-                <span className="truncate max-w-[90px]">{pet.microchip}</span>
-                {copied ? (
-                  <Check size={12} className="text-emerald-600 shrink-0" />
-                ) : (
-                  <Copy size={12} className="text-[#A3AEA7] shrink-0" />
-                )}
-              </button>
+              {hasMicrochip(microchipValue) ? (
+                <button
+                  onClick={handleCopyChip}
+                  className="mt-1 flex items-center gap-1.5 text-xs font-mono font-bold text-[#234B54] hover:underline cursor-pointer"
+                  title="Klikněte pro zkopírování ID mikročipu"
+                >
+                  <span className="truncate max-w-[90px]">{microchipValue}</span>
+                  {copied ? (
+                    <Check size={12} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <Copy size={12} className="text-[#A3AEA7] shrink-0" />
+                  )}
+                </button>
+              ) : (
+                <p className="mt-1 text-sm font-bold text-[#7D8B82]">{EMPTY_PROFILE_LABEL}</p>
+              )}
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Kastrace
               </p>
               <p className="mt-1 text-sm font-bold text-[#191E1B]">
-                {pet.neutered ? 'Kastrovaný / kastrovaná' : 'Nekastrovaný'}
+                {formatNeuteredStatus(pet.neutered)}
               </p>
             </div>
           </div>
@@ -222,8 +244,14 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             <img src={pet.image} alt={pet.name} className="h-16 w-16 rounded-xl object-cover" />
             <div>
               <p className="text-sm font-bold text-[#191E1B]">{pet.name} · {pet.breed}</p>
-              <p className="text-xs text-[#7D8B82] mt-0.5">Čip: {pet.microchip}</p>
-              <Badge variant="gold" size="sm" className="mt-1.5">Ověřený profil {BRAND_NAME}</Badge>
+              <p className="text-xs text-[#7D8B82] mt-0.5">
+                Čip: {hasMicrochip(microchipValue) ? microchipValue : EMPTY_PROFILE_LABEL}
+              </p>
+              {hasMicrochip(microchipValue) && (
+                <Badge variant="gold" size="sm" className="mt-1.5">
+                  Ověřený profil {BRAND_NAME}
+                </Badge>
+              )}
             </div>
           </div>
           <div className="rounded-xl border border-[#E8E4DC] p-3 flex items-center justify-between gap-2">
@@ -269,7 +297,9 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold text-[#191E1B]">{pet.name}</p>
                 <p className="text-sm text-[#4A564F]">{pet.breed} · {petTypeLabel[pet.type]}</p>
-                <p className="text-xs font-mono font-bold text-[#234B54] mt-1">Čip: {pet.microchip}</p>
+                <p className="text-xs font-mono font-bold text-[#234B54] mt-1">
+                  Čip: {hasMicrochip(microchipValue) ? microchipValue : EMPTY_PROFILE_LABEL}
+                </p>
                 <p className="text-xs text-[#5A6660] mt-1">Majitel: Tereza V. · Kolín</p>
               </div>
             </div>
@@ -325,7 +355,10 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
 
           <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3 text-xs text-[#5A6660] leading-relaxed">
             <p className="font-bold text-[#191E1B] mb-1">Zdravotní poznámky</p>
-            <p>Alergie: žádné známé · Aktivní léky: dle profilu · Další očkování: {pet.nextVaccination}</p>
+            <p>
+              Alergie: žádné známé · Aktivní léky: dle profilu · Další očkování:{' '}
+              {formatOptionalText(pet.nextVaccination)}
+            </p>
           </div>
 
           <Button

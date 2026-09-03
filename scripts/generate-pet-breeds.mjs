@@ -8,8 +8,9 @@ for (const line of source.split('\n')) {
   if (match) dogBreeds.push(match[1].trim())
 }
 
-const DOG_BREEDS = [...new Set(dogBreeds)].sort((a, b) => a.localeCompare(b, 'cs'))
+const DOG_BREEDS = [...new Set([...dogBreeds, 'Směs plemen'])].sort((a, b) => a.localeCompare(b, 'cs'))
 
+// Oficiální plemena FIFe (48 uznaných + 2 předběžně uznaná) + praktické volby pro domácí kočky
 const CAT_BREEDS = [
   'Americký curl dlouhosrstý',
   'Americký curl krátkosrstý',
@@ -32,6 +33,7 @@ const CAT_BREEDS = [
   'Japonský bobtail krátkosrstý',
   'Kartouzská kočka',
   'Korat',
+  'Směs plemen',
   'Kurilský bobtail dlouhosrstý',
   'Kurilský bobtail krátkosrstý',
   'Kymerská kočka',
@@ -61,6 +63,8 @@ const CAT_BREEDS = [
   'Thajská kočka',
   'Turecká angora',
   'Turecká van',
+  'Dlouhosrstá domácí kočka',
+  'Krátkosrstá domácí kočka',
 ].sort((a, b) => a.localeCompare(b, 'cs'))
 
 const formatBreeds = (breeds) =>
