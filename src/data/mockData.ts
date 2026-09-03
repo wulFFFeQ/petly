@@ -982,11 +982,7 @@ export const travelDestinations: TravelDestination[] = [
   },
 ]
 
-export const petTypeLabel: Record<string, string> = {
-  dog: 'Pes',
-  cat: 'Kočka',
-  other: 'Jiný',
-}
+export { petTypeLabel } from '../lib/petTypes'
 
 export const healthStatusLabel: Record<string, string> = {
   excellent: 'Výborné zdraví',

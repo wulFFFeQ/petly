@@ -4,6 +4,11 @@ import {
   communityPosts as initialPosts,
   myPets as initialPets,
 } from '../data/mockData'
+import {
+  getDefaultGender,
+  getDefaultWeight,
+  petPlaceholderImages,
+} from '../lib/petTypes'
 import type {
   CalendarEvent,
   CommunityPost,
@@ -38,12 +43,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null)
 
-const placeholderImages: Record<string, string> = {
-  dog: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=85',
-  cat: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85',
-  other: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?auto=format&fit=crop&w=800&q=85',
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const [pets, setPets] = useState<Pet[]>(initialPets)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
@@ -77,11 +76,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       type: form.type,
       breed: form.breed,
       age: form.age,
-      image: placeholderImages[form.type],
+      image: petPlaceholderImages[form.type],
       healthStatus: 'excellent',
       dateOfBirth: `${new Date().getFullYear() - form.age}. 1. 2020`,
-      gender: form.gender === 'Female' ? 'Samice' : form.gender === 'Male' ? 'Samec' : (form.gender || 'Samice'),
-      weight: form.weight || (form.type === 'cat' ? 4.5 : 16),
+      gender: form.gender || getDefaultGender(form.type),
+      weight: form.weight || getDefaultWeight(form.type),
       microchip: `98511200${Math.floor(1000000 + Math.random() * 9000000)}`,
       neutered: true,
       lastVetVisit: 'Preventivní prohlídka čeká',

@@ -23,7 +23,7 @@ export function DiscoverPage() {
         discoverFilter === 'all' ||
         (discoverFilter === 'dog' && pet.type === 'dog') ||
         (discoverFilter === 'cat' && pet.type === 'cat') ||
-        (discoverFilter === 'other' && pet.type === 'other') ||
+        (discoverFilter === 'other' && pet.type !== 'dog' && pet.type !== 'cat') ||
         (discoverFilter === 'nearby' &&
           ['Kolín', 'Kutná Hora'].includes(pet.location)) ||
         (discoverFilter === 'popular' && pet.popular)

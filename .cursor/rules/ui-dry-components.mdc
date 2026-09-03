@@ -1,0 +1,51 @@
+---
+description: DRY kód a centrální reuse UI komponent
+globs: src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# DRY a centrální UI komponenty
+
+Piš profi kód — bez duplicit. UI patří do `src/components/`, ne inline do stránek.
+
+## Kde co patří
+
+| Vrstva | Složka | Příklad |
+|--------|--------|---------|
+| Primitiva | `src/components/ui/` | `Button`, `Card`, `Badge`, `Input`, `Modal`, `Tabs` |
+| Layout | `src/components/layout/` | `Header`, `Sidebar`, `AppLayout` |
+| Feature | `src/components/<domain>/` | `DiscoverCard`, `PostCard`, `HealthSummary` |
+| Stránky | `src/pages/` | Jen orchestrace — import komponent, žádné velké bloky JSX |
+
+## Pravidla
+
+1. **Nejdřív hledej existující komponentu** — před novým JSX zkontroluj `ui/` a příslušnou feature složku.
+2. **Používej primitiva** — formuláře přes `Input`/`Textarea`/`Select`, akce přes `Button`, obaly přes `Card`. Nepiš raw `<input>` s kopírovanými Tailwind třídami.
+3. **3× stejný pattern = extrakce** — opakuje-li se stejný UI blok na 3+ místech, vytvoř sdílenou komponentu v `ui/` (obecné) nebo `<domain>/` (feature-specific).
+4. **Stránka max ~200 řádků JSX** — větší UI rozděl do feature komponent; monolitické soubory (>500 řádků) refaktoruj postupně.
+5. **Props místo kopírování** — variace řeš přes `variant`, `size`, `className` (`cn()`), sloty/children — ne kopírováním celého bloku.
+6. **Nepřidávej mrtvý kód** — nepoužívané komponenty smaž nebo zapoj do stránky.
+
+## Příklady
+
+```tsx
+// ❌ Špatně — inline input ve stránce
+<input className="h-10 rounded-xl border border-[#E8E4DC] ..." />
+
+// ✅ Správně — existující primitivum
+<Input label="Jméno" id="name" value={name} onChange={...} />
+```
+
+```tsx
+// ❌ Špatně — kopírovaný page header na každé stránce
+<div><Badge>...</Badge><h1>...</h1><p>...</p></div>
+
+// ✅ Správně — sdílená komponenta (PageHeader)
+<PageHeader badge="Objevovat" title="Objevovat" description="..." />
+```
+
+## Před commitem
+
+- Nový UI pattern → je v `components/`, ne ve stránce?
+- Existuje podobná komponenta, kterou lze rozšířit?
+- Žádné zbytečné duplicity tříd, markupu ani logiky?

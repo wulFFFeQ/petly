@@ -1,4 +1,6 @@
-export type PetType = 'dog' | 'cat' | 'other'
+import type { PetType } from '../lib/petTypes'
+
+export type { PetType } from '../lib/petTypes'
 export type HealthStatus = 'excellent' | 'good' | 'attention'
 export type EventType = 'vaccination' | 'medication' | 'vet' | 'grooming' | 'feeding'
 export type HealthRecordType = 'vaccination' | 'vet' | 'medication'

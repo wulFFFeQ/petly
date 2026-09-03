@@ -1,10 +1,28 @@
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
-import type { NewPetForm, PetType } from '../../types'
+import {
+  getDefaultGender,
+  getDefaultWeight,
+  getGenderOptions,
+  normalizeGenderForType,
+} from '../../lib/petTypes'
+import type { NewPetForm } from '../../types'
 import { Button } from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
+import { PetTypeSelect } from '../ui/PetTypeSelect'
 import { Modal } from '../ui/Modal'
 import { Upload } from 'lucide-react'
+
+function getDefaultPetForm(): NewPetForm {
+  return {
+    name: '',
+    type: 'dog',
+    breed: '',
+    age: 1,
+    gender: getDefaultGender('dog'),
+    weight: getDefaultWeight('dog'),
+  }
+}
 
 export function Modals() {
   const {
@@ -16,14 +34,7 @@ export function Modals() {
     pets,
   } = useApp()
 
-  const [petForm, setPetForm] = useState<NewPetForm>({
-    name: '',
-    type: 'dog',
-    breed: '',
-    age: 1,
-    gender: 'Samice',
-    weight: 15,
-  })
+  const [petForm, setPetForm] = useState<NewPetForm>(getDefaultPetForm())
 
   const [healthForm, setHealthForm] = useState({
     type: 'vaccination',
@@ -44,7 +55,7 @@ export function Modals() {
     e.preventDefault()
     if (!petForm.name || !petForm.breed) return
     addPet(petForm)
-    setPetForm({ name: '', type: 'dog', breed: '', age: 1, gender: 'Samice', weight: 15 })
+    setPetForm(getDefaultPetForm())
   }
 
   const handleAddHealth = (e: React.FormEvent) => {
@@ -113,18 +124,17 @@ export function Modals() {
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <Select
+            <PetTypeSelect
               id="pet-type"
               label="Druh"
               value={petForm.type}
-              onChange={(e) =>
-                setPetForm({ ...petForm, type: e.target.value as PetType })
-              }
-              options={[
-                { value: 'dog', label: 'Pes' },
-                { value: 'cat', label: 'Kočka' },
-                { value: 'other', label: 'Jiný mazlíček' },
-              ]}
+              onChange={(type) => {
+                setPetForm({
+                  ...petForm,
+                  type,
+                  gender: normalizeGenderForType(petForm.gender, type),
+                })
+              }}
             />
             <Select
               id="pet-gender"
@@ -133,10 +143,7 @@ export function Modals() {
               onChange={(e) =>
                 setPetForm({ ...petForm, gender: e.target.value })
               }
-              options={[
-                { value: 'Samice', label: 'Samice' },
-                { value: 'Samec', label: 'Samec' },
-              ]}
+              options={getGenderOptions(petForm.type)}
             />
           </div>
 
