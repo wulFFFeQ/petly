@@ -1,5 +1,5 @@
 import type { HealthStatus } from '../types'
-import { healthStatusLabel } from '../data/mockData'
+import { healthStatusEmoji, healthStatusLabel } from '../data/mockData'
 import { isFemalePetGender } from './petTypes'
 
 export const EMPTY_PROFILE_LABEL = 'Zatím nevyplněno'
@@ -56,6 +56,13 @@ export function formatNeuteredStatus(
 export function formatHealthStatus(status?: HealthStatus): string {
   if (!status) return EMPTY_PROFILE_LABEL
   return healthStatusLabel[status] ?? EMPTY_PROFILE_LABEL
+}
+
+export function formatHealthStatusHeadline(status?: HealthStatus): string {
+  if (!status) return EMPTY_PROFILE_LABEL
+  const emoji = healthStatusEmoji[status] ?? ''
+  const label = (healthStatusLabel[status] ?? status).toUpperCase()
+  return emoji ? `${emoji} ${label}` : label
 }
 
 export function hasMicrochip(microchip?: string): boolean {

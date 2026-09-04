@@ -137,5 +137,13 @@ export function getPetStatusBadge(
     return { label: 'Vyžaduje pozornost', variant: 'warning' }
   }
 
+  if (pet.healthStatus === 'vet_check') {
+    return { label: 'Doporučena kontrola', variant: 'warning' }
+  }
+
+  if (pet.healthStatus === 'urgent') {
+    return { label: 'Naléhavé', variant: 'warning' }
+  }
+
   return { label: 'Profil k doplnění', variant: 'primary' }
 }

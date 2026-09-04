@@ -111,7 +111,11 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       ? 'success'
       : pet.healthStatus === 'good'
         ? 'primary'
-        : 'warning'
+        : pet.healthStatus === 'attention'
+          ? 'warning'
+          : pet.healthStatus === 'vet_check' || pet.healthStatus === 'urgent'
+            ? 'danger'
+            : 'warning'
 
   const microchipValue = pet.microchip?.trim() ?? ''
   const coverColor = getPetCoverColor(pet)

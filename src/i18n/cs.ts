@@ -60,9 +60,11 @@ export const cs = {
     other: 'Jiný',
   },
   healthStatus: {
-    excellent: 'Výborné zdraví',
+    excellent: 'Výborný stav',
     good: 'Dobrý stav',
     attention: 'Vyžaduje pozornost',
+    vet_check: 'Doporučena veterinární kontrola',
+    urgent: 'Naléhavé',
   },
   gender: {
     female: 'Fena',

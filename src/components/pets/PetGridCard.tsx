@@ -26,7 +26,9 @@ export function PetGridCard({ pet }: PetGridCardProps) {
         ? 'primary'
         : pet.healthStatus === 'attention'
           ? 'warning'
-          : 'default'
+          : pet.healthStatus === 'vet_check' || pet.healthStatus === 'urgent'
+            ? 'danger'
+            : 'default'
 
   return (
     <Card

@@ -9,7 +9,7 @@ interface ModalProps {
   subtitle?: string
   children: ReactNode
   className?: string
-  maxWidth?: 'sm' | 'md' | 'lg'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl'
   /** When false, clicking the dimmed backdrop does not close the modal. */
   closeOnBackdrop?: boolean
 }
@@ -18,6 +18,7 @@ const maxSizes = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-xl',
+  xl: 'max-w-3xl',
 }
 
 export function Modal({

@@ -991,9 +991,19 @@ export const travelDestinations: TravelDestination[] = [
 export { petTypeLabel } from '../lib/petTypes'
 
 export const healthStatusLabel: Record<string, string> = {
-  excellent: 'Výborné zdraví',
+  excellent: 'Výborný stav',
   good: 'Dobrý stav',
   attention: 'Vyžaduje pozornost',
+  vet_check: 'Doporučena veterinární kontrola',
+  urgent: 'Naléhavé',
+}
+
+export const healthStatusEmoji: Record<string, string> = {
+  excellent: '🟢',
+  good: '🟢',
+  attention: '🟡',
+  vet_check: '🟠',
+  urgent: '🔴',
 }
 
 export const recordStatusLabel: Record<string, string> = {

@@ -632,6 +632,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       vet: 'Návštěva veterináře',
       medication: 'Léky',
       examination: 'Vyšetření',
+      assessment: 'Zdravotní přehled',
     }
 
     const record: HealthRecord = {

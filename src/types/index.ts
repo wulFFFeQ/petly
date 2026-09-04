@@ -1,7 +1,12 @@
 import type { PetType } from '../lib/petTypes'
 
 export type { PetType } from '../lib/petTypes'
-export type HealthStatus = 'excellent' | 'good' | 'attention'
+export type HealthStatus =
+  | 'excellent'
+  | 'good'
+  | 'attention'
+  | 'vet_check'
+  | 'urgent'
 
 /** Top-level calendar categories (modal: category → type). */
 export type CalendarEventCategory =
@@ -56,7 +61,12 @@ export type EventType =
   | 'custom'
   | 'feeding'
 
-export type HealthRecordType = 'vaccination' | 'vet' | 'medication' | 'examination'
+export type HealthRecordType =
+  | 'vaccination'
+  | 'vet'
+  | 'medication'
+  | 'examination'
+  | 'assessment'
 export type ModalType = 'addPet' | 'addHealthRecord' | 'bookVet' | 'addActivity' | 'addPhoto' | null
 
 export interface Pet {
@@ -71,6 +81,8 @@ export interface Pet {
   /** Extra months beyond full years (0–11). */
   ageMonths?: number
   healthStatus?: HealthStatus
+  /** Last orientational health assessment (owner-reported, not a diagnosis). */
+  healthAssessment?: HealthAssessmentSnapshot
   dateOfBirth?: string
   gender?: string
   weight?: number
@@ -84,6 +96,17 @@ export interface Pet {
   favoriteToy?: string
   diet?: string
   supplements?: string
+}
+
+export interface HealthAssessmentSnapshot {
+  status: HealthStatus
+  /** ISO date YYYY-MM-DD */
+  assessedAt: string
+  summary: string
+  reasons: string[]
+  recommendations: string[]
+  urgentWarning?: string
+  answers: Record<string, string>
 }
 
 export interface HealthRecord {

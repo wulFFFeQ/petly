@@ -4,6 +4,7 @@ import {
   BellOff,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Clock,
   Download,
   Eye,
@@ -61,6 +62,7 @@ import {
   isMedicationCurrentlyActive,
 } from '../../lib/medicationReminders'
 import { HealthRecordDetailBody } from '../health/HealthRecordDetailBody'
+import { HealthAssessmentModal } from './HealthAssessmentModal'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -69,6 +71,7 @@ import { cn } from '../../lib/utils'
 import {
   EMPTY_PROFILE_LABEL,
   formatHealthStatus,
+  formatHealthStatusHeadline,
   formatOptionalText,
   formatOptionalWeight,
 } from '../../lib/petProfileDisplay'
@@ -140,6 +143,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     description: '',
   })
   const [healthFilter, setHealthFilter] = useState<'all' | HealthRecordType>('all')
+  const [assessmentOpen, setAssessmentOpen] = useState(false)
 
   const petRecords = allRecords.filter((r) => r.petId === pet.id)
   const vaccinations = petRecords.filter((r) => r.type === 'vaccination')
@@ -272,6 +276,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     { key: 'medication', label: 'Léky' },
     { key: 'vet', label: 'Veterinář' },
     { key: 'examination', label: 'Vyšetření' },
+    { key: 'assessment', label: 'Přehledy' },
   ]
 
   const recordTypeMeta = (type: HealthRecordType) => {
@@ -291,6 +296,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
       return {
         icon: FlaskConical,
         className: 'bg-emerald-50 text-emerald-700',
+      }
+    }
+    if (type === 'assessment') {
+      return {
+        icon: ClipboardList,
+        className: 'bg-[#EBF2EE] text-[#2C4A3E]',
       }
     }
     return {
@@ -529,7 +540,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               showLastHeatCard ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
             }`}
           >
-            <Card variant="elevated" padding="md" hoverable onClick={() => onTabChange('health')}>
+            <Card
+              variant="elevated"
+              padding="md"
+              hoverable
+              onClick={() => setAssessmentOpen(true)}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                   Zdravotní stav
@@ -537,10 +553,14 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <ShieldCheck size={16} className="text-[#234B54]" />
               </div>
               <p className="mt-2 text-xl font-bold text-[#191E1B]">
-                {formatHealthStatus(pet.healthStatus)}
+                {pet.healthStatus
+                  ? formatHealthStatusHeadline(pet.healthStatus)
+                  : formatHealthStatus(pet.healthStatus)}
               </p>
               <p className="text-xs text-[#234B54] font-medium mt-1">
-                Klepnutím otevřete zdravotní sekci
+                {pet.healthAssessment
+                  ? `Aktualizováno ${formatIsoDateToCzech(pet.healthAssessment.assessedAt)}`
+                  : 'Klepnutím vyplníte orientační přehled'}
               </p>
             </Card>
 
@@ -1604,6 +1624,13 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
           </div>
         </div>
       )}
+
+      <HealthAssessmentModal
+        open={assessmentOpen}
+        onClose={() => setAssessmentOpen(false)}
+        pet={pet}
+        startOnResult={Boolean(pet.healthAssessment)}
+      />
     </>
   )
 }
