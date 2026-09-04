@@ -6,6 +6,24 @@ export function parseCzechDate(dateStr: string): number {
   return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])).getTime()
 }
 
+/** Convert HTML date input value (YYYY-MM-DD) to Czech display format. */
+export function formatIsoDateToCzech(isoDate: string): string {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return isoDate
+  const day = Number(match[3])
+  const month = Number(match[2])
+  const year = Number(match[1])
+  return `${day}. ${month}. ${year}`
+}
+
+export function todayIsoDate(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export function healthRecordToTimelineEvent(record: HealthRecord): TimelineEvent {
   const source =
     record.type === 'vaccination'

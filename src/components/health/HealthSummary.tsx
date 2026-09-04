@@ -7,7 +7,6 @@ import {
   Stethoscope,
   Syringe,
 } from 'lucide-react'
-import { healthRecords } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -259,7 +258,7 @@ export function UpcomingHealthEvents() {
 }
 
 export function HealthRecordsList() {
-  const { setActiveModal } = useApp()
+  const { setActiveModal, healthRecords, pets } = useApp()
 
   return (
     <Card variant="elevated" padding="none" className="overflow-hidden">
@@ -286,7 +285,9 @@ export function HealthRecordsList() {
       </div>
 
       <ul className="divide-y divide-[#F0EDE6]/80 px-3 py-2 sm:px-4">
-        {healthRecords.slice(0, 5).map((record) => (
+        {healthRecords.slice(0, 5).map((record) => {
+          const petName = pets.find((p) => p.id === record.petId)?.name ?? record.petId
+          return (
           <li
             key={record.id}
             className="flex items-center justify-between gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-[#FAF8F5] sm:px-3"
@@ -295,7 +296,7 @@ export function HealthRecordsList() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
                 <Badge variant="outline" size="sm">
-                  {record.petId.toUpperCase()}
+                  {petName}
                 </Badge>
               </div>
               <p className="mt-0.5 truncate text-xs font-medium text-[#5A6660]">
@@ -306,7 +307,8 @@ export function HealthRecordsList() {
               {record.date}
             </span>
           </li>
-        ))}
+          )
+        })}
       </ul>
     </Card>
   )

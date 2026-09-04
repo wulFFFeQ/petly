@@ -5,8 +5,9 @@ import {
   getGenderOptions,
   normalizeGenderForType,
 } from '../../lib/petTypes'
+import { todayIsoDate } from '../../lib/petProfileUtils'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
-import type { NewPetForm } from '../../types'
+import type { HealthRecordType, NewPetForm } from '../../types'
 import { Button } from '../ui/Button'
 import { BreedSelect } from '../ui/BreedSelect'
 import { Input, Select, Textarea } from '../ui/Input'
@@ -29,6 +30,7 @@ export function Modals() {
     addPet,
     addCalendarEvent,
     addPetPhotos,
+    addHealthRecord,
     showToast,
     pets,
     modalPetId,
@@ -43,11 +45,11 @@ export function Modals() {
   const [petForm, setPetForm] = useState<NewPetForm>(getDefaultPetForm())
 
   const [healthForm, setHealthForm] = useState({
-    type: 'vaccination',
+    type: 'vaccination' as HealthRecordType,
     title: '',
-    petName: 'Luna',
-    date: '2026-09-24',
-    doctor: 'MUDr. Martin Novák',
+    petId: '',
+    date: todayIsoDate(),
+    doctor: '',
   })
 
   const [vetForm, setVetForm] = useState({
@@ -64,21 +66,35 @@ export function Modals() {
     setPetForm(getDefaultPetForm())
   }
 
+  const routePetId = location.pathname.match(/^\/pets\/([^/]+)/)?.[1]
+
+  useEffect(() => {
+    if (activeModal !== 'addHealthRecord') return
+    const preferredId = modalPetId || routePetId || pets[0]?.id || ''
+    const pet = pets.find((item) => item.id === preferredId) ?? pets[0]
+    setHealthForm((prev) => ({
+      ...prev,
+      petId: pet?.id ?? '',
+      date: prev.date || todayIsoDate(),
+    }))
+  }, [activeModal, modalPetId, routePetId, pets])
+
   const handleAddHealth = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!healthForm.title) return
-    showToast(
-      'Zdravotní záznam uložen',
-      `${healthForm.title} přidán pro ${healthForm.petName}`,
-      'gold',
-    )
-    setActiveModal(null)
+    if (!healthForm.title.trim() || !healthForm.petId || !healthForm.date) return
+    addHealthRecord({
+      petId: healthForm.petId,
+      type: healthForm.type,
+      title: healthForm.title,
+      date: healthForm.date,
+      doctor: healthForm.doctor,
+    })
     setHealthForm({
       type: 'vaccination',
       title: '',
-      petName: 'Luna',
-      date: '2026-09-24',
-      doctor: 'MUDr. Martin Novák',
+      petId: healthForm.petId,
+      date: todayIsoDate(),
+      doctor: '',
     })
   }
 
@@ -97,7 +113,6 @@ export function Modals() {
     setVetForm({ petName: 'Luna', date: '2026-09-10', time: '14:30', notes: '' })
   }
 
-  const routePetId = location.pathname.match(/^\/pets\/([^/]+)/)?.[1]
   const photoPetId = modalPetId || selectedPhotoPetId || routePetId || pets[0]?.id || ''
 
   useEffect(() => {
@@ -153,7 +168,8 @@ export function Modals() {
     setActiveModal(null)
   }
 
-  const petOptions = pets.map((p) => ({ value: p.name, label: p.name }))
+  const petOptions = pets.map((p) => ({ value: p.id, label: p.name }))
+  const petNameOptions = pets.map((p) => ({ value: p.name, label: p.name }))
 
   return (
     <>
@@ -274,21 +290,24 @@ export function Modals() {
             <Select
               id="health-pet"
               label="Vybrat mazlíčka"
-              value={healthForm.petName}
+              value={healthForm.petId}
               onChange={(e) =>
-                setHealthForm({ ...healthForm, petName: e.target.value })
+                setHealthForm({ ...healthForm, petId: e.target.value })
               }
-              options={petOptions.length ? petOptions : [{ value: 'Luna', label: 'Luna' }]}
+              options={petOptions.length ? petOptions : [{ value: '', label: 'Žádný mazlíček' }]}
             />
             <Select
               id="health-type"
               label="Kategorie záznamu"
               value={healthForm.type}
               onChange={(e) =>
-                setHealthForm({ ...healthForm, type: e.target.value })
+                setHealthForm({
+                  ...healthForm,
+                  type: e.target.value as HealthRecordType,
+                })
               }
               options={[
-                { value: 'vaccination', label: 'Posilovací očkování' },
+                { value: 'vaccination', label: 'Očkování' },
                 { value: 'vet', label: 'Klinické vyšetření' },
                 { value: 'medication', label: 'Předepsaný lék' },
               ]}
@@ -320,6 +339,7 @@ export function Modals() {
             <Input
               id="health-doc"
               label="Ošetřující veterinář"
+              placeholder="např. MUDr. Martin Novák"
               value={healthForm.doctor}
               onChange={(e) =>
                 setHealthForm({ ...healthForm, doctor: e.target.value })
@@ -356,7 +376,7 @@ export function Modals() {
             label="Mazlíček"
             value={vetForm.petName}
             onChange={(e) => setVetForm({ ...vetForm, petName: e.target.value })}
-            options={petOptions.length ? petOptions : [{ value: 'Luna', label: 'Luna' }]}
+            options={petNameOptions.length ? petNameOptions : [{ value: 'Luna', label: 'Luna' }]}
           />
 
           <div className="grid grid-cols-2 gap-3">

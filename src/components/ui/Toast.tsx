@@ -40,7 +40,7 @@ export function ToastContainer() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold tracking-tight">{toast.title}</p>
+            <p className="text-sm font-semibold tracking-normal">{toast.title}</p>
             {toast.description && (
               <p className="mt-0.5 text-xs text-[#7D8B82] leading-relaxed">
                 {toast.description}

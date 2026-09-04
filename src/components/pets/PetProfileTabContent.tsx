@@ -33,7 +33,6 @@ import {
   YAxis,
 } from 'recharts'
 import {
-  healthRecords as initialHealthRecords,
   timelineEvents as staticTimelineEvents,
   weightMeasurements as initialWeightMeasurements,
   petDocuments as initialPetDocuments,
@@ -75,14 +74,15 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     setActiveModal,
     showToast,
     photos: allPhotos,
+    healthRecords: allRecords,
     addPetPhotos,
     updatePetPhoto,
     deletePetPhoto,
+    updateHealthRecord,
   } = useApp()
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
   const [galleryUploading, setGalleryUploading] = useState(false)
 
-  const [allRecords, setAllRecords] = useState<HealthRecord[]>(initialHealthRecords)
   const [weightData, setWeightData] = useState<WeightMeasurement[]>(() =>
     initialWeightMeasurements.filter((w) => w.petId === pet.id),
   )
@@ -157,19 +157,15 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   }
 
   const toggleMedicationReminder = (recordId: string) => {
-    setAllRecords((prev) =>
-      prev.map((r) =>
-        r.id === recordId ? { ...r, reminderEnabled: !r.reminderEnabled } : r,
-      ),
-    )
     const record = allRecords.find((r) => r.id === recordId)
-    if (record) {
-      showToast(
-        !record.reminderEnabled ? 'Připomínka zapnuta' : 'Připomínka vypnuta',
-        `${record.subtitle} · ${record.scheduleTime || record.date}`,
-        'gold',
-      )
-    }
+    if (!record) return
+    const nextEnabled = !record.reminderEnabled
+    updateHealthRecord(recordId, { reminderEnabled: nextEnabled })
+    showToast(
+      nextEnabled ? 'Připomínka zapnuta' : 'Připomínka vypnuta',
+      `${record.subtitle} · ${record.scheduleTime || record.date}`,
+      'gold',
+    )
   }
 
   const handleAddWeight = () => {
@@ -501,7 +497,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   Klepnutím otevřete detail · očkování, léky a návštěvy propojené s časovou osou
                 </p>
               </div>
-              <Button size="sm" variant="primary" onClick={() => setActiveModal('addHealthRecord')}>
+              <Button size="sm" variant="primary" onClick={() => setActiveModal('addHealthRecord', pet.id)}>
                 <Plus size={15} />
                 <span>Přidat záznam</span>
               </Button>

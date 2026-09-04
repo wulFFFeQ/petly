@@ -2,15 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   calendarEvents as initialCalendarEvents,
   communityPosts as initialPosts,
+  healthRecords as initialHealthRecords,
   myPets as initialPets,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
+import { formatIsoDateToCzech } from '../lib/petProfileUtils'
 import type {
   CalendarEvent,
   CommunityPost,
+  HealthRecord,
+  HealthRecordType,
   ModalType,
   NewPetForm,
   Pet,
@@ -22,6 +26,7 @@ export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'other' | 'nearby' | 'popul
 
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
+const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
 
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') return initialPets
@@ -52,9 +57,31 @@ function loadPhotos(): PetPhoto[] {
   }
 }
 
+function loadHealthRecords(): HealthRecord[] {
+  if (typeof window === 'undefined') return initialHealthRecords
+  try {
+    const raw = window.localStorage.getItem(HEALTH_STORAGE_KEY)
+    if (!raw) return initialHealthRecords
+    const parsed = JSON.parse(raw) as HealthRecord[]
+    if (!Array.isArray(parsed)) return initialHealthRecords
+    return parsed
+  } catch {
+    return initialHealthRecords
+  }
+}
+
+export type NewHealthRecordInput = {
+  petId: string
+  type: HealthRecordType
+  title: string
+  date: string
+  doctor?: string
+}
+
 interface AppContextValue {
   pets: Pet[]
   photos: PetPhoto[]
+  healthRecords: HealthRecord[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
   activeModal: ModalType
@@ -73,6 +100,8 @@ interface AppContextValue {
   addPetPhotos: (petId: string, urls: string[]) => void
   updatePetPhoto: (photoId: string, updates: Partial<Pick<PetPhoto, 'caption'>>) => void
   deletePetPhoto: (photoId: string) => void
+  addHealthRecord: (input: NewHealthRecordInput) => void
+  updateHealthRecord: (recordId: string, updates: Partial<HealthRecord>) => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -85,6 +114,7 @@ const AppContext = createContext<AppContextValue | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [pets, setPets] = useState<Pet[]>(loadPets)
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
@@ -124,6 +154,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Ignore quota errors — photos remain available in the current session.
     }
   }, [photos])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(healthRecords))
+    } catch {
+      // Ignore quota errors — records remain available in the current session.
+    }
+  }, [healthRecords])
 
   const setActiveModal = (modal: ModalType, petId?: string) => {
     setActiveModalState(modal)
@@ -241,6 +279,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts((prev) => prev.filter((post) => post.sourcePhotoId !== photoId))
   }
 
+  const addHealthRecord = (input: NewHealthRecordInput) => {
+    const pet = pets.find((item) => item.id === input.petId)
+    if (!pet || !input.title.trim() || !input.date) return
+
+    const czechDate = formatIsoDateToCzech(input.date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const recordDate = new Date(`${input.date}T12:00:00`)
+    const isPastOrToday = recordDate.getTime() <= today.getTime() + 12 * 60 * 60 * 1000
+
+    const typeTitle: Record<HealthRecordType, string> = {
+      vaccination: 'Očkování',
+      vet: 'Návštěva veterináře',
+      medication: 'Léky',
+    }
+
+    const record: HealthRecord = {
+      id: `hr_${Date.now()}`,
+      petId: input.petId,
+      type: input.type,
+      title: typeTitle[input.type],
+      subtitle: input.title.trim(),
+      date: czechDate,
+      doctor: input.doctor?.trim() || undefined,
+      status:
+        input.type === 'medication'
+          ? 'active'
+          : isPastOrToday
+            ? 'completed'
+            : 'scheduled',
+      vaccineName: input.type === 'vaccination' ? input.title.trim() : undefined,
+      reminderEnabled: input.type === 'medication' ? true : undefined,
+    }
+
+    setHealthRecords((prev) => [record, ...prev])
+    setActiveModal(null)
+    showToast(
+      'Zdravotní záznam uložen',
+      `${record.subtitle} přidán pro ${pet.name}`,
+      'gold',
+    )
+  }
+
+  const updateHealthRecord = (recordId: string, updates: Partial<HealthRecord>) => {
+    setHealthRecords((prev) =>
+      prev.map((record) => (record.id === recordId ? { ...record, ...updates } : record)),
+    )
+  }
+
   const toggleLike = (postId: string) => {
     setPosts((prev) =>
       prev.map((post) =>
@@ -297,6 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         pets,
         photos,
+        healthRecords,
         posts,
         calendarEvents,
         activeModal,
@@ -315,6 +403,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addPetPhotos,
         updatePetPhoto,
         deletePetPhoto,
+        addHealthRecord,
+        updateHealthRecord,
         toggleLike,
         addComment,
         addCalendarEvent,

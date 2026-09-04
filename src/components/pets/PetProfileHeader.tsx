@@ -124,7 +124,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setActiveModal('addHealthRecord')}
+          onClick={() => setActiveModal('addHealthRecord', pet.id)}
           className="hidden sm:inline-flex"
         >
           <Stethoscope size={14} />
