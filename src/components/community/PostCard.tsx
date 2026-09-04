@@ -1,29 +1,73 @@
 import {
+  Flag,
   Heart,
+  Link2,
   MessageCircle,
   Share2,
   Send,
   MoreHorizontal,
+  Trash2,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import { copyTextToClipboard } from '../../lib/clipboard'
 import type { CommunityPost } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
+const CURRENT_USER_NAME = 'Tereza V.'
+
 interface PostCardProps {
   post: CommunityPost
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const { toggleLike, addComment, showToast } = useApp()
+  const { toggleLike, addComment, deletePost, showToast } = useApp()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const isOwnPost = post.author === CURRENT_USER_NAME
 
-  const handleShare = () => {
-    showToast('Odkaz zkopírován do schránky', 'Příspěvek z komunity je připraven ke sdílení.', 'gold')
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [menuOpen])
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/community?post=${encodeURIComponent(post.id)}`
+    const copied = await copyTextToClipboard(shareUrl)
+    if (copied) {
+      showToast(
+        'Odkaz zkopírován do schránky',
+        'Příspěvek z komunity je připraven ke sdílení.',
+        'gold',
+      )
+    } else {
+      showToast(
+        'Kopírování se nepodařilo',
+        'Zkuste odkaz zkopírovat ručně z adresního řádku.',
+        'info',
+      )
+    }
   }
 
   const handleCommentSubmit = (e: React.FormEvent) => {
@@ -64,12 +108,86 @@ export function PostCard({ post }: PostCardProps) {
           </div>
         </div>
 
-        <button
-          className="shrink-0 text-[#C5CDC8] hover:text-[#5A6660] p-1 rounded-lg transition-colors"
-          aria-label="Možnosti"
-        >
-          <MoreHorizontal size={16} />
-        </button>
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Možnosti příspěvku"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className={cn(
+              'rounded-lg p-1.5 transition-colors cursor-pointer',
+              menuOpen
+                ? 'bg-[#EBF2EE] text-[#2C4A3E]'
+                : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#191E1B]',
+            )}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white py-1 shadow-[0_12px_32px_rgba(25,30,27,0.1)]"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  void handleShare()
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
+              >
+                <Link2 size={14} className="shrink-0 text-[#2C4A3E]" />
+                Kopírovat odkaz
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setShowComments(true)
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
+              >
+                <MessageCircle size={14} className="shrink-0 text-[#2C4A3E]" />
+                Komentáře
+              </button>
+              {isOwnPost ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    deletePost(post.id)
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 cursor-pointer"
+                >
+                  <Trash2 size={14} className="shrink-0" />
+                  Smazat příspěvek
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    showToast(
+                      'Příspěvek nahlášen',
+                      'Děkujeme. Podíváme se na to co nejdřív.',
+                      'info',
+                    )
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
+                >
+                  <Flag size={14} className="shrink-0 text-[#2C4A3E]" />
+                  Nahlásit
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Post Text */}

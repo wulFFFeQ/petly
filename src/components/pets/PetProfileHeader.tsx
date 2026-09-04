@@ -18,6 +18,7 @@ import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
+import { copyTextToClipboard } from '../../lib/clipboard'
 import {
   EMPTY_PROFILE_LABEL,
   formatHealthStatus,
@@ -63,16 +64,24 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const emergencyPerson = importantContacts.find((c) => c.type === 'emergency_person')
   const shareLink = `https://lovedandknown.app/pets/${pet.id}?share=verified`
 
-  const handleCopyChip = () => {
+  const handleCopyChip = async () => {
     if (!hasMicrochip(microchipValue)) return
-    navigator.clipboard?.writeText(microchipValue)
+    const copied = await copyTextToClipboard(microchipValue)
+    if (!copied) {
+      showToast('Kopírování se nepodařilo', 'Zkuste číslo zkopírovat ručně.', 'info')
+      return
+    }
     setCopied(true)
     showToast('Mikročip zkopírován do schránky', microchipValue, 'info')
     setTimeout(() => setCopied(false), 2500)
   }
 
-  const handleCopyShareLink = () => {
-    navigator.clipboard?.writeText(shareLink)
+  const handleCopyShareLink = async () => {
+    const copied = await copyTextToClipboard(shareLink)
+    if (!copied) {
+      showToast('Kopírování se nepodařilo', 'Zkuste odkaz zkopírovat ručně.', 'info')
+      return
+    }
     setLinkCopied(true)
     showToast('Odkaz zkopírován', 'Profil mazlíčka je připraven ke sdílení.', 'gold')
     setTimeout(() => setLinkCopied(false), 2500)

@@ -178,6 +178,7 @@ interface AppContextValue {
   markNotificationsRead: () => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
+  deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   showToast: (title: string, description?: string, type?: ToastMessage['type']) => void
   removeToast: (id: string) => void
@@ -740,6 +741,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Komentář publikován', undefined, 'success')
   }
 
+  const deletePost = (postId: string) => {
+    setPosts((prev) => prev.filter((post) => post.id !== postId))
+    showToast('Příspěvek smazán', 'Příspěvek byl odstraněn z komunitního feedu.', 'info')
+  }
+
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {
     setCalendarEvents((prev) => [
       ...prev,
@@ -792,6 +798,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         markNotificationsRead,
         toggleLike,
         addComment,
+        deletePost,
         addCalendarEvent,
         showToast,
         removeToast,

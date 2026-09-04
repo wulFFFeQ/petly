@@ -7,7 +7,7 @@ import {
 } from '../../lib/petTypes'
 import { todayIsoDate } from '../../lib/petProfileUtils'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
-import type { HealthRecordType, NewPetForm } from '../../types'
+import type { EventType, HealthRecordType, NewPetForm } from '../../types'
 import { Button } from '../ui/Button'
 import { BreedSelect } from '../ui/BreedSelect'
 import { Input, Select, Textarea } from '../ui/Input'
@@ -20,6 +20,42 @@ function getDefaultPetForm(): NewPetForm {
     name: '',
     type: 'dog',
     breed: '',
+  }
+}
+
+const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
+  { value: 'vet', label: 'Veterinární klinika' },
+  { value: 'vaccination', label: 'Očkování' },
+  { value: 'medication', label: 'Léky / doplňky' },
+  { value: 'grooming', label: 'Péče o srst / grooming' },
+  { value: 'feeding', label: 'Krmení / dieta' },
+]
+
+const EVENT_DEFAULT_TITLES: Record<EventType, string> = {
+  vet: 'Návštěva veterinární kliniky',
+  vaccination: 'Očkování',
+  medication: 'Podání léku',
+  grooming: 'Péče o srst',
+  feeding: 'Krmení',
+}
+
+const EVENT_DEFAULT_LOCATIONS: Record<EventType, string> = {
+  vet: 'PetCare Central Praha',
+  vaccination: 'PetCare Central Praha',
+  medication: 'Doma',
+  grooming: 'Grooming studio',
+  feeding: 'Doma',
+}
+
+function getDefaultEventForm(petName = 'Luna') {
+  return {
+    type: 'vet' as EventType,
+    title: EVENT_DEFAULT_TITLES.vet,
+    petName,
+    date: todayIsoDate(),
+    time: '14:30',
+    location: EVENT_DEFAULT_LOCATIONS.vet,
+    notes: '',
   }
 }
 
@@ -52,12 +88,7 @@ export function Modals() {
     doctor: '',
   })
 
-  const [vetForm, setVetForm] = useState({
-    petName: 'Luna',
-    date: '2026-09-10',
-    time: '14:30',
-    notes: 'Rutinní zdravotní screening a krevní test',
-  })
+  const [eventForm, setEventForm] = useState(() => getDefaultEventForm())
 
   const handleAddPet = (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,6 +110,15 @@ export function Modals() {
     }))
   }, [activeModal, modalPetId, routePetId, pets])
 
+  useEffect(() => {
+    if (activeModal !== 'bookVet') return
+    const preferredId = modalPetId || routePetId || pets[0]?.id || ''
+    const pet = pets.find((item) => item.id === preferredId) ?? pets[0]
+    setEventForm(getDefaultEventForm(pet?.name ?? pets[0]?.name ?? 'Luna'))
+    // Reset only when the modal opens, not on every pets update while editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModal])
+
   const handleAddHealth = (e: React.FormEvent) => {
     e.preventDefault()
     if (!healthForm.title.trim() || !healthForm.petId || !healthForm.date) return
@@ -98,19 +138,20 @@ export function Modals() {
     })
   }
 
-  const handleBookVet = (e: React.FormEvent) => {
+  const handleAddCalendarEvent = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!vetForm.date) return
+    if (!eventForm.date || !eventForm.petName) return
+    const title = eventForm.title.trim() || EVENT_DEFAULT_TITLES[eventForm.type]
     addCalendarEvent({
-      title: 'Návštěva veterinární kliniky',
-      petName: vetForm.petName,
-      type: 'vet',
-      date: vetForm.date,
-      time: vetForm.time,
-      location: 'PetCare Central Praha',
-      notes: vetForm.notes,
+      title,
+      petName: eventForm.petName,
+      type: eventForm.type,
+      date: eventForm.date,
+      time: eventForm.time || undefined,
+      location: eventForm.location.trim() || undefined,
+      notes: eventForm.notes.trim() || undefined,
     })
-    setVetForm({ petName: 'Luna', date: '2026-09-10', time: '14:30', notes: '' })
+    setEventForm(getDefaultEventForm(eventForm.petName))
   }
 
   const photoPetId = modalPetId || selectedPhotoPetId || routePetId || pets[0]?.id || ''
@@ -364,46 +405,79 @@ export function Modals() {
         </form>
       </Modal>
 
-      {/* 3. Book Vet Visit Modal */}
+      {/* 3. Add calendar event (any type) */}
       <Modal
         open={activeModal === 'bookVet'}
         onClose={() => setActiveModal(null)}
-        title="Rezervace veterinární konzultace"
-        subtitle="Rezervujte návštěvu v klinice nebo vzdálenou veterinární konzultaci."
+        title="Přidat událost do kalendáře"
+        subtitle="Zvolte typ termínu — veterinář, očkování, léky, grooming nebo krmení."
       >
-        <form onSubmit={handleBookVet} className="flex flex-col gap-4">
+        <form onSubmit={handleAddCalendarEvent} className="flex flex-col gap-4">
           <Select
-            id="vet-pet"
+            id="event-type"
+            label="Typ události"
+            value={eventForm.type}
+            onChange={(e) => {
+              const type = e.target.value as EventType
+              setEventForm((prev) => ({
+                ...prev,
+                type,
+                title: EVENT_DEFAULT_TITLES[type],
+                location: EVENT_DEFAULT_LOCATIONS[type],
+              }))
+            }}
+            options={EVENT_TYPE_OPTIONS}
+          />
+
+          <Select
+            id="event-pet"
             label="Mazlíček"
-            value={vetForm.petName}
-            onChange={(e) => setVetForm({ ...vetForm, petName: e.target.value })}
+            value={eventForm.petName}
+            onChange={(e) => setEventForm({ ...eventForm, petName: e.target.value })}
             options={petNameOptions.length ? petNameOptions : [{ value: 'Luna', label: 'Luna' }]}
+          />
+
+          <Input
+            id="event-title"
+            label="Název události"
+            value={eventForm.title}
+            onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+            placeholder="např. Kontrola zubů, večerní lék…"
+            required
           />
 
           <div className="grid grid-cols-2 gap-3">
             <Input
-              id="vet-date"
-              label="Datum schůzky"
+              id="event-date"
+              label="Datum"
               type="date"
-              value={vetForm.date}
-              onChange={(e) => setVetForm({ ...vetForm, date: e.target.value })}
+              value={eventForm.date}
+              onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
               required
             />
             <Input
-              id="vet-time"
-              label="Preferovaný čas"
+              id="event-time"
+              label="Čas"
               type="time"
-              value={vetForm.time}
-              onChange={(e) => setVetForm({ ...vetForm, time: e.target.value })}
+              value={eventForm.time}
+              onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
             />
           </div>
 
+          <Input
+            id="event-location"
+            label="Místo"
+            value={eventForm.location}
+            onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+            placeholder="např. Doma, klinika, park…"
+          />
+
           <Textarea
-            id="vet-notes"
-            label="Důvod konzultace / příznaky"
-            placeholder="např. roční krevní test, odstranění zubního kamene, kontrola alergie na kůži..."
-            value={vetForm.notes}
-            onChange={(e) => setVetForm({ ...vetForm, notes: e.target.value })}
+            id="event-notes"
+            label="Poznámky"
+            placeholder="např. dávkování, důvod návštěvy, co vzít s sebou…"
+            value={eventForm.notes}
+            onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
           />
 
           <div className="flex justify-end gap-2.5 pt-4 border-t border-[#F0EDE6]">
@@ -416,7 +490,7 @@ export function Modals() {
               Zrušit
             </Button>
             <Button type="submit" variant="gold" size="sm">
-              Potvrdit a přidat do kalendáře
+              Přidat do kalendáře
             </Button>
           </div>
         </form>
