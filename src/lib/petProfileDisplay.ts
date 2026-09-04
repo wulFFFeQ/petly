@@ -38,12 +38,9 @@ export function formatOptionalAge(
   if ((years ?? 0) <= 0 && months <= 0) return EMPTY_PROFILE_LABEL
 
   const y = years ?? 0
-  const totalMonths = y * 12 + months
-  const stage = totalMonths < 12 ? 'Mláďě' : y >= 7 ? 'Starší' : 'Dospělý'
-
-  if (y <= 0) return `${czechMonthsLabel(months)} (${stage})`
-  if (months <= 0) return `${czechYearsLabel(y)} (${stage})`
-  return `${czechYearsLabel(y)} ${czechMonthsLabel(months)} (${stage})`
+  if (y <= 0) return czechMonthsLabel(months)
+  if (months <= 0) return czechYearsLabel(y)
+  return `${czechYearsLabel(y)} ${czechMonthsLabel(months)}`
 }
 
 export function formatNeuteredStatus(

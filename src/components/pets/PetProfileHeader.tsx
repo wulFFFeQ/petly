@@ -345,22 +345,22 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 />
               </div>
               <div className="pb-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
+                <div className="flex flex-row flex-wrap items-center gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-bold leading-none tracking-tight text-[#191E1B]">
                     {pet.name}
                   </h1>
                   {pet.healthStatus && (
-                    <Badge variant={statusVariant} size="sm" withDot pulseDot>
+                    <Badge variant={statusVariant} size="sm" withDot pulseDot className="shrink-0">
                       {formatHealthStatus(pet.healthStatus)}
                     </Badge>
                   )}
                   {pet.breedingProfile && (
-                    <Badge variant="primary" size="sm">
+                    <Badge variant="primary" size="sm" className="shrink-0">
                       Chovný profil
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm font-medium text-[#4A564F] mt-0.5">
+                <p className="text-sm font-medium text-[#4A564F] mt-1.5">
                   {pet.breed} · {petTypeLabel[pet.type]}
                 </p>
               </div>
@@ -404,7 +404,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
             <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Věk a stádium
+                Věk
               </p>
               <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
                 {formatOptionalAge(pet.age, pet.ageMonths)}

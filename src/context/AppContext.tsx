@@ -23,6 +23,7 @@ import type {
   AppNotification,
   CalendarEvent,
   CommunityPost,
+  EventType,
   HealthRecord,
   HealthRecordType,
   ModalType,
@@ -149,7 +150,13 @@ interface AppContextValue {
   calendarFocusDate: string | null
   clearCalendarFocusDate: () => void
   editingCalendarEventId: string | null
+  /** When opening bookVet for a new event, optionally preselect this event type. */
+  calendarEventPrefillType: EventType | null
   openEditCalendarEvent: (eventId: string) => void
+  openNewCalendarEvent: (options?: { petId?: string; type?: EventType }) => void
+  /** When opening addHealthRecord, optionally preselect this record type. */
+  healthRecordPrefillType: HealthRecordType | null
+  openNewHealthRecord: (options?: { petId?: string; type?: HealthRecordType }) => void
   setActiveModal: (modal: ModalType, petId?: string) => void
   setDiscoverSearch: (query: string) => void
   setDiscoverFilter: (filter: DiscoverFilter) => void
@@ -242,6 +249,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)
   const [editingCalendarEventId, setEditingCalendarEventId] = useState<string | null>(null)
+  const [calendarEventPrefillType, setCalendarEventPrefillType] = useState<EventType | null>(
+    null,
+  )
+  const [healthRecordPrefillType, setHealthRecordPrefillType] = useState<HealthRecordType | null>(
+    null,
+  )
 
   const clearCalendarFocusDate = useCallback(() => {
     setCalendarFocusDate(null)
@@ -318,14 +331,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Creating a new event via setActiveModal clears edit mode.
       setEditingCalendarEventId(null)
     }
+    setCalendarEventPrefillType(null)
+    setHealthRecordPrefillType(null)
     setActiveModalState(modal)
     setModalPetId(modal ? petId ?? null : null)
   }
 
   const openEditCalendarEvent = (eventId: string) => {
     setEditingCalendarEventId(eventId)
+    setCalendarEventPrefillType(null)
+    setHealthRecordPrefillType(null)
     setActiveModalState('bookVet')
     setModalPetId(null)
+  }
+
+  const openNewCalendarEvent = (options?: { petId?: string; type?: EventType }) => {
+    setEditingCalendarEventId(null)
+    setCalendarEventPrefillType(options?.type ?? null)
+    setHealthRecordPrefillType(null)
+    setActiveModalState('bookVet')
+    setModalPetId(options?.petId ?? null)
+  }
+
+  const openNewHealthRecord = (options?: { petId?: string; type?: HealthRecordType }) => {
+    setEditingCalendarEventId(null)
+    setCalendarEventPrefillType(null)
+    setHealthRecordPrefillType(options?.type ?? 'vaccination')
+    setActiveModalState('addHealthRecord')
+    setModalPetId(options?.petId ?? null)
   }
 
   const addPet = (form: NewPetForm) => {
@@ -902,6 +935,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setEditingCalendarEventId(null)
     setActiveModalState(null)
     setModalPetId(null)
+    setCalendarEventPrefillType(null)
     showToast(
       'Událost smazána',
       existing ? `${existing.title} byla odstraněna z kalendáře.` : undefined,
@@ -928,7 +962,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         calendarFocusDate,
         clearCalendarFocusDate,
         editingCalendarEventId,
+        calendarEventPrefillType,
         openEditCalendarEvent,
+        openNewCalendarEvent,
+        healthRecordPrefillType,
+        openNewHealthRecord,
         setActiveModal,
         setDiscoverSearch,
         setDiscoverFilter,

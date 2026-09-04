@@ -88,6 +88,9 @@ interface PetProfileTabContentProps {
 export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfileTabContentProps) {
   const {
     setActiveModal,
+    openNewCalendarEvent,
+    openEditCalendarEvent,
+    openNewHealthRecord,
     showToast,
     photos: allPhotos,
     documents: allDocuments,
@@ -187,7 +190,6 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
   const overviewLastVetVisit =
     pet.lastVetVisit || latestClinicalVisit?.date || undefined
-  const overviewNextVaccination = pet.nextVaccination || nextVaccinationDue || undefined
 
   const showLastHeatCard =
     Boolean(pet.breedingProfile) &&
@@ -521,7 +523,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
         <div className="space-y-6">
           <div
             className={`grid gap-4 sm:grid-cols-2 ${
-              showLastHeatCard ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'
+              showLastHeatCard ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
             }`}
           >
             <Card variant="elevated" padding="md" hoverable onClick={() => onTabChange('health')}>
@@ -556,7 +558,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </p>
             </Card>
 
-            <Card variant="elevated" padding="md" hoverable onClick={() => onTabChange('health')}>
+            <Card
+              variant="elevated"
+              padding="md"
+              hoverable
+              onClick={() => openNewHealthRecord({ petId: pet.id, type: 'vet' })}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                   Poslední návštěva veterináře
@@ -566,20 +573,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               <p className="mt-2 text-xl font-bold text-[#191E1B]">
                 {formatOptionalText(overviewLastVetVisit)}
               </p>
-              <p className="text-xs text-[#7D8B82] font-medium mt-1">Zobrazit klinické záznamy</p>
-            </Card>
-
-            <Card variant="elevated" padding="md" hoverable onClick={() => onTabChange('health')}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Další očkování
-                </span>
-                <Syringe size={16} className="text-[#B8934A]" />
-              </div>
-              <p className="mt-2 text-xl font-bold text-[#234B54]">
-                {formatOptionalText(overviewNextVaccination)}
-              </p>
-              <p className="text-xs text-[#B8934A] font-medium mt-1">Detail vakcíny a veterináře</p>
+              <p className="text-xs text-[#7D8B82] font-medium mt-1">Zapsat návštěvu a údaje</p>
             </Card>
 
             {showLastHeatCard && (
@@ -587,7 +581,13 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 variant="elevated"
                 padding="md"
                 hoverable
-                onClick={() => setActiveModal('bookVet', pet.id)}
+                onClick={() => {
+                  if (lastHeatEvent) {
+                    openEditCalendarEvent(lastHeatEvent.id)
+                    return
+                  }
+                  openNewCalendarEvent({ petId: pet.id, type: 'heat' })
+                }}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">

@@ -43,19 +43,22 @@ function getDefaultPetForm(): NewPetForm {
   }
 }
 
-function getDefaultEventForm(petName = 'Luna') {
+function getDefaultEventForm(petName = 'Luna', type: EventType = 'vet') {
+  const isPregnancy = type === 'pregnancy'
+  const isHeat = type === 'heat'
+  const start = todayIsoDate()
   return {
-    category: 'health' as CalendarEventCategory,
-    type: 'vet' as EventType,
-    title: getDefaultEventTitle('vet'),
+    category: getEventCategory(type),
+    type,
+    title: getDefaultEventTitle(type),
     petName,
-    date: todayIsoDate(),
-    time: '14:30',
-    location: getDefaultEventLocation('vet'),
+    date: start,
+    time: isPregnancy || isHeat ? '' : '14:30',
+    location: getDefaultEventLocation(type),
     notes: '',
     reminderEnabled: false,
-    expectedBirthDate: '',
-    expectedEndDate: '',
+    expectedBirthDate: isPregnancy ? suggestPregnancyDueDate(start) : '',
+    expectedEndDate: isHeat ? suggestHeatEndDate(start) : '',
     actualEndDate: '',
   }
 }
@@ -88,6 +91,8 @@ export function Modals() {
     updateCalendarEvent,
     deleteCalendarEvent,
     editingCalendarEventId,
+    calendarEventPrefillType,
+    healthRecordPrefillType,
     addPetPhotos,
     addHealthRecord,
     showToast,
@@ -127,12 +132,16 @@ export function Modals() {
     if (activeModal !== 'addHealthRecord') return
     const preferredId = modalPetId || routePetId || pets[0]?.id || ''
     const pet = pets.find((item) => item.id === preferredId) ?? pets[0]
-    setHealthForm((prev) => ({
-      ...prev,
+    setHealthForm({
+      type: healthRecordPrefillType ?? 'vaccination',
+      title: '',
       petId: pet?.id ?? '',
-      date: prev.date || todayIsoDate(),
-    }))
-  }, [activeModal, modalPetId, routePetId, pets])
+      date: todayIsoDate(),
+      doctor: '',
+    })
+    // Reset when the modal opens or prefill/pet target changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModal, modalPetId, healthRecordPrefillType])
 
   useEffect(() => {
     if (activeModal !== 'bookVet') return
@@ -145,10 +154,15 @@ export function Modals() {
     }
     const preferredId = modalPetId || routePetId || pets[0]?.id || ''
     const pet = pets.find((item) => item.id === preferredId) ?? pets[0]
-    setEventForm(getDefaultEventForm(pet?.name ?? pets[0]?.name ?? 'Luna'))
-    // Reset only when the modal opens or edit target changes.
+    setEventForm(
+      getDefaultEventForm(
+        pet?.name ?? pets[0]?.name ?? 'Luna',
+        calendarEventPrefillType ?? 'vet',
+      ),
+    )
+    // Reset only when the modal opens or edit/prefill target changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModal, editingCalendarEventId])
+  }, [activeModal, editingCalendarEventId, calendarEventPrefillType])
 
   const isEditingEvent = Boolean(editingCalendarEventId)
 
