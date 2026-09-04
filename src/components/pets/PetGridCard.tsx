@@ -64,9 +64,10 @@ export function PetGridCard({ pet }: PetGridCardProps) {
               </h3>
               <p className="text-xs text-white/90 font-medium drop-shadow-sm">{pet.breed}</p>
             </div>
-            {pet.age != null && pet.age > 0 && (
+            {((pet.age != null && pet.age > 0) ||
+              (pet.ageMonths != null && pet.ageMonths > 0)) && (
               <span className="text-xs font-semibold bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full">
-                {formatAge(pet.age)}
+                {formatAge(pet.age, pet.ageMonths)}
               </span>
             )}
           </div>

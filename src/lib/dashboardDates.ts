@@ -51,11 +51,29 @@ export function formatTodayHeader(): string {
 
 export { getEventTypeLabel } from './calendarEventTypes'
 
-export function formatAge(age?: number): string {
-  if (age == null || age <= 0) return 'věk neuveden'
-  if (age === 1) return '1 rok'
-  if (age >= 2 && age <= 4) return `${age} roky`
-  return `${age} let`
+export function formatAge(age?: number, ageMonths?: number): string {
+  const years = age != null && age >= 0 ? Math.floor(age) : null
+  const months =
+    ageMonths != null && ageMonths > 0 ? Math.min(11, Math.floor(ageMonths)) : 0
+
+  if (years == null && months <= 0) return 'věk neuveden'
+  if ((years ?? 0) <= 0 && months <= 0) return 'věk neuveden'
+
+  const y = years ?? 0
+  const yearLabel =
+    y === 1 ? '1 rok' : y >= 2 && y <= 4 ? `${y} roky` : y > 0 ? `${y} let` : ''
+  const monthLabel =
+    months === 1
+      ? '1 měsíc'
+      : months >= 2 && months <= 4
+        ? `${months} měsíce`
+        : months > 0
+          ? `${months} měsíců`
+          : ''
+
+  if (y <= 0) return monthLabel
+  if (months <= 0) return yearLabel
+  return `${yearLabel} ${monthLabel}`
 }
 
 export function formatWeight(weight: number): string {

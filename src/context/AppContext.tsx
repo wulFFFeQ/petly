@@ -372,8 +372,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (gender) next.gender = gender
           else delete next.gender
         }
-        if ('age' in updates && (updates.age == null || updates.age <= 0)) {
+        if ('age' in updates && (updates.age == null || updates.age < 0)) {
           delete next.age
+        }
+        if ('ageMonths' in updates) {
+          const months = updates.ageMonths
+          if (months == null || months <= 0) delete next.ageMonths
+          else next.ageMonths = Math.min(11, Math.floor(months))
+        }
+        if (
+          (next.age == null || next.age < 0) &&
+          (next.ageMonths == null || next.ageMonths <= 0)
+        ) {
+          delete next.age
+          delete next.ageMonths
         }
         if ('weight' in updates && (updates.weight == null || updates.weight <= 0)) {
           delete next.weight

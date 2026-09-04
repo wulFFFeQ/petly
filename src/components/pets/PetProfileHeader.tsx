@@ -51,28 +51,37 @@ interface PetProfileHeaderProps {
 type DetailsForm = {
   dateOfBirthIso: string
   age: string
+  ageMonths: string
   gender: string
   weight: string
   microchip: string
   neutered: '' | 'yes' | 'no'
 }
 
-function ageYearsFromIso(iso: string, today = APP_TODAY): number | undefined {
+function agePartsFromIso(
+  iso: string,
+  today = APP_TODAY,
+): { years: number; months: number } | undefined {
   const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return undefined
   const birth = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
-  let age = today.getFullYear() - birth.getFullYear()
-  const beforeBirthday =
-    today.getMonth() < birth.getMonth() ||
-    (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
-  if (beforeBirthday) age -= 1
-  return age >= 0 ? age : undefined
+  if (Number.isNaN(birth.getTime()) || birth > today) return { years: 0, months: 0 }
+
+  let years = today.getFullYear() - birth.getFullYear()
+  let months = today.getMonth() - birth.getMonth()
+  if (today.getDate() < birth.getDate()) months -= 1
+  if (months < 0) {
+    years -= 1
+    months += 12
+  }
+  return { years: Math.max(0, years), months: Math.max(0, months) }
 }
 
 function buildDetailsForm(pet: Pet): DetailsForm {
   return {
     dateOfBirthIso: pet.dateOfBirth ? formatCzechDateToIso(pet.dateOfBirth) : '',
-    age: pet.age != null && pet.age > 0 ? String(pet.age) : '',
+    age: pet.age != null && pet.age >= 0 ? String(pet.age) : '',
+    ageMonths: pet.ageMonths != null && pet.ageMonths > 0 ? String(pet.ageMonths) : '',
     gender: pet.gender ?? '',
     weight: pet.weight != null && pet.weight > 0 ? String(pet.weight).replace('.', ',') : '',
     microchip: pet.microchip ?? '',
@@ -122,15 +131,43 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
     const weightRaw = detailsForm.weight.trim().replace(',', '.')
     const weightNum = weightRaw ? Number(weightRaw) : undefined
     let ageNum = detailsForm.age.trim() ? Number(detailsForm.age) : undefined
-    if ((ageNum == null || Number.isNaN(ageNum)) && detailsForm.dateOfBirthIso) {
-      ageNum = ageYearsFromIso(detailsForm.dateOfBirthIso)
+    let ageMonthsNum = detailsForm.ageMonths.trim()
+      ? Number(detailsForm.ageMonths)
+      : undefined
+
+    if (
+      (ageNum == null || Number.isNaN(ageNum)) &&
+      (ageMonthsNum == null || Number.isNaN(ageMonthsNum)) &&
+      detailsForm.dateOfBirthIso
+    ) {
+      const parts = agePartsFromIso(detailsForm.dateOfBirthIso)
+      if (parts) {
+        ageNum = parts.years
+        ageMonthsNum = parts.months
+      }
     }
+
+    if (ageMonthsNum != null && !Number.isNaN(ageMonthsNum)) {
+      ageMonthsNum = Math.min(11, Math.max(0, Math.floor(ageMonthsNum)))
+    }
+
+    const hasAge =
+      (ageNum != null && !Number.isNaN(ageNum) && ageNum >= 0) ||
+      (ageMonthsNum != null && !Number.isNaN(ageMonthsNum) && ageMonthsNum > 0)
 
     updatePet(pet.id, {
       dateOfBirth: detailsForm.dateOfBirthIso
         ? formatIsoDateToCzech(detailsForm.dateOfBirthIso)
         : undefined,
-      age: ageNum != null && !Number.isNaN(ageNum) ? ageNum : undefined,
+      age: hasAge
+        ? ageNum != null && !Number.isNaN(ageNum)
+          ? Math.max(0, Math.floor(ageNum))
+          : 0
+        : undefined,
+      ageMonths:
+        ageMonthsNum != null && !Number.isNaN(ageMonthsNum) && ageMonthsNum > 0
+          ? ageMonthsNum
+          : undefined,
       gender: detailsForm.gender || undefined,
       weight: weightNum != null && !Number.isNaN(weightNum) ? weightNum : undefined,
       microchip: detailsForm.microchip.trim() || undefined,
@@ -343,89 +380,81 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={openDetailsEditor}
-              className="absolute -top-1 right-0 z-10 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2C4A3E] hover:bg-[#EBF2EE] cursor-pointer"
-            >
-              <Pencil size={12} />
-              Upravit
-            </button>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={openDetailsEditor}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  openDetailsEditor()
-                }
-              }}
-              className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 pt-8 sm:gap-x-6 sm:p-5 sm:pt-8 cursor-pointer transition-colors hover:border-[#D1E0D8] hover:bg-[#F7F4EE]"
-              title="Klepnutím upravíte údaje"
-            >
-              <div className="shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Datum narození
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  <Calendar size={13} className="shrink-0 text-[#234B54]" />
-                  {formatOptionalText(pet.dateOfBirth)}
-                </p>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Věk a stádium
-                </p>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openDetailsEditor}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                openDetailsEditor()
+              }
+            }}
+            className="group flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 sm:gap-x-6 sm:p-5 cursor-pointer transition-colors hover:border-[#D1E0D8] hover:bg-[#F7F4EE]"
+            title="Upravit údaje"
+          >
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Datum narození
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                <Calendar size={13} className="shrink-0 text-[#234B54]" />
+                {formatOptionalText(pet.dateOfBirth)}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Věk a stádium
+              </p>
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                {formatOptionalAge(pet.age, pet.ageMonths)}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Pohlaví
+              </p>
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                {formatOptionalText(pet.gender)}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Aktuální hmotnost
+              </p>
+              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                {formatOptionalWeight(pet.weight)}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                ID mikročipu
+              </p>
+              {hasMicrochip(microchipValue) ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleCopyChip()
+                  }}
+                  className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
+                  title="Klikněte pro zkopírování ID mikročipu"
+                >
+                  <span>{microchipValue}</span>
+                  {copied ? (
+                    <Check size={12} className="shrink-0 text-emerald-600" />
+                  ) : (
+                    <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
+                  )}
+                </button>
+              ) : (
                 <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  {formatOptionalAge(pet.age)}
+                  {EMPTY_PROFILE_LABEL}
                 </p>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Pohlaví
-                </p>
-                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  {formatOptionalText(pet.gender)}
-                </p>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Aktuální hmotnost
-                </p>
-                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  {formatOptionalWeight(pet.weight)}
-                </p>
-              </div>
-              <div className="shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  ID mikročipu
-                </p>
-                {hasMicrochip(microchipValue) ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void handleCopyChip()
-                    }}
-                    className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
-                    title="Klikněte pro zkopírování ID mikročipu"
-                  >
-                    <span>{microchipValue}</span>
-                    {copied ? (
-                      <Check size={12} className="shrink-0 text-emerald-600" />
-                    ) : (
-                      <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
-                    )}
-                  </button>
-                ) : (
-                  <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                    {EMPTY_PROFILE_LABEL}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0">
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                   Kastrace
                 </p>
@@ -433,6 +462,12 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                   {formatNeuteredStatus(pet.neutered, pet.gender)}
                 </p>
               </div>
+              <span
+                className="ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E8E4DC] bg-white text-[#7D8B82] transition-colors group-hover:border-[#D1E0D8] group-hover:bg-[#EBF2EE] group-hover:text-[#2C4A3E]"
+                aria-hidden
+              >
+                <Pencil size={15} strokeWidth={1.75} />
+              </span>
             </div>
           </div>
 
@@ -515,7 +550,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         maxWidth="lg"
       >
         <form onSubmit={handleSaveDetails} className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Input
               id="pet-details-dob"
               label="Datum narození"
@@ -523,11 +558,13 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               value={detailsForm.dateOfBirthIso}
               onChange={(e) => {
                 const dateOfBirthIso = e.target.value
-                const computed = dateOfBirthIso ? ageYearsFromIso(dateOfBirthIso) : undefined
+                const parts = dateOfBirthIso ? agePartsFromIso(dateOfBirthIso) : undefined
                 setDetailsForm((prev) => ({
                   ...prev,
                   dateOfBirthIso,
-                  age: computed != null ? String(computed) : prev.age,
+                  age: parts ? String(parts.years) : prev.age,
+                  ageMonths:
+                    parts && parts.months > 0 ? String(parts.months) : parts ? '' : prev.ageMonths,
                 }))
               }}
             />
@@ -541,6 +578,17 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               placeholder="např. 3"
               value={detailsForm.age}
               onChange={(e) => setDetailsForm((prev) => ({ ...prev, age: e.target.value }))}
+            />
+            <Input
+              id="pet-details-age-months"
+              label="Měsíce"
+              type="number"
+              min={0}
+              max={11}
+              step={1}
+              placeholder="0–11"
+              value={detailsForm.ageMonths}
+              onChange={(e) => setDetailsForm((prev) => ({ ...prev, ageMonths: e.target.value }))}
               hint="Při vyplnění data narození se věk dopočítá automaticky."
             />
           </div>

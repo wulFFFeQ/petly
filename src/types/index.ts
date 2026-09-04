@@ -68,6 +68,8 @@ export interface Pet {
   coverColor?: string
   coverImage?: string
   age?: number
+  /** Extra months beyond full years (0–11). */
+  ageMonths?: number
   healthStatus?: HealthStatus
   dateOfBirth?: string
   gender?: string

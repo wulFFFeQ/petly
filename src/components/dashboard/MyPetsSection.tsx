@@ -82,7 +82,7 @@ function EditorialPetTile({
             featured ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
           )}
         >
-          {pet.breed} · {formatAge(pet.age)}
+          {pet.breed} · {formatAge(pet.age, pet.ageMonths)}
         </p>
         <p
           className={cn(

@@ -14,10 +14,36 @@ export function formatOptionalWeight(weight?: number | null): string {
   return `${String(weight).replace('.', ',')} kg`
 }
 
-export function formatOptionalAge(age?: number | null): string {
-  if (age == null || age <= 0) return EMPTY_PROFILE_LABEL
-  const stage = age >= 7 ? 'Starší' : 'Dospělý'
-  return `${age} let (${stage})`
+function czechYearsLabel(years: number): string {
+  if (years === 1) return '1 rok'
+  if (years >= 2 && years <= 4) return `${years} roky`
+  return `${years} let`
+}
+
+function czechMonthsLabel(months: number): string {
+  if (months === 1) return '1 měsíc'
+  if (months >= 2 && months <= 4) return `${months} měsíce`
+  return `${months} měsíců`
+}
+
+export function formatOptionalAge(
+  age?: number | null,
+  ageMonths?: number | null,
+): string {
+  const years = age != null && age >= 0 ? Math.floor(age) : null
+  const months =
+    ageMonths != null && ageMonths > 0 ? Math.min(11, Math.floor(ageMonths)) : 0
+
+  if (years == null && months <= 0) return EMPTY_PROFILE_LABEL
+  if ((years ?? 0) <= 0 && months <= 0) return EMPTY_PROFILE_LABEL
+
+  const y = years ?? 0
+  const totalMonths = y * 12 + months
+  const stage = totalMonths < 12 ? 'Mláďě' : y >= 7 ? 'Starší' : 'Dospělý'
+
+  if (y <= 0) return `${czechMonthsLabel(months)} (${stage})`
+  if (months <= 0) return `${czechYearsLabel(y)} (${stage})`
+  return `${czechYearsLabel(y)} ${czechMonthsLabel(months)} (${stage})`
 }
 
 export function formatNeuteredStatus(
