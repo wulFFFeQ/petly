@@ -10,7 +10,14 @@ import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
+import {
+  buildMedicationReminderEvents,
+  buildMedicationReminderNotification,
+  normalizeReminderDays,
+  petNameForRecord,
+} from '../lib/medicationReminders'
 import type {
+  AppNotification,
   CalendarEvent,
   CommunityPost,
   HealthRecord,
@@ -84,6 +91,7 @@ interface AppContextValue {
   healthRecords: HealthRecord[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
+  notifications: AppNotification[]
   activeModal: ModalType
   modalPetId: string | null
   discoverSearch: string
@@ -102,12 +110,41 @@ interface AppContextValue {
   deletePetPhoto: (photoId: string) => void
   addHealthRecord: (input: NewHealthRecordInput) => void
   updateHealthRecord: (recordId: string, updates: Partial<HealthRecord>) => void
+  deleteHealthRecord: (recordId: string) => void
+  toggleMedicationReminder: (recordId: string) => void
+  setMedicationReminderTime: (recordId: string, time: string) => void
+  setMedicationReminderDays: (recordId: string, days: number) => void
+  markNotificationsRead: () => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   showToast: (title: string, description?: string, type?: ToastMessage['type']) => void
   removeToast: (id: string) => void
 }
+
+const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'n1',
+    title: 'Naplánováno očkování proti vzteklině u Luny',
+    time: 'Za 12 dní · 24. 9.',
+    unread: true,
+    kind: 'system',
+  },
+  {
+    id: 'n2',
+    title: 'Rutinní dentální prohlídka u Mila',
+    time: 'Zítra v 14:30 · MUDr. Novák',
+    unread: true,
+    kind: 'system',
+  },
+  {
+    id: 'n3',
+    title: 'Sarah K. se líbí váš příspěvek',
+    time: 'před 2 hodinami',
+    unread: false,
+    kind: 'community',
+  },
+]
 
 const AppContext = createContext<AppContextValue | null>(null)
 
@@ -117,6 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
   const [modalPetId, setModalPetId] = useState<string | null>(null)
   const [discoverSearch, setDiscoverSearch] = useState('')
@@ -279,6 +317,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts((prev) => prev.filter((post) => post.sourcePhotoId !== photoId))
   }
 
+  const enableMedicationReminder = (record: HealthRecord) => {
+    const petName = petNameForRecord(pets, record.petId)
+    const withDefaults: HealthRecord = {
+      ...record,
+      scheduleTime: record.scheduleTime || '09:00',
+      reminderDays: normalizeReminderDays(record.reminderDays),
+    }
+    const events = buildMedicationReminderEvents(withDefaults, petName)
+    const notification = buildMedicationReminderNotification(withDefaults, petName)
+
+    setCalendarEvents((prev) => [
+      ...prev.filter((item) => item.sourceRecordId !== record.id),
+      ...events,
+    ])
+    setNotifications((prev) => [
+      notification,
+      ...prev.filter((item) => item.sourceRecordId !== record.id),
+    ])
+  }
+
+  const disableMedicationReminder = (recordId: string) => {
+    setCalendarEvents((prev) => prev.filter((item) => item.sourceRecordId !== recordId))
+    setNotifications((prev) => prev.filter((item) => item.sourceRecordId !== recordId))
+  }
+
   const addHealthRecord = (input: NewHealthRecordInput) => {
     const pet = pets.find((item) => item.id === input.petId)
     if (!pet || !input.title.trim() || !input.date) return
@@ -311,22 +374,160 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : 'scheduled',
       vaccineName: input.type === 'vaccination' ? input.title.trim() : undefined,
       reminderEnabled: input.type === 'medication' ? true : undefined,
+      scheduleTime: input.type === 'medication' ? '09:00' : undefined,
+      reminderDays: input.type === 'medication' ? 7 : undefined,
     }
 
     setHealthRecords((prev) => [record, ...prev])
+    if (record.type === 'medication' && record.reminderEnabled) {
+      enableMedicationReminder(record)
+    }
     setActiveModal(null)
     showToast(
       'Zdravotní záznam uložen',
-      `${record.subtitle} přidán pro ${pet.name}`,
+      record.type === 'medication' && record.reminderEnabled
+        ? `${record.subtitle} přidán pro ${pet.name} · připomínka v kalendáři a ve zvonku`
+        : `${record.subtitle} přidán pro ${pet.name}`,
       'gold',
     )
   }
 
   const updateHealthRecord = (recordId: string, updates: Partial<HealthRecord>) => {
+    const record = healthRecords.find((item) => item.id === recordId)
+    if (!record) return
+
+    const updated: HealthRecord = { ...record, ...updates }
     setHealthRecords((prev) =>
-      prev.map((record) => (record.id === recordId ? { ...record, ...updates } : record)),
+      prev.map((item) => (item.id === recordId ? updated : item)),
     )
+
+    if (updated.type === 'medication' && updated.reminderEnabled) {
+      enableMedicationReminder(updated)
+    } else if (record.type === 'medication' || updated.type === 'medication') {
+      disableMedicationReminder(recordId)
+    }
+
+    showToast('Záznam upraven', updated.subtitle || updated.title, 'gold')
   }
+
+  const deleteHealthRecord = (recordId: string) => {
+    const record = healthRecords.find((item) => item.id === recordId)
+    if (!record) return
+
+    disableMedicationReminder(recordId)
+    setHealthRecords((prev) => prev.filter((item) => item.id !== recordId))
+    showToast('Záznam smazán', record.subtitle || record.title, 'info')
+  }
+
+  const toggleMedicationReminder = (recordId: string) => {
+    const record = healthRecords.find((item) => item.id === recordId)
+    if (!record || record.type !== 'medication') return
+
+    const nextEnabled = !record.reminderEnabled
+    const updated: HealthRecord = {
+      ...record,
+      reminderEnabled: nextEnabled,
+      scheduleTime: record.scheduleTime || '09:00',
+      reminderDays: normalizeReminderDays(record.reminderDays),
+    }
+    setHealthRecords((prev) =>
+      prev.map((item) => (item.id === recordId ? updated : item)),
+    )
+
+    if (nextEnabled) {
+      enableMedicationReminder(updated)
+      const schedule = buildMedicationReminderNotification(
+        updated,
+        petNameForRecord(pets, record.petId),
+      )
+      showToast('Připomínka zapnuta', schedule.time, 'gold')
+    } else {
+      disableMedicationReminder(recordId)
+      showToast(
+        'Připomínka vypnuta',
+        `${record.subtitle} · ${record.scheduleTime || record.date}`,
+        'gold',
+      )
+    }
+  }
+
+  const setMedicationReminderTime = (recordId: string, time: string) => {
+    const record = healthRecords.find((item) => item.id === recordId)
+    if (!record || record.type !== 'medication') return
+
+    const normalized = /^\d{1,2}:\d{2}$/.test(time.trim()) ? time.trim() : '09:00'
+    const updated: HealthRecord = { ...record, scheduleTime: normalized }
+    setHealthRecords((prev) =>
+      prev.map((item) => (item.id === recordId ? updated : item)),
+    )
+
+    if (updated.reminderEnabled) {
+      enableMedicationReminder(updated)
+    }
+  }
+
+  const setMedicationReminderDays = (recordId: string, days: number) => {
+    const record = healthRecords.find((item) => item.id === recordId)
+    if (!record || record.type !== 'medication') return
+
+    const updated: HealthRecord = {
+      ...record,
+      reminderDays: normalizeReminderDays(days),
+    }
+    setHealthRecords((prev) =>
+      prev.map((item) => (item.id === recordId ? updated : item)),
+    )
+
+    if (updated.reminderEnabled) {
+      enableMedicationReminder(updated)
+    }
+  }
+
+  const markNotificationsRead = () => {
+    setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })))
+  }
+
+  // Keep calendar/bell in sync for medications that already have reminderEnabled
+  useEffect(() => {
+    const enabledMeds = healthRecords.filter(
+      (record) => record.type === 'medication' && record.reminderEnabled,
+    )
+    if (enabledMeds.length === 0) return
+
+    setCalendarEvents((prev) => {
+      let next = prev
+      let changed = false
+      for (const record of enabledMeds) {
+        if (next.some((event) => event.sourceRecordId === record.id)) continue
+        const events = buildMedicationReminderEvents(
+          {
+            ...record,
+            scheduleTime: record.scheduleTime || '09:00',
+            reminderDays: normalizeReminderDays(record.reminderDays),
+          },
+          petNameForRecord(pets, record.petId),
+        )
+        next = [...next, ...events]
+        changed = true
+      }
+      return changed ? next : prev
+    })
+
+    setNotifications((prev) => {
+      let next = prev
+      let changed = false
+      for (const record of enabledMeds) {
+        if (next.some((item) => item.sourceRecordId === record.id)) continue
+        const notification = buildMedicationReminderNotification(
+          record,
+          petNameForRecord(pets, record.petId),
+        )
+        next = [notification, ...next]
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [healthRecords, pets])
 
   const toggleLike = (postId: string) => {
     setPosts((prev) =>
@@ -387,6 +588,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         healthRecords,
         posts,
         calendarEvents,
+        notifications,
         activeModal,
         modalPetId,
         discoverSearch,
@@ -405,6 +607,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deletePetPhoto,
         addHealthRecord,
         updateHealthRecord,
+        deleteHealthRecord,
+        toggleMedicationReminder,
+        setMedicationReminderTime,
+        setMedicationReminderDays,
+        markNotificationsRead,
         toggleLike,
         addComment,
         addCalendarEvent,

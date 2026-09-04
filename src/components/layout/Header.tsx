@@ -18,10 +18,17 @@ function getGreetingData(): { greeting: string; emoji: string } {
 
 export function Header() {
   const { greeting, emoji } = getGreetingData()
-  const { pets, setDiscoverSearch } = useApp()
+  const {
+    pets,
+    setDiscoverSearch,
+    notifications,
+    markNotificationsRead,
+  } = useApp()
   const navigate = useNavigate()
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchInput, setSearchInput] = useState('')
+
+  const unreadCount = notifications.filter((item) => item.unread).length
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,27 +36,6 @@ export function Header() {
     setDiscoverSearch(searchInput.trim())
     navigate('/discover')
   }
-
-  const notifications = [
-    {
-      id: 'n1',
-      title: 'Naplánováno očkování proti vzteklině u Luny',
-      time: 'Za 12 dní · 24. 9.',
-      unread: true,
-    },
-    {
-      id: 'n2',
-      title: 'Rutinní dentální prohlídka u Mila',
-      time: 'Zítra v 14:30 · MUDr. Novák',
-      unread: true,
-    },
-    {
-      id: 'n3',
-      title: 'Sarah K. se líbí váš příspěvek',
-      time: 'před 2 hodinami',
-      unread: false,
-    },
-  ]
 
   return (
     <header className="relative mb-6 pb-5 border-b border-[#E8E4DC]">
@@ -92,7 +78,9 @@ export function Header() {
               aria-label="Notifikace"
             >
               <Bell size={17} />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#B8934A]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#B8934A]" />
+              )}
             </button>
 
             {showNotifications && (
@@ -105,40 +93,53 @@ export function Header() {
                   <div className="flex items-center justify-between pb-3 border-b border-[#F0EDE6]">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-[#191E1B]">Notifikace</span>
-                      <span className="rounded-full bg-[#EBF2EE] px-2 py-0.5 text-[10px] font-bold text-[#2C4A3E]">
-                        2 nové
-                      </span>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-[#EBF2EE] px-2 py-0.5 text-[10px] font-bold text-[#2C4A3E]">
+                          {unreadCount} nové
+                        </span>
+                      )}
                     </div>
                     <button
-                      onClick={() => setShowNotifications(false)}
+                      onClick={() => markNotificationsRead()}
                       className="text-xs text-[#7D8B82] hover:text-[#2C4A3E] flex items-center gap-1 font-medium cursor-pointer"
                     >
                       <CheckCheck size={13} />
                       Označit jako přečtené
                     </button>
                   </div>
-                  <div className="mt-2 divide-y divide-[#F0EDE6]">
-                    {notifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className="py-3 first:pt-1 last:pb-1 flex items-start gap-3 hover:bg-[#FAF8F5] rounded-xl px-2 -mx-2 transition-colors cursor-pointer"
-                        onClick={() => setShowNotifications(false)}
-                      >
-                        <span
-                          className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
-                            item.unread ? 'bg-[#B8934A]' : 'bg-transparent'
-                          }`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-[#191E1B]">
-                            {item.title}
-                          </p>
-                          <p className="text-[11px] text-[#7D8B82] mt-0.5">
-                            {item.time}
-                          </p>
+                  <div className="mt-2 max-h-80 overflow-y-auto divide-y divide-[#F0EDE6]">
+                    {notifications.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-[#7D8B82]">
+                        Žádné notifikace
+                      </p>
+                    ) : (
+                      notifications.map((item) => (
+                        <div
+                          key={item.id}
+                          className="py-3 first:pt-1 last:pb-1 flex items-start gap-3 hover:bg-[#FAF8F5] rounded-xl px-2 -mx-2 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (item.kind === 'medication_reminder') {
+                              navigate('/calendar')
+                            }
+                            setShowNotifications(false)
+                          }}
+                        >
+                          <span
+                            className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
+                              item.unread ? 'bg-[#B8934A]' : 'bg-transparent'
+                            }`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-[#191E1B]">
+                              {item.title}
+                            </p>
+                            <p className="text-[11px] text-[#7D8B82] mt-0.5">
+                              {item.time}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </>

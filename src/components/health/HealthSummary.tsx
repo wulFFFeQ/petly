@@ -7,11 +7,15 @@ import {
   Stethoscope,
   Syringe,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import type { HealthRecord } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { Modal } from '../ui/Modal'
 import { cn } from '../../lib/utils'
+import { HealthRecordDetailBody } from './HealthRecordDetailBody'
 
 const summaries = [
   {
@@ -258,58 +262,96 @@ export function UpcomingHealthEvents() {
 }
 
 export function HealthRecordsList() {
-  const { setActiveModal, healthRecords, pets } = useApp()
+  const {
+    setActiveModal,
+    healthRecords,
+    pets,
+    updateHealthRecord,
+    deleteHealthRecord,
+    toggleMedicationReminder,
+    setMedicationReminderTime,
+    setMedicationReminderDays,
+  } = useApp()
+  const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
+  const liveRecord = selectedRecord
+    ? healthRecords.find((r) => r.id === selectedRecord.id) ?? null
+    : null
 
   return (
-    <Card variant="elevated" padding="none" className="overflow-hidden">
-      <div className="border-b border-[#F0EDE6] bg-gradient-to-r from-[#FAF4E6]/70 to-[#FBF7F0] px-5 py-4 sm:px-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#234B54]">
-              Historie
-            </p>
-            <h3 className="mt-1 text-base font-bold text-[#191E1B]">
-              Nedávné klinické záznamy
-            </h3>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setActiveModal('addHealthRecord')}
-            className="shrink-0"
-          >
-            <Plus size={15} />
-            <span>Přidat</span>
-          </Button>
-        </div>
-      </div>
-
-      <ul className="divide-y divide-[#F0EDE6]/80 px-3 py-2 sm:px-4">
-        {healthRecords.slice(0, 5).map((record) => {
-          const petName = pets.find((p) => p.id === record.petId)?.name ?? record.petId
-          return (
-          <li
-            key={record.id}
-            className="flex items-center justify-between gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-[#FAF8F5] sm:px-3"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
-                <Badge variant="outline" size="sm">
-                  {petName}
-                </Badge>
-              </div>
-              <p className="mt-0.5 truncate text-xs font-medium text-[#5A6660]">
-                {record.subtitle}
+    <>
+      <Card variant="elevated" padding="none" className="overflow-hidden">
+        <div className="border-b border-[#F0EDE6] bg-gradient-to-r from-[#FAF4E6]/70 to-[#FBF7F0] px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#234B54]">
+                Historie
               </p>
+              <h3 className="mt-1 text-base font-bold text-[#191E1B]">
+                Nedávné klinické záznamy
+              </h3>
             </div>
-            <span className="shrink-0 text-xs font-medium tabular-nums text-[#234B54]">
-              {record.date}
-            </span>
-          </li>
-          )
-        })}
-      </ul>
-    </Card>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setActiveModal('addHealthRecord')}
+              className="shrink-0"
+            >
+              <Plus size={15} />
+              <span>Přidat</span>
+            </Button>
+          </div>
+        </div>
+
+        <ul className="divide-y divide-[#F0EDE6]/80 px-3 py-2 sm:px-4">
+          {healthRecords.slice(0, 5).map((record) => {
+            const petName = pets.find((p) => p.id === record.petId)?.name ?? record.petId
+            return (
+              <li key={record.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecord(record)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#FAF8F5] cursor-pointer sm:px-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
+                      <Badge variant="outline" size="sm">
+                        {petName}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs font-medium text-[#5A6660]">
+                      {record.subtitle}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-[#234B54]">
+                    {record.date}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </Card>
+
+      <Modal
+        open={!!liveRecord}
+        onClose={() => setSelectedRecord(null)}
+        title={liveRecord?.title ?? ''}
+        subtitle={liveRecord?.subtitle}
+        maxWidth="lg"
+      >
+        {liveRecord && (
+          <HealthRecordDetailBody
+            record={liveRecord}
+            onToggleReminder={toggleMedicationReminder}
+            onSetReminderTime={setMedicationReminderTime}
+            onSetReminderDays={setMedicationReminderDays}
+            onUpdate={updateHealthRecord}
+            onDelete={deleteHealthRecord}
+            onClose={() => setSelectedRecord(null)}
+          />
+        )}
+      </Modal>
+    </>
   )
 }

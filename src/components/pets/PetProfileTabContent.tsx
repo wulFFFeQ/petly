@@ -50,6 +50,11 @@ import {
   isDocumentExpiringSoon,
   parseCzechDate,
 } from '../../lib/petProfileUtils'
+import {
+  formatReminderDaysLabel,
+  normalizeReminderDays,
+} from '../../lib/medicationReminders'
+import { HealthRecordDetailBody } from '../health/HealthRecordDetailBody'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -79,6 +84,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     updatePetPhoto,
     deletePetPhoto,
     updateHealthRecord,
+    deleteHealthRecord,
+    toggleMedicationReminder,
+    setMedicationReminderTime,
+    setMedicationReminderDays,
   } = useApp()
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
   const [galleryUploading, setGalleryUploading] = useState(false)
@@ -93,6 +102,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   const [customTimeline, setCustomTimeline] = useState<TimelineEvent[]>([])
 
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
+  const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | null>(null)
   const [documentPreview, setDocumentPreview] = useState<PetDocument | null>(null)
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
   const [editingPhoto, setEditingPhoto] = useState<(typeof photos)[number] | null>(null)
@@ -147,25 +157,22 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
   const openRecordDetail = (record: HealthRecord) => setSelectedRecord(record)
 
-  const openRecordFromTimeline = (event: TimelineEvent) => {
-    if (!event.sourceId) return
-    const record = allRecords.find((r) => r.id === event.sourceId)
-    if (record) {
-      setSelectedRecord(record)
-      onTabChange('health')
+  const openTimelineEvent = (event: TimelineEvent) => {
+    if (event.sourceId) {
+      const record = allRecords.find((r) => r.id === event.sourceId)
+      if (record) {
+        setSelectedRecord(record)
+        onTabChange('health')
+        return
+      }
     }
+    setSelectedTimelineEvent(event)
   }
 
-  const toggleMedicationReminder = (recordId: string) => {
-    const record = allRecords.find((r) => r.id === recordId)
-    if (!record) return
-    const nextEnabled = !record.reminderEnabled
-    updateHealthRecord(recordId, { reminderEnabled: nextEnabled })
-    showToast(
-      nextEnabled ? 'Připomínka zapnuta' : 'Připomínka vypnuta',
-      `${record.subtitle} · ${record.scheduleTime || record.date}`,
-      'gold',
-    )
+  const handleDeleteTimelineEvent = (eventId: string) => {
+    setCustomTimeline((prev) => prev.filter((item) => item.id !== eventId))
+    setSelectedTimelineEvent(null)
+    showToast('Událost smazána', 'Položka byla odstraněna z časové osy.', 'info')
   }
 
   const handleAddWeight = () => {
@@ -568,7 +575,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                               Dávkování: {record.dosage || 'dle předpisu'}
                             </p>
                             <p className="text-[11px] text-[#5A6660]">
-                              Čas podání: {record.scheduleTime || record.date}
+                              {record.scheduleTime
+                                ? `Čas: ${record.scheduleTime}`
+                                : `Datum: ${record.date}`}
+                              {record.reminderEnabled
+                                ? ` · ${formatReminderDaysLabel(normalizeReminderDays(record.reminderDays))}`
+                                : ''}
                             </p>
                           </div>
                         </button>
@@ -683,13 +695,8 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <div className="absolute -left-6 sm:-left-8 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#234B54] bg-white ring-4 ring-[#FAF8F5] transition-transform group-hover:scale-125" />
                 <button
                   type="button"
-                  onClick={() =>
-                    event.sourceId ? openRecordFromTimeline(event) : undefined
-                  }
-                  className={cn(
-                    'w-full rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all text-left',
-                    event.sourceId && 'cursor-pointer',
-                  )}
+                  onClick={() => openTimelineEvent(event)}
+                  className="w-full cursor-pointer rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all text-left"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <h4 className="text-sm font-bold text-[#191E1B] flex items-center gap-2 flex-wrap">
@@ -712,11 +719,11 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   {event.description && (
                     <p className="mt-1.5 text-xs text-[#4A564F] leading-relaxed">{event.description}</p>
                   )}
-                  {event.sourceId && (
-                    <p className="mt-1.5 text-[10px] font-semibold text-[#234B54]">
-                      Klepnutím otevřete detail záznamu →
-                    </p>
-                  )}
+                  <p className="mt-1.5 text-[10px] font-semibold text-[#234B54]">
+                    {event.sourceId
+                      ? 'Klepnutím otevřete detail záznamu →'
+                      : 'Klepnutím otevřete detail události →'}
+                  </p>
                 </button>
               </div>
             ))}
@@ -896,19 +903,106 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
       {/* Health record detail modal */}
       <Modal
-        open={!!selectedRecord}
+        open={!!selectedRecord && !!allRecords.find((r) => r.id === selectedRecord.id)}
         onClose={() => setSelectedRecord(null)}
-        title={selectedRecord?.title ?? ''}
-        subtitle={selectedRecord?.subtitle}
+        title={
+          (selectedRecord && allRecords.find((r) => r.id === selectedRecord.id)?.title) ||
+          selectedRecord?.title ||
+          ''
+        }
+        subtitle={
+          selectedRecord
+            ? allRecords.find((r) => r.id === selectedRecord.id)?.subtitle ??
+              selectedRecord.subtitle
+            : undefined
+        }
         maxWidth="lg"
       >
-        {selectedRecord && (
+        {selectedRecord && allRecords.find((r) => r.id === selectedRecord.id) && (
           <HealthRecordDetailBody
-            record={allRecords.find((r) => r.id === selectedRecord.id) ?? selectedRecord}
+            record={allRecords.find((r) => r.id === selectedRecord.id)!}
             onToggleReminder={toggleMedicationReminder}
+            onSetReminderTime={setMedicationReminderTime}
+            onSetReminderDays={setMedicationReminderDays}
+            onUpdate={updateHealthRecord}
+            onDelete={deleteHealthRecord}
             onGoTimeline={() => onTabChange('timeline')}
             onClose={() => setSelectedRecord(null)}
           />
+        )}
+      </Modal>
+
+      {/* Timeline event detail */}
+      <Modal
+        open={!!selectedTimelineEvent}
+        onClose={() => setSelectedTimelineEvent(null)}
+        title={selectedTimelineEvent?.title ?? 'Událost'}
+        subtitle={selectedTimelineEvent?.date}
+      >
+        {selectedTimelineEvent && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Datum
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-[#191E1B]">
+                  {selectedTimelineEvent.date}
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Kategorie
+                </p>
+                <p className="mt-0.5 text-sm font-bold text-[#191E1B]">
+                  {selectedTimelineEvent.category === 'birthday'
+                    ? 'Narozeniny'
+                    : selectedTimelineEvent.category === 'adoption'
+                      ? 'Adopce'
+                      : selectedTimelineEvent.category === 'medical'
+                        ? 'Zdravotní'
+                        : selectedTimelineEvent.category === 'milestone'
+                          ? 'Milník'
+                          : selectedTimelineEvent.category === 'memory'
+                            ? 'Vzpomínka'
+                            : 'Událost'}
+                </p>
+              </div>
+            </div>
+
+            {selectedTimelineEvent.description ? (
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Popis
+                </p>
+                <p className="mt-0.5 text-sm text-[#4A564F] leading-relaxed">
+                  {selectedTimelineEvent.description}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-[#7D8B82]">Bez dalšího popisu.</p>
+            )}
+
+            <div className="flex flex-wrap gap-2 pt-2">
+              {selectedTimelineEvent.source === 'manual' && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => handleDeleteTimelineEvent(selectedTimelineEvent.id)}
+                >
+                  Smazat událost
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setSelectedTimelineEvent(null)}
+                className="sm:ml-auto"
+              >
+                Zavřít
+              </Button>
+            </div>
+          </div>
         )}
       </Modal>
 
@@ -1115,86 +1209,3 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   )
 }
 
-function HealthRecordDetailBody({
-  record,
-  onToggleReminder,
-  onGoTimeline,
-  onClose,
-}: {
-  record: HealthRecord
-  onToggleReminder: (id: string) => void
-  onGoTimeline: () => void
-  onClose: () => void
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Datum</p>
-          <p className="text-sm font-bold text-[#191E1B] mt-0.5">{record.date}</p>
-        </div>
-        {record.doctor && (
-          <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Veterinář</p>
-            <p className="text-sm font-bold text-[#191E1B] mt-0.5">{record.doctor}</p>
-          </div>
-        )}
-        {record.clinic && (
-          <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3 sm:col-span-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Klinika</p>
-            <p className="text-sm font-bold text-[#191E1B] mt-0.5">{record.clinic}</p>
-          </div>
-        )}
-      </div>
-
-      {record.type === 'vaccination' && (
-        <div className="rounded-xl border border-[#E8D8B5] bg-[#FCFBF8] p-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">Detail očkování</p>
-          <p className="text-sm font-bold text-[#191E1B]">
-            Vakcína: {record.vaccineName || record.subtitle}
-          </p>
-          {record.nextDueDate && (
-            <p className="text-sm text-[#B8934A] font-semibold">
-              Další termín: {record.nextDueDate}
-            </p>
-          )}
-        </div>
-      )}
-
-      {record.type === 'medication' && (
-        <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">Dávkování</p>
-          <p className="text-sm font-bold text-[#191E1B]">{record.dosage || 'Dle předpisu'}</p>
-          <p className="text-sm text-[#5A6660]">
-            Čas podání: {record.scheduleTime || record.date}
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onToggleReminder(record.id)}
-            className="gap-1.5"
-          >
-            {record.reminderEnabled ? <Bell size={14} /> : <BellOff size={14} />}
-            {record.reminderEnabled ? 'Připomínka aktivní' : 'Zapnout připomínku'}
-          </Button>
-        </div>
-      )}
-
-      {record.notes && (
-        <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Poznámky</p>
-          <p className="text-sm text-[#4A564F] mt-0.5 leading-relaxed">{record.notes}</p>
-        </div>
-      )}
-
-      <div className="flex gap-2 pt-2">
-        <Button variant="outline" size="sm" onClick={onGoTimeline}>
-          Zobrazit v časové ose
-        </Button>
-        <Button variant="primary" size="sm" onClick={onClose}>
-          Zavřít
-        </Button>
-      </div>
-    </div>
-  )
-}

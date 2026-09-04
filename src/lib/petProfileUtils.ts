@@ -16,6 +16,16 @@ export function formatIsoDateToCzech(isoDate: string): string {
   return `${day}. ${month}. ${year}`
 }
 
+/** Convert Czech display date (d. m. yyyy) to HTML date input value (YYYY-MM-DD). */
+export function formatCzechDateToIso(czechDate: string): string {
+  const match = czechDate.match(/(\d+)\.\s*(\d+)\.\s*(\d+)/)
+  if (!match) return todayIsoDate()
+  const day = String(Number(match[1])).padStart(2, '0')
+  const month = String(Number(match[2])).padStart(2, '0')
+  const year = match[3]
+  return `${year}-${month}-${day}`
+}
+
 export function todayIsoDate(): string {
   const now = new Date()
   const y = now.getFullYear()

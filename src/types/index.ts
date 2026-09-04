@@ -43,6 +43,8 @@ export interface HealthRecord {
   nextDueDate?: string
   dosage?: string
   scheduleTime?: string
+  /** How many consecutive days the medication reminder should fire. */
+  reminderDays?: number
   reminderEnabled?: boolean
   notes?: string
 }
@@ -150,6 +152,17 @@ export interface CalendarEvent {
   time?: string
   location?: string
   notes?: string
+  /** Links medication reminder events to a health record. */
+  sourceRecordId?: string
+}
+
+export interface AppNotification {
+  id: string
+  title: string
+  time: string
+  unread: boolean
+  kind?: 'medication_reminder' | 'system' | 'community'
+  sourceRecordId?: string
 }
 
 export interface Message {
