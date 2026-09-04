@@ -4,6 +4,7 @@ import {
   communityPosts as initialPosts,
   healthRecords as initialHealthRecords,
   myPets as initialPets,
+  petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
@@ -13,6 +14,7 @@ import { formatIsoDateToCzech } from '../lib/petProfileUtils'
 import {
   buildMedicationReminderEvents,
   buildMedicationReminderNotification,
+  getMedicationCourseBounds,
   normalizeReminderDays,
   petNameForRecord,
 } from '../lib/medicationReminders'
@@ -25,6 +27,7 @@ import type {
   ModalType,
   NewPetForm,
   Pet,
+  PetDocument,
   PetPhoto,
   ToastMessage,
 } from '../types'
@@ -34,6 +37,7 @@ export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'other' | 'nearby' | 'popul
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
+const DOCUMENTS_STORAGE_KEY = 'lovedandknown.petDocuments'
 
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') return initialPets
@@ -64,6 +68,27 @@ function loadPhotos(): PetPhoto[] {
   }
 }
 
+function normalizeStoredHealthRecord(record: HealthRecord): HealthRecord {
+  if (record.type === 'examination') {
+    return record.title === 'Laboratorní výsledky'
+      ? { ...record, title: 'Vyšetření' }
+      : record
+  }
+  if (record.type !== 'vet') return record
+
+  const blob = `${record.title} ${record.subtitle}`
+  if (!/laborator|vyšetřen|krevní|biochem/i.test(blob)) return record
+
+  return {
+    ...record,
+    type: 'examination',
+    title:
+      record.title === 'Laboratorní výsledky' || record.title === 'Návštěva veterináře'
+        ? 'Vyšetření'
+        : record.title,
+  }
+}
+
 function loadHealthRecords(): HealthRecord[] {
   if (typeof window === 'undefined') return initialHealthRecords
   try {
@@ -71,9 +96,22 @@ function loadHealthRecords(): HealthRecord[] {
     if (!raw) return initialHealthRecords
     const parsed = JSON.parse(raw) as HealthRecord[]
     if (!Array.isArray(parsed)) return initialHealthRecords
-    return parsed
+    return parsed.map(normalizeStoredHealthRecord)
   } catch {
     return initialHealthRecords
+  }
+}
+
+function loadDocuments(): PetDocument[] {
+  if (typeof window === 'undefined') return initialPetDocuments
+  try {
+    const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY)
+    if (!raw) return initialPetDocuments
+    const parsed = JSON.parse(raw) as PetDocument[]
+    if (!Array.isArray(parsed)) return initialPetDocuments
+    return parsed
+  } catch {
+    return initialPetDocuments
   }
 }
 
@@ -88,6 +126,7 @@ export type NewHealthRecordInput = {
 interface AppContextValue {
   pets: Pet[]
   photos: PetPhoto[]
+  documents: PetDocument[]
   healthRecords: HealthRecord[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
@@ -108,6 +147,28 @@ interface AppContextValue {
   addPetPhotos: (petId: string, urls: string[]) => void
   updatePetPhoto: (photoId: string, updates: Partial<Pick<PetPhoto, 'caption'>>) => void
   deletePetPhoto: (photoId: string) => void
+  addPetDocuments: (
+    petId: string,
+    files: Array<{
+      name: string
+      size: string
+      url: string
+      mimeType?: string
+      type: PetDocument['type']
+    }>,
+  ) => void
+  updatePetDocument: (documentId: string, updates: Partial<PetDocument>) => void
+  replacePetDocument: (
+    documentId: string,
+    file: {
+      name: string
+      size: string
+      url: string
+      mimeType?: string
+      type?: PetDocument['type']
+    },
+  ) => void
+  deletePetDocument: (documentId: string) => void
   addHealthRecord: (input: NewHealthRecordInput) => void
   updateHealthRecord: (recordId: string, updates: Partial<HealthRecord>) => void
   deleteHealthRecord: (recordId: string) => void
@@ -151,6 +212,7 @@ const AppContext = createContext<AppContextValue | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [pets, setPets] = useState<Pet[]>(loadPets)
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
+  const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
@@ -200,6 +262,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Ignore quota errors — records remain available in the current session.
     }
   }, [healthRecords])
+
+  useEffect(() => {
+    try {
+      const payload = JSON.stringify(documents)
+      if (payload.length > 4_500_000) return
+      window.localStorage.setItem(DOCUMENTS_STORAGE_KEY, payload)
+    } catch {
+      // Ignore quota errors — documents remain available in the current session.
+    }
+  }, [documents])
 
   const setActiveModal = (modal: ModalType, petId?: string) => {
     setActiveModalState(modal)
@@ -317,6 +389,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts((prev) => prev.filter((post) => post.sourcePhotoId !== photoId))
   }
 
+  const addPetDocuments = (
+    petId: string,
+    files: Array<{
+      name: string
+      size: string
+      url: string
+      mimeType?: string
+      type: PetDocument['type']
+    }>,
+  ) => {
+    if (files.length === 0) return
+    const pet = pets.find((item) => item.id === petId)
+    const stamp = Date.now()
+    const added: PetDocument[] = files.map((file, index) => ({
+      id: `doc_${stamp}_${index}_${Math.random().toString(36).slice(2, 6)}`,
+      petId,
+      name: file.name,
+      size: file.size,
+      updatedAt: 'právě teď',
+      type: file.type,
+      url: file.url,
+      mimeType: file.mimeType,
+    }))
+    setDocuments((prev) => [...added, ...prev])
+    showToast(
+      files.length === 1 ? 'Dokument nahrán' : `${files.length} dokumenty nahrány`,
+      pet
+        ? `Uloženo v sekci Dokumenty u ${pet.name}.`
+        : 'Uloženo v sekci Dokumenty.',
+      'gold',
+    )
+  }
+
+  const updatePetDocument = (documentId: string, updates: Partial<PetDocument>) => {
+    setDocuments((prev) =>
+      prev.map((doc) => (doc.id === documentId ? { ...doc, ...updates } : doc)),
+    )
+  }
+
+  const replacePetDocument = (
+    documentId: string,
+    file: {
+      name: string
+      size: string
+      url: string
+      mimeType?: string
+      type?: PetDocument['type']
+    },
+  ) => {
+    setDocuments((prev) =>
+      prev.map((doc) =>
+        doc.id === documentId
+          ? {
+              ...doc,
+              name: file.name,
+              size: file.size,
+              url: file.url,
+              mimeType: file.mimeType,
+              type: file.type ?? doc.type,
+              updatedAt: 'právě teď',
+            }
+          : doc,
+      ),
+    )
+    showToast('Dokument nahrazen', 'Nová verze byla nahrána.', 'gold')
+  }
+
+  const deletePetDocument = (documentId: string) => {
+    setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
+    showToast('Dokument smazán', 'Soubor byl odstraněn ze seznamu.', 'info')
+  }
+
   const enableMedicationReminder = (record: HealthRecord) => {
     const petName = petNameForRecord(pets, record.petId)
     const withDefaults: HealthRecord = {
@@ -356,6 +500,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       vaccination: 'Očkování',
       vet: 'Návštěva veterináře',
       medication: 'Léky',
+      examination: 'Vyšetření',
     }
 
     const record: HealthRecord = {
@@ -487,10 +632,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })))
   }
 
+  // Mark finished medication courses as completed and clear reminders
+  useEffect(() => {
+    const expired = healthRecords.filter((record) => {
+      if (record.type !== 'medication' || record.status !== 'active') return false
+      return !getMedicationCourseBounds(record).isWithinCourse
+    })
+    if (expired.length === 0) return
+
+    const expiredIds = new Set(expired.map((record) => record.id))
+    setHealthRecords((prev) =>
+      prev.map((record) =>
+        expiredIds.has(record.id)
+          ? { ...record, status: 'completed', reminderEnabled: false }
+          : record,
+      ),
+    )
+    setCalendarEvents((prev) =>
+      prev.filter((event) => !event.sourceRecordId || !expiredIds.has(event.sourceRecordId)),
+    )
+    setNotifications((prev) =>
+      prev.filter((item) => !item.sourceRecordId || !expiredIds.has(item.sourceRecordId)),
+    )
+  }, [healthRecords])
+
   // Keep calendar/bell in sync for medications that already have reminderEnabled
   useEffect(() => {
     const enabledMeds = healthRecords.filter(
-      (record) => record.type === 'medication' && record.reminderEnabled,
+      (record) =>
+        record.type === 'medication' &&
+        record.reminderEnabled &&
+        record.status === 'active' &&
+        getMedicationCourseBounds(record).isWithinCourse,
     )
     if (enabledMeds.length === 0) return
 
@@ -585,6 +758,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         pets,
         photos,
+        documents,
         healthRecords,
         posts,
         calendarEvents,
@@ -605,6 +779,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addPetPhotos,
         updatePetPhoto,
         deletePetPhoto,
+        addPetDocuments,
+        updatePetDocument,
+        replacePetDocument,
+        deletePetDocument,
         addHealthRecord,
         updateHealthRecord,
         deleteHealthRecord,

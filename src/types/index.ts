@@ -3,7 +3,7 @@ import type { PetType } from '../lib/petTypes'
 export type { PetType } from '../lib/petTypes'
 export type HealthStatus = 'excellent' | 'good' | 'attention'
 export type EventType = 'vaccination' | 'medication' | 'vet' | 'grooming' | 'feeding'
-export type HealthRecordType = 'vaccination' | 'vet' | 'medication'
+export type HealthRecordType = 'vaccination' | 'vet' | 'medication' | 'examination'
 export type ModalType = 'addPet' | 'addHealthRecord' | 'bookVet' | 'addActivity' | 'addPhoto' | null
 
 export interface Pet {
@@ -43,7 +43,7 @@ export interface HealthRecord {
   nextDueDate?: string
   dosage?: string
   scheduleTime?: string
-  /** How many consecutive days the medication reminder should fire. */
+  /** Length of the treatment course in days (also used for reminder series). */
   reminderDays?: number
   reminderEnabled?: boolean
   notes?: string
@@ -68,6 +68,9 @@ export interface PetDocument {
   updatedAt: string
   expiresAt?: string
   type: 'passport' | 'chip' | 'insurance' | 'lab' | 'other'
+  /** Data URL or remote URL for preview / download. */
+  url?: string
+  mimeType?: string
 }
 
 export interface PetPhoto {

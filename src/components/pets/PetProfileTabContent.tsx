@@ -6,10 +6,11 @@ import {
   ChevronRight,
   Clock,
   Download,
-  ExternalLink,
   Eye,
   FileText,
+  FlaskConical,
   Heart,
+  Info,
   Pencil,
   Plus,
   RefreshCw,
@@ -35,11 +36,11 @@ import {
 import {
   timelineEvents as staticTimelineEvents,
   weightMeasurements as initialWeightMeasurements,
-  petDocuments as initialPetDocuments,
 } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type {
   HealthRecord,
+  HealthRecordType,
   Pet,
   PetDocument,
   TimelineEvent,
@@ -51,8 +52,8 @@ import {
   parseCzechDate,
 } from '../../lib/petProfileUtils'
 import {
-  formatReminderDaysLabel,
-  normalizeReminderDays,
+  formatMedicationRemainingLabel,
+  isMedicationCurrentlyActive,
 } from '../../lib/medicationReminders'
 import { HealthRecordDetailBody } from '../health/HealthRecordDetailBody'
 import { Badge } from '../ui/Badge'
@@ -67,6 +68,12 @@ import {
   formatOptionalWeight,
 } from '../../lib/petProfileDisplay'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
+import {
+  formatFileSize,
+  inferDocumentType,
+  PET_DOCUMENT_ACCEPT,
+  readDocumentFileAsDataUrl,
+} from '../../lib/readDocumentFile'
 
 interface PetProfileTabContentProps {
   pet: Pet
@@ -79,10 +86,15 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     setActiveModal,
     showToast,
     photos: allPhotos,
+    documents: allDocuments,
     healthRecords: allRecords,
     addPetPhotos,
     updatePetPhoto,
     deletePetPhoto,
+    addPetDocuments,
+    updatePetDocument,
+    replacePetDocument,
+    deletePetDocument,
     updateHealthRecord,
     deleteHealthRecord,
     toggleMedicationReminder,
@@ -90,14 +102,16 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     setMedicationReminderDays,
   } = useApp()
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
+  const documentFileInputRef = useRef<HTMLInputElement>(null)
+  const replaceDocumentInputRef = useRef<HTMLInputElement>(null)
   const [galleryUploading, setGalleryUploading] = useState(false)
+  const [documentUploading, setDocumentUploading] = useState(false)
+  const [replacingDocumentId, setReplacingDocumentId] = useState<string | null>(null)
 
   const [weightData, setWeightData] = useState<WeightMeasurement[]>(() =>
     initialWeightMeasurements.filter((w) => w.petId === pet.id),
   )
-  const [documents, setDocuments] = useState<PetDocument[]>(() =>
-    initialPetDocuments.filter((d) => d.petId === pet.id),
-  )
+  const documents = allDocuments.filter((d) => d.petId === pet.id)
   const photos = allPhotos.filter((p) => p.petId === pet.id)
   const [customTimeline, setCustomTimeline] = useState<TimelineEvent[]>([])
 
@@ -116,10 +130,144 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     category: 'memory' as TimelineEvent['category'],
     description: '',
   })
+  const [healthFilter, setHealthFilter] = useState<'all' | HealthRecordType>('all')
 
   const petRecords = allRecords.filter((r) => r.petId === pet.id)
   const vaccinations = petRecords.filter((r) => r.type === 'vaccination')
   const medications = petRecords.filter((r) => r.type === 'medication')
+  const vetVisits = petRecords.filter((r) => r.type === 'vet')
+  const examinations = petRecords.filter((r) => r.type === 'examination')
+  const activeMedications = medications.filter(isMedicationCurrentlyActive)
+
+  const sortedPetRecords = useMemo(() => {
+    return [...petRecords].sort((a, b) => {
+      const da = parseCzechDate(a.date)
+      const db = parseCzechDate(b.date)
+      if (da !== db) return db - da
+      if (a.status === 'active' && b.status !== 'active') return -1
+      if (b.status === 'active' && a.status !== 'active') return 1
+      return 0
+    })
+  }, [petRecords])
+
+  const filteredPetRecords = useMemo(() => {
+    if (healthFilter === 'all') return sortedPetRecords
+    return sortedPetRecords.filter((r) => r.type === healthFilter)
+  }, [sortedPetRecords, healthFilter])
+
+  const nextVaccinationDue = useMemo(() => {
+    const withDue = vaccinations
+      .filter((r) => r.nextDueDate)
+      .sort((a, b) => parseCzechDate(a.nextDueDate!) - parseCzechDate(b.nextDueDate!))
+    return withDue[0]?.nextDueDate
+  }, [vaccinations])
+
+  const latestVetVisit = useMemo(
+    () =>
+      [...vetVisits].sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))[0],
+    [vetVisits],
+  )
+  const latestExamination = useMemo(
+    () =>
+      [...examinations].sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))[0],
+    [examinations],
+  )
+
+  const latestClinicalVisit = useMemo(() => {
+    const clinical = petRecords.filter(
+      (r) => r.type === 'vet' || r.type === 'examination' || r.type === 'vaccination',
+    )
+    return [...clinical].sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))[0]
+  }, [petRecords])
+
+  const overviewLastVetVisit =
+    pet.lastVetVisit || latestClinicalVisit?.date || undefined
+  const overviewNextVaccination = pet.nextVaccination || nextVaccinationDue || undefined
+
+  const healthSummaryCards = [
+    {
+      key: 'vaccination' as const,
+      label: 'Očkování',
+      value: vaccinations.length === 0 ? 'Žádné' : `${vaccinations.length}`,
+      subtext: nextVaccinationDue
+        ? `Další: ${nextVaccinationDue}`
+        : vaccinations.length > 0
+          ? 'Bez naplánovaného termínu'
+          : 'Zatím bez záznamů',
+      icon: Syringe,
+      color: 'text-[#234B54] bg-[#E0EAEC] border-[#C5D5D9]/70',
+      accent: 'bg-[#234B54]',
+    },
+    {
+      key: 'medication' as const,
+      label: 'Léky',
+      value: activeMedications.length > 0
+        ? `${activeMedications.length} aktivní`
+        : medications.length === 0
+          ? 'Žádné'
+          : `${medications.length}`,
+      subtext:
+        activeMedications.length > 0
+          ? activeMedications[0].subtitle
+          : medications.length > 0
+            ? 'Bez aktivních receptů'
+            : 'Zatím bez záznamů',
+      icon: Heart,
+      color: 'text-amber-900 bg-amber-100 border-amber-200/60',
+      accent: 'bg-[#B8934A]',
+    },
+    {
+      key: 'vet' as const,
+      label: 'Návštěvy veterináře',
+      value: vetVisits.length === 0 ? 'Žádné' : `${vetVisits.length}`,
+      subtext: latestVetVisit?.subtitle ?? 'Zatím bez návštěv',
+      icon: Stethoscope,
+      color: 'text-sky-800 bg-sky-100 border-sky-200/60',
+      accent: 'bg-sky-600',
+    },
+    {
+      key: 'examination' as const,
+      label: 'Vyšetření',
+      value: examinations.length === 0 ? 'Žádné' : `${examinations.length}`,
+      subtext: latestExamination?.subtitle ?? 'Zatím bez výsledků',
+      icon: FlaskConical,
+      color: 'text-emerald-800 bg-emerald-50 border-emerald-200/60',
+      accent: 'bg-emerald-600',
+    },
+  ]
+
+  const healthFilters: { key: 'all' | HealthRecordType; label: string }[] = [
+    { key: 'all', label: 'Vše' },
+    { key: 'vaccination', label: 'Očkování' },
+    { key: 'medication', label: 'Léky' },
+    { key: 'vet', label: 'Veterinář' },
+    { key: 'examination', label: 'Vyšetření' },
+  ]
+
+  const recordTypeMeta = (type: HealthRecordType) => {
+    if (type === 'vaccination') {
+      return {
+        icon: Syringe,
+        className: 'bg-[#E0EAEC] text-[#234B54]',
+      }
+    }
+    if (type === 'medication') {
+      return {
+        icon: Heart,
+        className: 'bg-amber-50 text-amber-700',
+      }
+    }
+    if (type === 'examination') {
+      return {
+        icon: FlaskConical,
+        className: 'bg-emerald-50 text-emerald-700',
+      }
+    }
+    return {
+      icon: Stethoscope,
+      className: 'bg-sky-50 text-sky-700',
+    }
+  }
 
   const mergedTimeline = useMemo(
     () =>
@@ -210,21 +358,88 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     showToast('Událost přidána', 'Nová položka byla přidána do časové osy.', 'gold')
   }
 
-  const handleReplaceDocument = (docId: string) => {
-    setDocuments((prev) =>
-      prev.map((d) =>
-        d.id === docId
-          ? { ...d, updatedAt: 'právě teď', size: '2,1 MB' }
-          : d,
-      ),
-    )
-    showToast('Dokument nahrazen', 'Nová verze byla nahrána a ověřena.', 'gold')
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    const files = takeSelectedFiles(input)
+    if (files.length === 0) return
+
+    setDocumentUploading(true)
+    try {
+      const uploaded = []
+      for (const file of files) {
+        const url = await readDocumentFileAsDataUrl(file)
+        uploaded.push({
+          name: file.name,
+          size: formatFileSize(file.size),
+          url,
+          mimeType: file.type || undefined,
+          type: inferDocumentType(file.name),
+        })
+      }
+      addPetDocuments(pet.id, uploaded)
+      onTabChange('documents')
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Nahrajte PDF nebo obrázek (JPG, PNG, WEBP, GIF).', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
+      }
+    } finally {
+      setDocumentUploading(false)
+    }
+  }
+
+  const handleReplaceDocumentPick = (docId: string) => {
+    setReplacingDocumentId(docId)
+    replaceDocumentInputRef.current?.click()
+  }
+
+  const handleReplaceDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    const files = takeSelectedFiles(input)
+    const docId = replacingDocumentId
+    setReplacingDocumentId(null)
+    if (!docId || files.length === 0) return
+
+    try {
+      const file = files[0]
+      const url = await readDocumentFileAsDataUrl(file)
+      replacePetDocument(docId, {
+        name: file.name,
+        size: formatFileSize(file.size),
+        url,
+        mimeType: file.type || undefined,
+        type: inferDocumentType(file.name),
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Nahrajte PDF nebo obrázek.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
+      }
+    }
+  }
+
+  const handleDownloadDocument = (doc: PetDocument) => {
+    if (!doc.url) {
+      showToast('Stažení není dostupné', 'Tento ukázkový dokument nemá soubor ke stažení.', 'info')
+      return
+    }
+    const link = document.createElement('a')
+    link.href = doc.url
+    link.download = doc.name
+    link.click()
+    showToast('Stahování zahájeno', doc.name, 'gold')
   }
 
   const handleUpdateDocumentExpiry = (docId: string, expiresAt: string) => {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === docId ? { ...d, expiresAt } : d)),
-    )
+    updatePetDocument(docId, { expiresAt: expiresAt.trim() || undefined })
     showToast('Platnost aktualizována', 'Datum expirace dokumentu bylo uloženo.', 'info')
   }
 
@@ -320,7 +535,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <Stethoscope size={16} className="text-sky-700" />
               </div>
               <p className="mt-2 text-xl font-bold text-[#191E1B]">
-                {formatOptionalText(pet.lastVetVisit)}
+                {formatOptionalText(overviewLastVetVisit)}
               </p>
               <p className="text-xs text-[#7D8B82] font-medium mt-1">Zobrazit klinické záznamy</p>
             </Card>
@@ -333,7 +548,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 <Syringe size={16} className="text-[#B8934A]" />
               </div>
               <p className="mt-2 text-xl font-bold text-[#234B54]">
-                {formatOptionalText(pet.nextVaccination)}
+                {formatOptionalText(overviewNextVaccination)}
               </p>
               <p className="text-xs text-[#B8934A] font-medium mt-1">Detail vakcíny a veterináře</p>
             </Card>
@@ -389,17 +604,17 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     <p className="text-xs text-[#7D8B82]">Propojeno s léky a připomínkami</p>
                   </div>
                 </div>
-                {medications.length > 0 && (
+                {activeMedications.length > 0 && (
                   <Badge variant="success" size="sm">100 % splněno</Badge>
                 )}
               </div>
-              {medications.length === 0 ? (
+              {activeMedications.length === 0 ? (
                 <p className="text-sm text-[#7D8B82] py-6 text-center">
                   {EMPTY_PROFILE_LABEL}. Přidejte léky nebo péči ve zdravotní sekci.
                 </p>
               ) : (
               <div className="space-y-2.5">
-                {medications.map((med) => (
+                {activeMedications.map((med) => (
                   <button
                     key={med.id}
                     type="button"
@@ -414,11 +629,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                         <Heart size={12} />
                       </div>
                       <span className="text-xs font-semibold text-[#191E1B] truncate">
-                        {med.subtitle} · {med.dosage}
+                        {med.subtitle}
+                        {med.scheduleTime ? ` · ${med.scheduleTime}` : ''}
                       </span>
                     </div>
                     <span className="text-[11px] font-medium text-[#7D8B82] shrink-0 ml-2">
-                      {med.scheduleTime}
+                      {formatMedicationRemainingLabel(med)}
                     </span>
                   </button>
                 ))}
@@ -501,7 +717,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               <div>
                 <h3 className="text-lg font-bold text-[#191E1B]">Zdravotní záznamy a historie</h3>
                 <p className="text-xs text-[#7D8B82] mt-0.5">
-                  Klepnutím otevřete detail · očkování, léky a návštěvy propojené s časovou osou
+                  Přehled nahoře · jeden chronologický seznam níže
                 </p>
               </div>
               <Button size="sm" variant="primary" onClick={() => setActiveModal('addHealthRecord', pet.id)}>
@@ -510,38 +726,81 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </Button>
             </div>
 
-            {vaccinations.length > 0 && (
-              <div className="mb-6">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54] mb-2">
-                  Očkování
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+              {healthSummaryCards.map(({ key, label, value, subtext, icon: Icon, color, accent }) => {
+                const isActive = healthFilter === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setHealthFilter(isActive ? 'all' : key)}
+                    className={cn(
+                      'rounded-2xl border p-3.5 text-left transition-all cursor-pointer',
+                      isActive
+                        ? 'border-[#234B54]/40 bg-white shadow-sm ring-1 ring-[#234B54]/15'
+                        : 'border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8]',
+                    )}
+                  >
+                    <div className={cn('mb-2.5 h-0.5 w-8 rounded-full', accent)} aria-hidden />
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={cn(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+                          color,
+                        )}
+                      >
+                        <Icon size={16} strokeWidth={1.75} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]/80">
+                          {label}
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{value}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">{subtext}</p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {activeMedications.length > 0 && (
+              <div className="mb-6 rounded-2xl border border-amber-200/70 bg-amber-50/40 p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80 mb-2.5">
+                  Aktivní léky
                 </p>
                 <ul className="space-y-2">
-                  {vaccinations.map((record) => (
-                    <li key={record.id}>
+                  {activeMedications.map((record) => (
+                    <li
+                      key={record.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/80 border border-amber-100 px-3 py-2"
+                    >
                       <button
                         type="button"
                         onClick={() => openRecordDetail(record)}
-                        className="w-full flex items-center justify-between gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5 text-left hover:bg-white hover:border-[#234B54]/30 transition-colors cursor-pointer"
+                        className="min-w-0 flex-1 text-left cursor-pointer"
                       >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className="h-9 w-9 shrink-0 rounded-lg bg-[#E0EAEC] text-[#234B54] flex items-center justify-center">
-                            <Syringe size={16} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#191E1B]">
-                              {record.vaccineName || record.subtitle}
-                            </p>
-                            <p className="text-[11px] text-[#5A6660] mt-0.5">
-                              {record.date} · {record.doctor}
-                            </p>
-                            {record.nextDueDate && (
-                              <p className="text-[11px] font-semibold text-[#B8934A] mt-0.5">
-                                Další termín: {record.nextDueDate}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <ExternalLink size={14} className="text-[#7D8B82] shrink-0" />
+                        <p className="text-sm font-bold text-[#191E1B] truncate">{record.subtitle}</p>
+                        <p className="text-[11px] text-[#5A6660] mt-0.5">
+                          {record.dosage || 'dle předpisu'}
+                          {record.scheduleTime ? ` · ${record.scheduleTime}` : ''}
+                        </p>
+                        <p className="text-[11px] font-semibold text-amber-900/80 mt-0.5">
+                          {formatMedicationRemainingLabel(record)}
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleMedicationReminder(record.id)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer shrink-0',
+                          record.reminderEnabled
+                            ? 'bg-[#E0EAEC] text-[#234B54]'
+                            : 'bg-[#FAF8F5] text-[#7D8B82] border border-[#E8E4DC]',
+                        )}
+                      >
+                        {record.reminderEnabled ? <Bell size={12} /> : <BellOff size={12} />}
+                        {record.reminderEnabled ? 'Zapnuto' : 'Připomínka'}
                       </button>
                     </li>
                   ))}
@@ -549,127 +808,107 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </div>
             )}
 
-            {medications.length > 0 && (
-              <div className="mb-6">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54] mb-2">
-                  Léky a doplňky
-                </p>
-                <ul className="space-y-2">
-                  {medications.map((record) => (
-                    <li
-                      key={record.id}
-                      className="rounded-xl border border-[#E8E4DC] bg-white p-3.5"
+            <div className="pt-2 border-t border-[#F0EDE6]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 mt-4">
+                <div>
+                  <h4 className="text-sm font-bold text-[#191E1B]">Zdravotní historie</h4>
+                  <p className="text-[11px] text-[#7D8B82] mt-0.5">
+                    {filteredPetRecords.length}{' '}
+                    {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {healthFilters.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setHealthFilter(key)}
+                      className={cn(
+                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer',
+                        healthFilter === key
+                          ? 'bg-[#234B54] text-white'
+                          : 'bg-[#FAF8F5] text-[#5A6660] border border-[#E8E4DC] hover:border-[#234B54]/30',
+                      )}
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <ul className="divide-y divide-[#F0EDE6]">
+                {filteredPetRecords.length === 0 ? (
+                  <li className="py-8 text-center text-sm text-[#7D8B82]">
+                    {petRecords.length === 0
+                      ? 'Pro tohoto mazlíčka zatím nejsou žádné záznamy.'
+                      : 'Pro zvolený filtr nejsou žádné záznamy.'}
+                  </li>
+                ) : (
+                  filteredPetRecords.map((record) => {
+                    const meta = recordTypeMeta(record.type)
+                    const Icon = meta.icon
+                    return (
+                      <li key={record.id}>
                         <button
                           type="button"
                           onClick={() => openRecordDetail(record)}
-                          className="flex items-start gap-3 min-w-0 text-left cursor-pointer"
+                          className="w-full py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-4 px-4 sm:-mx-6 sm:px-6 rounded-xl transition-colors cursor-pointer text-left"
                         >
-                          <div className="h-9 w-9 shrink-0 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                            <Heart size={16} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-[#191E1B]">{record.subtitle}</p>
-                            <p className="text-[11px] text-[#5A6660] mt-0.5">
-                              Dávkování: {record.dosage || 'dle předpisu'}
-                            </p>
-                            <p className="text-[11px] text-[#5A6660]">
-                              {record.scheduleTime
-                                ? `Čas: ${record.scheduleTime}`
-                                : `Datum: ${record.date}`}
-                              {record.reminderEnabled
-                                ? ` · ${formatReminderDaysLabel(normalizeReminderDays(record.reminderDays))}`
-                                : ''}
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleMedicationReminder(record.id)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
-                            record.reminderEnabled
-                              ? 'bg-[#E0EAEC] text-[#234B54]'
-                              : 'bg-[#FAF8F5] text-[#7D8B82] border border-[#E8E4DC]',
-                          )}
-                        >
-                          {record.reminderEnabled ? <Bell size={12} /> : <BellOff size={12} />}
-                          {record.reminderEnabled ? 'Připomínka zapnutá' : 'Zapnout připomínku'}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54] mb-2">
-              Všechny klinické záznamy
-            </p>
-            <ul className="divide-y divide-[#F0EDE6]">
-              {petRecords.length === 0 ? (
-                <li className="py-8 text-center text-sm text-[#7D8B82]">
-                  Pro tohoto mazlíčka zatím nejsou žádné záznamy.
-                </li>
-              ) : (
-                petRecords.map((record) => (
-                  <li key={record.id}>
-                    <button
-                      type="button"
-                      onClick={() => openRecordDetail(record)}
-                      className="w-full py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-4 px-4 sm:-mx-6 sm:px-6 rounded-xl transition-colors cursor-pointer text-left"
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div
-                          className={cn(
-                            'h-10 w-10 shrink-0 rounded-xl flex items-center justify-center',
-                            record.type === 'vaccination'
-                              ? 'bg-[#E0EAEC] text-[#234B54]'
-                              : record.type === 'medication'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-sky-50 text-sky-700',
-                          )}
-                        >
-                          {record.type === 'vaccination' ? (
-                            <Syringe size={18} />
-                          ) : record.type === 'medication' ? (
-                            <Heart size={18} />
-                          ) : (
-                            <Stethoscope size={18} />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
-                            <Badge
-                              variant={
-                                record.status === 'completed'
-                                  ? 'success'
-                                  : record.status === 'active'
-                                    ? 'primary'
-                                    : 'default'
-                              }
-                              size="sm"
+                          <div className="flex items-start gap-3.5 min-w-0">
+                            <div
+                              className={cn(
+                                'h-10 w-10 shrink-0 rounded-xl flex items-center justify-center',
+                                meta.className,
+                              )}
                             >
-                              {record.status === 'completed'
-                                ? 'Dokončeno'
-                                : record.status === 'active'
-                                  ? 'Aktivní'
-                                  : 'Ověřeno'}
-                            </Badge>
+                              <Icon size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
+                                <Badge
+                                  variant={
+                                    record.status === 'completed'
+                                      ? 'success'
+                                      : record.status === 'active'
+                                        ? 'primary'
+                                        : 'default'
+                                  }
+                                  size="sm"
+                                >
+                                  {record.status === 'completed'
+                                    ? 'Dokončeno'
+                                    : record.status === 'active'
+                                      ? 'Aktivní'
+                                      : 'Naplánováno'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-[#4A564F] font-medium mt-0.5 truncate">
+                                {record.subtitle}
+                              </p>
+                              {(record.doctor || record.nextDueDate) && (
+                                <p className="text-[11px] text-[#7D8B82] mt-0.5">
+                                  {[record.doctor, record.nextDueDate && `Další: ${record.nextDueDate}`]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-xs text-[#4A564F] font-medium mt-0.5">{record.subtitle}</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" size="sm" className="font-mono self-end sm:self-center">
-                        {record.date}
-                      </Badge>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
+                          <Badge
+                            variant="outline"
+                            size="sm"
+                            className="font-mono self-end sm:self-center shrink-0"
+                          >
+                            {record.date}
+                          </Badge>
+                        </button>
+                      </li>
+                    )
+                  })
+                )}
+              </ul>
+            </div>
           </Card>
         </div>
       )}
@@ -733,18 +972,83 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
       {activeTab === 'documents' && (
         <Card variant="elevated">
-          <div className="mb-6 pb-4 border-b border-[#F0EDE6] flex items-center justify-between">
+          <div className="mb-6 pb-4 border-b border-[#F0EDE6] flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-[#191E1B]">Oficiální záznamy a certifikáty</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-[#191E1B]">Oficiální záznamy a certifikáty</h3>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    aria-label="Jaké dokumenty lze nahrát"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#D1E0D8] text-[#234B54] hover:bg-[#E0EAEC] hover:border-[#234B54]/40 transition-colors cursor-pointer"
+                  >
+                    <Info size={12} strokeWidth={2.5} />
+                  </button>
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-[#E8E4DC] bg-white p-3.5 shadow-md opacity-0 invisible translate-y-1 transition-all group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0"
+                  >
+                    <p className="text-[11px] font-bold text-[#191E1B] mb-1.5">
+                      Co sem můžete nahrát
+                    </p>
+                    <ul className="space-y-1 text-[11px] text-[#4A564F] leading-relaxed list-disc pl-3.5">
+                      <li>Pas mazlíčka a očkovací certifikáty</li>
+                      <li>Certifikát registrace mikročipu</li>
+                      <li>Pojistné smlouvy</li>
+                      <li>Laboratorní výsledky a zdravotní zprávy</li>
+                      <li>Další oficiální dokumenty (PDF nebo fotografie)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
               <p className="text-xs text-[#7D8B82] mt-0.5">
                 Otevřete, stáhněte, nahraďte nebo nastavte platnost dokumentů
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setActiveModal('addPhoto', pet.id)}>
-              Nahrát dokument
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => documentFileInputRef.current?.click()}
+              disabled={documentUploading}
+            >
+              <Plus size={15} />
+              {documentUploading ? 'Nahrávám…' : 'Nahrát dokument'}
             </Button>
+            <input
+              ref={documentFileInputRef}
+              type="file"
+              accept={PET_DOCUMENT_ACCEPT}
+              multiple
+              className="sr-only"
+              onChange={handleDocumentUpload}
+            />
+            <input
+              ref={replaceDocumentInputRef}
+              type="file"
+              accept={PET_DOCUMENT_ACCEPT}
+              className="sr-only"
+              onChange={handleReplaceDocumentUpload}
+            />
           </div>
 
+          {documents.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F5] py-14 px-6 text-center">
+              <FileText size={36} className="mx-auto text-[#A3AEA7] mb-3" />
+              <p className="text-sm font-semibold text-[#191E1B]">Zatím žádné dokumenty</p>
+              <p className="mt-1 text-xs text-[#7D8B82] max-w-sm mx-auto">
+                Nahrajte PDF nebo fotografii pasu, čipu, pojištění či lékařské zprávy.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                className="mt-4"
+                onClick={() => documentFileInputRef.current?.click()}
+                disabled={documentUploading}
+              >
+                Nahrát první dokument
+              </Button>
+            </div>
+          ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {documents.map((doc) => (
               <div
@@ -752,8 +1056,12 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 className="group rounded-2xl border border-[#E8E4DC] p-4.5 bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8] hover:shadow-xs transition-all flex flex-col justify-between min-h-[160px]"
               >
                 <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 shrink-0 rounded-xl bg-[#E0EAEC] text-[#234B54] flex items-center justify-center">
-                    <FileText size={19} />
+                  <div className="h-10 w-10 shrink-0 rounded-xl bg-[#E0EAEC] text-[#234B54] flex items-center justify-center overflow-hidden">
+                    {doc.url && doc.mimeType?.startsWith('image/') ? (
+                      <img src={doc.url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <FileText size={19} />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[#191E1B] line-clamp-2">{doc.name}</p>
@@ -786,9 +1094,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      showToast(`Stahování: ${doc.name}`, 'PDF připraveno ke stažení.', 'gold')
-                    }
+                    onClick={() => handleDownloadDocument(doc)}
                     className="text-[11px] font-semibold text-[#234B54] hover:text-[#B8934A] flex items-center gap-1 cursor-pointer"
                   >
                     <Download size={12} />
@@ -796,12 +1102,22 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleReplaceDocument(doc.id)}
+                    onClick={() => handleReplaceDocumentPick(doc.id)}
                     className="text-[11px] font-semibold text-[#7D8B82] hover:text-[#234B54] flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw size={12} />
                     Nahradit
                   </button>
+                  {doc.url && (
+                    <button
+                      type="button"
+                      onClick={() => deletePetDocument(doc.id)}
+                      className="text-[11px] font-semibold text-[#7D8B82] hover:text-red-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 size={12} />
+                      Smazat
+                    </button>
+                  )}
                 </div>
                 <div className="mt-2">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
@@ -822,6 +1138,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </div>
             ))}
           </div>
+          )}
         </Card>
       )}
 
@@ -1067,23 +1384,52 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
       >
         {documentPreview && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-8 text-center">
-              <FileText size={48} className="mx-auto text-[#234B54] mb-3" />
-              <p className="text-sm font-bold text-[#191E1B]">{documentPreview.name}</p>
-              <p className="text-xs text-[#7D8B82] mt-1">Náhled PDF dokumentu</p>
+            <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] overflow-hidden">
+              {documentPreview.url &&
+              (documentPreview.mimeType?.startsWith('image/') ||
+                /\.(jpe?g|png|webp|gif|bmp)$/i.test(documentPreview.name)) ? (
+                <img
+                  src={documentPreview.url}
+                  alt={documentPreview.name}
+                  className="max-h-80 w-full object-contain bg-white"
+                />
+              ) : documentPreview.url &&
+                (documentPreview.mimeType === 'application/pdf' ||
+                  documentPreview.name.toLowerCase().endsWith('.pdf')) ? (
+                <iframe
+                  title={documentPreview.name}
+                  src={documentPreview.url}
+                  className="h-80 w-full bg-white"
+                />
+              ) : (
+                <div className="p-8 text-center">
+                  <FileText size={48} className="mx-auto text-[#234B54] mb-3" />
+                  <p className="text-sm font-bold text-[#191E1B]">{documentPreview.name}</p>
+                  <p className="text-xs text-[#7D8B82] mt-1">
+                    {documentPreview.url
+                      ? 'Náhled není k dispozici — soubor lze stáhnout.'
+                      : 'Ukázkový dokument bez nahraného souboru.'}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() =>
-                  showToast(`Stahování: ${documentPreview.name}`, 'PDF připraveno.', 'gold')
-                }
+                onClick={() => handleDownloadDocument(documentPreview)}
               >
                 <Download size={14} />
                 Stáhnout
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleReplaceDocument(documentPreview.id)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  handleReplaceDocumentPick(documentPreview.id)
+                  setDocumentPreview(null)
+                }}
+              >
                 <RefreshCw size={14} />
                 Nahradit
               </Button>

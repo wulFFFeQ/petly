@@ -1,6 +1,7 @@
 import { Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
+  formatMedicationRemainingLabel,
   formatReminderDaysLabel,
   MAX_REMINDER_DAYS,
   normalizeReminderDays,
@@ -386,9 +387,12 @@ export function HealthRecordDetailBody({
               {record.reminderEnabled ? 'Připomínka aktivní' : 'Zapnout připomínku'}
             </Button>
             <p className="text-[11px] text-[#7D8B82] leading-relaxed">
+              {record.status === 'active'
+                ? `${formatMedicationRemainingLabel(record)}. `
+                : ''}
               {record.reminderEnabled
-                ? `Denně ve ${reminderTime} po dobu ${formatReminderDaysLabel(reminderDays)} — ve zvonku i v kalendáři.`
-                : 'Nastavte čas a délku léčby, pak zapněte připomínku.'}
+                ? `Připomínka denně ve ${reminderTime} po dobu ${formatReminderDaysLabel(reminderDays)} — ve zvonku i v kalendáři.`
+                : 'Nastavte čas a délku léčby, pak zapněte připomínku. Délka léčby platí i bez připomínky.'}
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useCallback, useMemo } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { PetProfileHeader } from '../components/pets/PetProfileHeader'
 import { PetProfileTabContent } from '../components/pets/PetProfileTabContent'
 import { Card } from '../components/ui/Card'
@@ -14,10 +14,35 @@ const profileTabs = [
   { id: 'photos', label: 'Fotogalerie' },
 ]
 
+const validTabIds = new Set(profileTabs.map((tab) => tab.id))
+
 export function PetProfilePage() {
   const { petId } = useParams()
   const { pets } = useApp()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const activeTab = useMemo(() => {
+    const tab = searchParams.get('tab')
+    return tab && validTabIds.has(tab) ? tab : 'overview'
+  }, [searchParams])
+
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (!validTabIds.has(tab) || tab === 'overview') {
+            next.delete('tab')
+          } else {
+            next.set('tab', tab)
+          }
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
 
   const pet = pets.find((p) => p.id === petId)
 

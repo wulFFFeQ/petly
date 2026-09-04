@@ -195,8 +195,8 @@ export const healthRecords: HealthRecord[] = [
   {
     id: 'hr8',
     petId: 'luna',
-    type: 'vet',
-    title: 'Laboratorní výsledky',
+    type: 'examination',
+    title: 'Vyšetření',
     subtitle: 'Krevní obraz a biochemie – v normě',
     date: '3. 7. 2026',
     doctor: 'MUDr. Martin Novák',
@@ -247,8 +247,8 @@ export const healthRecords: HealthRecord[] = [
   {
     id: 'hr7',
     petId: 'bella',
-    type: 'vet',
-    title: 'Návštěva veterináře',
+    type: 'examination',
+    title: 'Vyšetření',
     subtitle: 'Kardiologické vyšetření seniora',
     date: '22. 5. 2026',
     doctor: 'MUDr. Martin Novák',

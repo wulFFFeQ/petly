@@ -1,5 +1,5 @@
 import type { AppNotification, CalendarEvent, HealthRecord, Pet } from '../types'
-import { parseCzechDate } from './dashboardDates'
+import { daysUntil, parseCzechDate } from './dashboardDates'
 
 export const REMINDER_DURATION_PRESETS = [
   { value: 1, label: '1 den' },
@@ -24,6 +24,10 @@ function formatCzechShort(date: Date): string {
   return `${date.getDate()}. ${date.getMonth() + 1}.`
 }
 
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+}
+
 export function normalizeReminderDays(days?: number): number {
   if (days == null || Number.isNaN(days)) return 7
   return Math.max(1, Math.min(Math.round(days), MAX_REMINDER_DAYS))
@@ -34,6 +38,59 @@ export function formatReminderDaysLabel(days: number): string {
   if (n === 1) return '1 den'
   if (n >= 2 && n <= 4) return `${n} dny`
   return `${n} dní`
+}
+
+export type MedicationCourseBounds = {
+  start: Date
+  end: Date
+  totalDays: number
+  remainingDays: number
+  /** True while today is within the prescribed course window. */
+  isWithinCourse: boolean
+}
+
+/** Treatment window from prescription date for `reminderDays` consecutive days. */
+export function getMedicationCourseBounds(record: HealthRecord): MedicationCourseBounds {
+  const totalDays = normalizeReminderDays(record.reminderDays)
+  const today = startOfDay(new Date())
+  const parsed = parseCzechDate(record.date)
+  const start = parsed ? startOfDay(parsed) : today
+  const end = new Date(start)
+  end.setDate(start.getDate() + totalDays - 1)
+
+  const dayDiff = daysUntil(today, end)
+  const remainingDays = dayDiff < 0 ? 0 : dayDiff + 1
+  // Active until the last day of the course (inclusive), even if reminder is off.
+  const isWithinCourse = remainingDays > 0
+
+  return { start, end, totalDays, remainingDays, isWithinCourse }
+}
+
+export function isMedicationCurrentlyActive(record: HealthRecord): boolean {
+  if (record.type !== 'medication') return false
+  if (record.status !== 'active') return false
+  return getMedicationCourseBounds(record).isWithinCourse
+}
+
+/** e.g. „Zbývá 5 dní“ / „Poslední den“ — independent of reminder on/off. */
+export function formatMedicationRemainingLabel(record: HealthRecord): string {
+  const { start, remainingDays, totalDays, end, isWithinCourse } =
+    getMedicationCourseBounds(record)
+
+  if (!isWithinCourse || remainingDays <= 0) {
+    return `Skončilo ${formatCzechShort(end)}`
+  }
+
+  const daysUntilStart = daysUntil(startOfDay(new Date()), start)
+  if (daysUntilStart > 0) {
+    return `Začne ${formatCzechShort(start)} · ${formatReminderDaysLabel(totalDays)}`
+  }
+
+  if (remainingDays === 1) {
+    return totalDays === 1 ? 'Dnes (1 den)' : 'Poslední den'
+  }
+
+  return `Zbývá ${formatReminderDaysLabel(remainingDays)} · do ${formatCzechShort(end)}`
 }
 
 /** Resolve when the reminder series should start (ISO date + HH:mm). */

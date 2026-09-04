@@ -308,7 +308,8 @@ export function Modals() {
               }
               options={[
                 { value: 'vaccination', label: 'Očkování' },
-                { value: 'vet', label: 'Klinické vyšetření' },
+                { value: 'vet', label: 'Návštěva veterináře' },
+                { value: 'examination', label: 'Vyšetření' },
                 { value: 'medication', label: 'Předepsaný lék' },
               ]}
             />

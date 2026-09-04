@@ -41,7 +41,9 @@ const SHARE_GROUPS: {
 function getShareCategory(record: HealthRecord): ShareCategory {
   if (record.type === 'vaccination') return 'vaccination'
   if (record.type === 'medication') return 'medication'
-  if (/laborator|výsledk/i.test(record.title)) return 'results'
+  if (record.type === 'examination' || /laborator|výsledk|vyšetřen/i.test(`${record.title} ${record.subtitle}`)) {
+    return 'results'
+  }
   return 'visit'
 }
 
