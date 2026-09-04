@@ -40,6 +40,7 @@ import {
 } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import { getHeatPeriodEndDate } from '../../lib/calendarEventTypes'
+import { formatIdealWeightHint } from '../../lib/breedIdealWeight'
 import { isDogType, isFemalePetGender } from '../../lib/petTypes'
 import type {
   HealthRecord,
@@ -210,6 +211,8 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   const lastHeatSubtext = lastHeatEvent
     ? `Do ${formatIsoDateToCzech(getHeatPeriodEndDate(lastHeatEvent))}`
     : 'Zatím bez záznamu v kalendáři'
+
+  const idealWeightHint = formatIdealWeightHint(pet.type, pet.breed, pet.gender)
 
   const healthSummaryCards = [
     {
@@ -554,7 +557,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   : formatOptionalWeight(pet.weight)}
               </p>
               <p className="text-xs text-[#7D8B82] font-medium mt-1">
-                Sledujte vývoj a přidávejte měření
+                {idealWeightHint ?? 'Sledujte vývoj a přidávejte měření'}
               </p>
             </Card>
 
@@ -704,7 +707,8 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   Vývoj hmotnosti
                 </h3>
                 <p className="text-xs text-[#7D8B82] mt-0.5">
-                  Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight} kg
+                  Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight ?? '—'} kg
+                  {idealWeightHint ? ` · ${idealWeightHint}` : ''}
                 </p>
               </div>
             </div>
