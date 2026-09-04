@@ -19,14 +19,12 @@ export function isCatType(type: PetType) {
 
 export function getDefaultGender(type: PetType) {
   if (isDogType(type)) return 'Fena'
-  if (isCatType(type)) return 'Kočka'
-  return 'Samice'
+  return 'Kočka'
 }
 
 export function getDefaultWeight(type: PetType) {
   if (isCatType(type)) return 4.5
-  if (isDogType(type)) return 15
-  return 5
+  return 15
 }
 
 export const petPlaceholderImages: Record<PetType, string> = {
@@ -34,6 +32,7 @@ export const petPlaceholderImages: Record<PetType, string> = {
   cat: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85',
 }
 
+/** Species-correct gender options only — never generic Samice / Samec. */
 export function getGenderOptions(type: PetType) {
   if (isDogType(type)) {
     return [
@@ -42,21 +41,32 @@ export function getGenderOptions(type: PetType) {
     ]
   }
 
-  if (isCatType(type)) {
-    return [
-      { value: 'Kočka', label: 'Kočka' },
-      { value: 'Kocour', label: 'Kocour' },
-    ]
-  }
-
   return [
-    { value: 'Samice', label: 'Samice' },
-    { value: 'Samec', label: 'Samec' },
+    { value: 'Kočka', label: 'Kočka' },
+    { value: 'Kocour', label: 'Kocour' },
   ]
 }
 
 function isFemaleGender(gender: string | undefined) {
-  return gender === 'Samice' || gender === 'Fena' || gender === 'Kočka'
+  const value = gender?.trim()
+  return (
+    value === 'Samice' ||
+    value === 'Fena' ||
+    value === 'Kočka' ||
+    value === 'female' ||
+    value === 'Female'
+  )
+}
+
+function isMaleGender(gender: string | undefined) {
+  const value = gender?.trim()
+  return (
+    value === 'Samec' ||
+    value === 'Pes' ||
+    value === 'Kocour' ||
+    value === 'male' ||
+    value === 'Male'
+  )
 }
 
 /** Female dog (fena) or female cat (kočka), including legacy „Samice“. */
@@ -64,15 +74,36 @@ export function isFemalePetGender(gender: string | undefined) {
   return isFemaleGender(gender)
 }
 
-export function normalizeGenderForType(gender: string | undefined, type: PetType) {
+/**
+ * Always returns species-correct Czech gender labels:
+ * dog → Fena / Pes, cat → Kočka / Kocour.
+ * Migrates legacy Samice / Samec automatically.
+ */
+export function normalizeGenderForType(
+  gender: string | undefined,
+  type: PetType,
+): string | undefined {
+  if (!gender?.trim()) return undefined
+
   const options = getGenderOptions(type)
-  if (gender && options.some((option) => option.value === gender)) {
+  if (options.some((option) => option.value === gender)) {
     return gender
   }
 
-  const female = isFemaleGender(gender)
+  // Cross-species corrections
+  if (gender === 'Pes' && isCatType(type)) return 'Kocour'
+  if (gender === 'Kocour' && isDogType(type)) return 'Pes'
+  if (gender === 'Fena' && isCatType(type)) return 'Kočka'
+  if (gender === 'Kočka' && isDogType(type)) return 'Fena'
 
-  if (isDogType(type)) return female ? 'Fena' : 'Pes'
-  if (isCatType(type)) return female ? 'Kočka' : 'Kocour'
-  return female ? 'Samice' : 'Samec'
+  if (isFemaleGender(gender)) {
+    return isDogType(type) ? 'Fena' : 'Kočka'
+  }
+
+  if (isMaleGender(gender)) {
+    return isDogType(type) ? 'Pes' : 'Kocour'
+  }
+
+  // Unknown legacy value → default by species
+  return getDefaultGender(type)
 }

@@ -6,15 +6,19 @@ import {
   Plus,
   Calendar as CalendarIcon,
   BellRing,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BRAND_NAME } from '../../lib/brand'
 import {
   CALENDAR_CATEGORY_OPTIONS,
+  eachIsoDateInclusive,
   getCategoryLabel,
   getEventCategory,
   getEventCategoryStyle,
   getEventVisualStyle,
+  getHeatPeriodEndDate,
 } from '../../lib/calendarEventTypes'
 import { useApp } from '../../context/AppContext'
 import type { CalendarEvent, CalendarEventCategory } from '../../types'
@@ -26,7 +30,7 @@ import { Card } from '../ui/Card'
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 
 type CalendarDayEvent = CalendarEvent & {
-  calendarRole?: 'start' | 'due' | 'heat-end' | 'heat-actual'
+  calendarRole?: 'start' | 'due' | 'heat-active' | 'heat-end' | 'heat-actual'
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -53,7 +57,15 @@ function addEventToDayMap(
 }
 
 export function CalendarGrid() {
-  const { calendarEvents, setActiveModal, showToast } = useApp()
+  const {
+    calendarEvents,
+    setActiveModal,
+    showToast,
+    calendarFocusDate,
+    clearCalendarFocusDate,
+    openEditCalendarEvent,
+    deleteCalendarEvent,
+  } = useApp()
   const [currentDate, setCurrentDate] = useState(new Date(2026, 8, 1))
   const [selectedDay, setSelectedDay] = useState<number | null>(1)
   const [filterCategory, setFilterCategory] = useState<CalendarEventCategory | 'all'>('all')
@@ -62,6 +74,22 @@ export function CalendarGrid() {
   const month = currentDate.getMonth()
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfMonth(year, month)
+
+  useEffect(() => {
+    if (!calendarFocusDate) return
+    const match = calendarFocusDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) {
+      clearCalendarFocusDate()
+      return
+    }
+    const focusYear = Number(match[1])
+    const focusMonth = Number(match[2]) - 1
+    const focusDay = Number(match[3])
+    setCurrentDate(new Date(focusYear, focusMonth, 1))
+    setSelectedDay(focusDay)
+    setFilterCategory('all')
+    clearCalendarFocusDate()
+  }, [calendarFocusDate, clearCalendarFocusDate])
 
   const monthLabel = currentDate.toLocaleDateString('cs-CZ', {
     month: 'long',
@@ -79,29 +107,44 @@ export function CalendarGrid() {
     filteredEvents.forEach((event) => {
       const isPregnancy = event.type === 'pregnancy'
       const isHeat = event.type === 'heat'
+
+      if (isHeat) {
+        const endIso = getHeatPeriodEndDate(event)
+        const span = eachIsoDateInclusive(event.date, endIso)
+        const lastIso = span[span.length - 1] ?? event.date
+        span.forEach((iso) => {
+          const isStart = iso === event.date
+          const isLast = iso === lastIso
+          let calendarRole: CalendarDayEvent['calendarRole'] = 'heat-active'
+          let title = 'Hárání'
+          if (isStart) {
+            calendarRole = 'start'
+            title = event.title || 'Hárání'
+          } else if (isLast && event.actualEndDate) {
+            calendarRole = 'heat-actual'
+            title = 'Hárání skončilo'
+          } else if (isLast) {
+            calendarRole = 'heat-end'
+            title = 'Konec hárání'
+          }
+          addEventToDayMap(map, iso, year, month, {
+            ...event,
+            title,
+            calendarRole,
+          })
+        })
+        return
+      }
+
       addEventToDayMap(map, event.date, year, month, {
         ...event,
-        calendarRole: isPregnancy || isHeat ? 'start' : undefined,
+        calendarRole: isPregnancy ? 'start' : undefined,
       })
       if (isPregnancy && event.expectedBirthDate) {
         addEventToDayMap(map, event.expectedBirthDate, year, month, {
           ...event,
           title: `Předpoklad porodu · ${event.petName}`,
           calendarRole: 'due',
-        })
-      }
-      if (isHeat && event.expectedEndDate) {
-        addEventToDayMap(map, event.expectedEndDate, year, month, {
-          ...event,
-          title: `Konec hárání (odhad) · ${event.petName}`,
-          calendarRole: 'heat-end',
-        })
-      }
-      if (isHeat && event.actualEndDate) {
-        addEventToDayMap(map, event.actualEndDate, year, month, {
-          ...event,
-          title: `Hárání skončilo · ${event.petName}`,
-          calendarRole: 'heat-actual',
         })
       }
     })
@@ -125,9 +168,7 @@ export function CalendarGrid() {
     )
   }
 
-  const filterCategories = CALENDAR_CATEGORY_OPTIONS.filter(
-    (option) => option.value !== 'breeding',
-  )
+  const filterCategories = CALENDAR_CATEGORY_OPTIONS
 
   return (
     <div className="space-y-6">
@@ -266,7 +307,7 @@ export function CalendarGrid() {
                   </div>
 
                   <div className="mt-1.5 flex flex-col gap-1 w-full overflow-hidden">
-                    {dayEvents.slice(0, 2).map((event) => {
+                    {dayEvents.slice(0, 3).map((event) => {
                       const style = getEventVisualStyle(event.type)
                       return (
                         <div
@@ -282,9 +323,9 @@ export function CalendarGrid() {
                         </div>
                       )
                     })}
-                    {dayEvents.length > 2 && (
+                    {dayEvents.length > 3 && (
                       <span className="text-[9px] font-bold text-[#7D8B82] pl-1">
-                        +{dayEvents.length - 2} dalších
+                        +{dayEvents.length - 3} dalších
                       </span>
                     )}
                   </div>
@@ -334,27 +375,43 @@ export function CalendarGrid() {
                   const isPregnancyStart =
                     event.type === 'pregnancy' && event.calendarRole === 'start'
                   const isHeatStart = event.type === 'heat' && event.calendarRole === 'start'
+                  const isHeatActive = event.calendarRole === 'heat-active'
                   const isHeatEnd = event.calendarRole === 'heat-end'
                   const isHeatActual = event.calendarRole === 'heat-actual'
                   const roleLabel = isPregnancyDue
                     ? 'Předpoklad porodu'
-                    : isHeatEnd
-                      ? 'Odhad konce hárání'
-                      : isHeatActual
-                        ? 'Skutečný konec hárání'
-                        : getCategoryLabel(getEventCategory(event.type))
+                    : isHeatActive
+                      ? 'Hárání probíhá'
+                      : isHeatEnd
+                        ? 'Odhad konce hárání'
+                        : isHeatActual
+                          ? 'Skutečný konec hárání'
+                          : isHeatStart
+                            ? 'Začátek hárání'
+                            : getCategoryLabel(getEventCategory(event.type))
                   const heading = isPregnancyDue
                     ? 'Předpokládaný porod'
-                    : isHeatEnd
-                      ? 'Pravděpodobný konec hárání'
-                      : isHeatActual
-                        ? 'Hárání skončilo'
-                        : event.title
+                    : isHeatActive
+                      ? 'Hárání'
+                      : isHeatEnd
+                        ? 'Pravděpodobný konec hárání'
+                        : isHeatActual
+                          ? 'Hárání skončilo'
+                          : event.title
 
                   return (
                     <div
                       key={`${event.id}-${event.calendarRole ?? 'main'}`}
-                      className="rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openEditCalendarEvent(event.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          openEditCalendarEvent(event.id)
+                        }
+                      }}
+                      className="rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8] hover:shadow-xs transition-all cursor-pointer text-left"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
@@ -367,12 +424,38 @@ export function CalendarGrid() {
                         >
                           {roleLabel}
                         </span>
-                        {event.time && (
-                          <span className="text-xs font-mono font-bold text-[#2C4A3E] flex items-center gap-1">
-                            <Clock size={12} />
-                            {event.time}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {event.time && (
+                            <span className="text-xs font-mono font-bold text-[#2C4A3E] flex items-center gap-1 mr-1">
+                              <Clock size={12} />
+                              {event.time}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            aria-label="Upravit událost"
+                            title="Upravit"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEditCalendarEvent(event.id)
+                            }}
+                            className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-[#EBF2EE] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Smazat událost"
+                            title="Smazat"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteCalendarEvent(event.id)
+                            }}
+                            className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
 
                       <h5 className="mt-2 text-sm font-bold text-[#191E1B]">{heading}</h5>
@@ -412,6 +495,19 @@ export function CalendarGrid() {
                         </p>
                       )}
 
+                      {isHeatActive && (
+                        <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                          Období:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                            {' – '}
+                            {new Date(
+                              `${getHeatPeriodEndDate(event)}T12:00:00`,
+                            ).toLocaleDateString('cs-CZ')}
+                          </strong>
+                        </p>
+                      )}
+
                       {isHeatStart && event.actualEndDate && (
                         <p className="mt-1 text-[11px] text-[#5A6660]">
                           Skutečný konec:{' '}
@@ -439,11 +535,19 @@ export function CalendarGrid() {
                         </p>
                       )}
 
-                      {event.notes && event.calendarRole !== 'due' && !isHeatEnd && !isHeatActual && (
+                      {event.notes &&
+                        event.calendarRole !== 'due' &&
+                        !isHeatEnd &&
+                        !isHeatActual &&
+                        !isHeatActive && (
                         <p className="mt-2 text-[11px] text-[#7D8B82] bg-white p-2 rounded-lg border border-[#E8E4DC]">
                           {event.notes}
                         </p>
                       )}
+
+                      <p className="mt-2 text-[10px] font-medium text-[#A3AEA7]">
+                        Klepnutím upravíte
+                      </p>
                     </div>
                   )
                 })}

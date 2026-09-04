@@ -10,6 +10,7 @@ import {
   FileText,
   FlaskConical,
   Heart,
+  HeartHandshake,
   Info,
   Pencil,
   Plus,
@@ -38,6 +39,8 @@ import {
   weightMeasurements as initialWeightMeasurements,
 } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
+import { getHeatPeriodEndDate } from '../../lib/calendarEventTypes'
+import { isDogType, isFemalePetGender } from '../../lib/petTypes'
 import type {
   HealthRecord,
   HealthRecordType,
@@ -48,6 +51,7 @@ import type {
 } from '../../types'
 import {
   buildPetTimeline,
+  formatIsoDateToCzech,
   isDocumentExpiringSoon,
   parseCzechDate,
 } from '../../lib/petProfileUtils'
@@ -100,6 +104,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     toggleMedicationReminder,
     setMedicationReminderTime,
     setMedicationReminderDays,
+    calendarEvents,
   } = useApp()
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
   const documentFileInputRef = useRef<HTMLInputElement>(null)
@@ -183,6 +188,26 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   const overviewLastVetVisit =
     pet.lastVetVisit || latestClinicalVisit?.date || undefined
   const overviewNextVaccination = pet.nextVaccination || nextVaccinationDue || undefined
+
+  const showLastHeatCard =
+    Boolean(pet.breedingProfile) &&
+    isDogType(pet.type) &&
+    isFemalePetGender(pet.gender)
+
+  const lastHeatEvent = useMemo(() => {
+    if (!showLastHeatCard) return null
+    const heats = calendarEvents
+      .filter((event) => event.type === 'heat' && event.petName === pet.name)
+      .sort((a, b) => b.date.localeCompare(a.date))
+    return heats[0] ?? null
+  }, [calendarEvents, pet.name, showLastHeatCard])
+
+  const lastHeatLabel = lastHeatEvent
+    ? formatIsoDateToCzech(lastHeatEvent.date)
+    : undefined
+  const lastHeatSubtext = lastHeatEvent
+    ? `Do ${formatIsoDateToCzech(getHeatPeriodEndDate(lastHeatEvent))}`
+    : 'Zatím bez záznamu v kalendáři'
 
   const healthSummaryCards = [
     {
@@ -494,7 +519,11 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     <>
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div
+            className={`grid gap-4 sm:grid-cols-2 ${
+              showLastHeatCard ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'
+            }`}
+          >
             <Card variant="elevated" padding="md" hoverable onClick={() => onTabChange('health')}>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
@@ -552,6 +581,26 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
               </p>
               <p className="text-xs text-[#B8934A] font-medium mt-1">Detail vakcíny a veterináře</p>
             </Card>
+
+            {showLastHeatCard && (
+              <Card
+                variant="elevated"
+                padding="md"
+                hoverable
+                onClick={() => setActiveModal('bookVet', pet.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                    Poslední hárání
+                  </span>
+                  <HeartHandshake size={16} className="text-rose-700" />
+                </div>
+                <p className="mt-2 text-xl font-bold text-[#191E1B]">
+                  {formatOptionalText(lastHeatLabel)}
+                </p>
+                <p className="text-xs text-rose-800/80 font-medium mt-1">{lastHeatSubtext}</p>
+              </Card>
+            )}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">

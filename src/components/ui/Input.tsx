@@ -4,13 +4,29 @@ import { cn } from '../../lib/utils'
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   hint?: string
+  labelClassName?: string
+  wrapperClassName?: string
 }
 
-export function Input({ label, hint, className, id, ...props }: InputProps) {
+export function Input({
+  label,
+  hint,
+  className,
+  id,
+  labelClassName,
+  wrapperClassName,
+  ...props
+}: InputProps) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn('flex flex-col gap-1.5', wrapperClassName)}>
       {label && (
-        <label htmlFor={id} className="text-xs font-semibold tracking-wide uppercase text-[#4A564F]">
+        <label
+          htmlFor={id}
+          className={cn(
+            'text-xs font-semibold tracking-wide uppercase text-[#4A564F]',
+            labelClassName,
+          )}
+        >
           {label}
         </label>
       )}

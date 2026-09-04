@@ -65,8 +65,8 @@ export const cs = {
     attention: 'Vyžaduje pozornost',
   },
   gender: {
-    female: 'Samice',
-    male: 'Samec',
+    female: 'Fena',
+    male: 'Pes',
     unknown: 'Neuvedeno',
   },
 } as const

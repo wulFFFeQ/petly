@@ -280,6 +280,54 @@ function addDaysToIsoDate(startIso: string, days: number): string {
   return `${y}-${m}-${d}`
 }
 
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** Inclusive list of ISO dates from start to end (YYYY-MM-DD). */
+export function eachIsoDateInclusive(startIso: string, endIso: string): string[] {
+  const startMatch = startIso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const endMatch = endIso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!startMatch || !endMatch) return startMatch ? [startIso] : []
+
+  const cursor = new Date(
+    Number(startMatch[1]),
+    Number(startMatch[2]) - 1,
+    Number(startMatch[3]),
+    12,
+    0,
+    0,
+  )
+  const end = new Date(
+    Number(endMatch[1]),
+    Number(endMatch[2]) - 1,
+    Number(endMatch[3]),
+    12,
+    0,
+    0,
+  )
+  if (end.getTime() < cursor.getTime()) return [startIso]
+
+  const dates: string[] = []
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(toIsoDate(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return dates
+}
+
+/** Active heat ends on actual end when known, otherwise the estimated end. */
+export function getHeatPeriodEndDate(event: {
+  date: string
+  expectedEndDate?: string
+  actualEndDate?: string
+}): string {
+  return event.actualEndDate || event.expectedEndDate || event.date
+}
+
 /** Typical gestation length for dogs and cats (~9 weeks). */
 export function suggestPregnancyDueDate(startIso: string): string {
   return addDaysToIsoDate(startIso, 63)

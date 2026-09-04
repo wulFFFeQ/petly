@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   calendarEvents as initialCalendarEvents,
   communityPosts as initialPosts,
@@ -9,6 +9,7 @@ import {
 } from '../data/mockData'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
+import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
 import {
@@ -52,6 +53,9 @@ function loadPets(): Pet[] {
         ...pet,
         breed: localizeBreedName(pet.breed),
         breedingProfile: pet.breedingProfile ?? seed?.breedingProfile,
+        gender: pet.gender
+          ? normalizeGenderForType(pet.gender, pet.type) ?? pet.gender
+          : pet.gender,
       }
     })
   } catch {
@@ -141,6 +145,11 @@ interface AppContextValue {
   discoverFilter: DiscoverFilter
   toasts: ToastMessage[]
   notificationsOpen: boolean
+  /** ISO date (YYYY-MM-DD) to focus in the calendar after adding an event. */
+  calendarFocusDate: string | null
+  clearCalendarFocusDate: () => void
+  editingCalendarEventId: string | null
+  openEditCalendarEvent: (eventId: string) => void
   setActiveModal: (modal: ModalType, petId?: string) => void
   setDiscoverSearch: (query: string) => void
   setDiscoverFilter: (filter: DiscoverFilter) => void
@@ -185,6 +194,8 @@ interface AppContextValue {
   addComment: (postId: string, text: string) => void
   deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
+  updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
+  deleteCalendarEvent: (eventId: string) => void
   showToast: (title: string, description?: string, type?: ToastMessage['type']) => void
   removeToast: (id: string) => void
 }
@@ -229,6 +240,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>('all')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)
+  const [editingCalendarEventId, setEditingCalendarEventId] = useState<string | null>(null)
+
+  const clearCalendarFocusDate = useCallback(() => {
+    setCalendarFocusDate(null)
+  }, [])
 
   const showToast = (
     title: string,
@@ -249,6 +266,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  // Migrate legacy Samice/Samec → Fena/Pes or Kočka/Kocour
+  useEffect(() => {
+    setPets((prev) => {
+      let changed = false
+      const next = prev.map((pet) => {
+        if (!pet.gender) return pet
+        const gender = normalizeGenderForType(pet.gender, pet.type)
+        if (!gender || gender === pet.gender) return pet
+        changed = true
+        return { ...pet, gender }
+      })
+      return changed ? next : prev
+    })
+  }, [])
 
   useEffect(() => {
     try {
@@ -280,8 +312,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [documents])
 
   const setActiveModal = (modal: ModalType, petId?: string) => {
+    if (modal !== 'bookVet') {
+      setEditingCalendarEventId(null)
+    } else {
+      // Creating a new event via setActiveModal clears edit mode.
+      setEditingCalendarEventId(null)
+    }
     setActiveModalState(modal)
     setModalPetId(modal ? petId ?? null : null)
+  }
+
+  const openEditCalendarEvent = (eventId: string) => {
+    setEditingCalendarEventId(eventId)
+    setActiveModalState('bookVet')
+    setModalPetId(null)
   }
 
   const addPet = (form: NewPetForm) => {
@@ -301,7 +345,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       image: getDefaultBreedImage(form.type, form.breed),
       coverColor: pickRandomCoverColor(),
       ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
-      ...(form.gender ? { gender: form.gender } : {}),
+      ...(form.gender
+        ? { gender: normalizeGenderForType(form.gender, form.type) ?? form.gender }
+        : {}),
       ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
     }
     setPets((prev) => [...prev, newPet])
@@ -315,7 +361,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updatePet = (petId: string, updates: Partial<Pet>) => {
     setPets((prev) =>
-      prev.map((pet) => (pet.id === petId ? { ...pet, ...updates } : pet)),
+      prev.map((pet) => {
+        if (pet.id !== petId) return pet
+        const next: Pet = { ...pet, ...updates }
+
+        if ('gender' in updates) {
+          const gender = updates.gender
+            ? normalizeGenderForType(updates.gender, next.type)
+            : undefined
+          if (gender) next.gender = gender
+          else delete next.gender
+        }
+        if ('age' in updates && (updates.age == null || updates.age <= 0)) {
+          delete next.age
+        }
+        if ('weight' in updates && (updates.weight == null || updates.weight <= 0)) {
+          delete next.weight
+        }
+        if ('dateOfBirth' in updates && !updates.dateOfBirth?.trim()) {
+          delete next.dateOfBirth
+        }
+        if ('microchip' in updates && !updates.microchip?.trim()) {
+          delete next.microchip
+        }
+        if ('neutered' in updates && updates.neutered === undefined) {
+          delete next.neutered
+        }
+
+        return next
+      }),
     )
   }
 
@@ -759,14 +833,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {
     setCalendarEvents((prev) => [
-      ...prev,
       { ...event, id: `c_${Date.now()}` },
+      ...prev,
     ])
+    setCalendarFocusDate(event.date)
+    setEditingCalendarEventId(null)
     setActiveModal(null)
     showToast(
       `${event.title} naplánováno`,
-      `Termín ${event.date} pro ${event.petName}`,
+      `Termín ${formatIsoDateToCzech(event.date)} pro ${event.petName}`,
       'gold',
+    )
+  }
+
+  const updateCalendarEvent = (
+    eventId: string,
+    updates: Partial<Omit<CalendarEvent, 'id'>>,
+  ) => {
+    const existing = calendarEvents.find((event) => event.id === eventId)
+    setCalendarEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event
+        return {
+          id: event.id,
+          sourceRecordId: event.sourceRecordId,
+          title: updates.title ?? event.title,
+          petName: updates.petName ?? event.petName,
+          type: updates.type ?? event.type,
+          date: updates.date ?? event.date,
+          time: 'time' in updates ? updates.time : event.time,
+          location: 'location' in updates ? updates.location : event.location,
+          notes: 'notes' in updates ? updates.notes : event.notes,
+          reminderEnabled:
+            'reminderEnabled' in updates ? updates.reminderEnabled : event.reminderEnabled,
+          expectedBirthDate:
+            'expectedBirthDate' in updates
+              ? updates.expectedBirthDate
+              : event.expectedBirthDate,
+          expectedEndDate:
+            'expectedEndDate' in updates ? updates.expectedEndDate : event.expectedEndDate,
+          actualEndDate:
+            'actualEndDate' in updates ? updates.actualEndDate : event.actualEndDate,
+        }
+      }),
+    )
+    if (updates.date) setCalendarFocusDate(updates.date)
+    setEditingCalendarEventId(null)
+    setActiveModalState(null)
+    setModalPetId(null)
+    showToast('Událost upravena', updates.title ?? existing?.title, 'gold')
+  }
+
+  const deleteCalendarEvent = (eventId: string) => {
+    const existing = calendarEvents.find((event) => event.id === eventId)
+    setCalendarEvents((prev) => prev.filter((event) => event.id !== eventId))
+    setEditingCalendarEventId(null)
+    setActiveModalState(null)
+    setModalPetId(null)
+    showToast(
+      'Událost smazána',
+      existing ? `${existing.title} byla odstraněna z kalendáře.` : undefined,
+      'info',
     )
   }
 
@@ -786,6 +913,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         discoverFilter,
         toasts,
         notificationsOpen,
+        calendarFocusDate,
+        clearCalendarFocusDate,
+        editingCalendarEventId,
+        openEditCalendarEvent,
         setActiveModal,
         setDiscoverSearch,
         setDiscoverFilter,
@@ -812,6 +943,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addComment,
         deletePost,
         addCalendarEvent,
+        updateCalendarEvent,
+        deleteCalendarEvent,
         showToast,
         removeToast,
       }}

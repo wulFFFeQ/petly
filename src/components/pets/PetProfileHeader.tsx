@@ -12,14 +12,16 @@ import {
   Calendar,
   Stethoscope,
   HeartHandshake,
+  Pencil,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import { APP_TODAY } from '../../lib/dashboardDates'
 import {
   EMPTY_PROFILE_LABEL,
   formatHealthStatus,
@@ -29,14 +31,53 @@ import {
   formatOptionalWeight,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
+import {
+  formatCzechDateToIso,
+  formatIsoDateToCzech,
+} from '../../lib/petProfileUtils'
 import { getPetCoverColor } from '../../lib/petCoverColors'
+import { getGenderOptions } from '../../lib/petTypes'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
+import { OptionSelect } from '../ui/OptionSelect'
 
 interface PetProfileHeaderProps {
   pet: Pet
+}
+
+type DetailsForm = {
+  dateOfBirthIso: string
+  age: string
+  gender: string
+  weight: string
+  microchip: string
+  neutered: '' | 'yes' | 'no'
+}
+
+function ageYearsFromIso(iso: string, today = APP_TODAY): number | undefined {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return undefined
+  const birth = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
+  let age = today.getFullYear() - birth.getFullYear()
+  const beforeBirthday =
+    today.getMonth() < birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+  if (beforeBirthday) age -= 1
+  return age >= 0 ? age : undefined
+}
+
+function buildDetailsForm(pet: Pet): DetailsForm {
+  return {
+    dateOfBirthIso: pet.dateOfBirth ? formatCzechDateToIso(pet.dateOfBirth) : '',
+    age: pet.age != null && pet.age > 0 ? String(pet.age) : '',
+    gender: pet.gender ?? '',
+    weight: pet.weight != null && pet.weight > 0 ? String(pet.weight).replace('.', ',') : '',
+    microchip: pet.microchip ?? '',
+    neutered: pet.neutered == null ? '' : pet.neutered ? 'yes' : 'no',
+  }
 }
 
 export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
@@ -46,9 +87,15 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [linkCopied, setLinkCopied] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [detailsForm, setDetailsForm] = useState<DetailsForm>(() => buildDetailsForm(pet))
   const photoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
   const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet } = useApp()
+
+  useEffect(() => {
+    if (!detailsOpen) setDetailsForm(buildDetailsForm(pet))
+  }, [pet, detailsOpen])
 
   const statusVariant =
     pet.healthStatus === 'excellent'
@@ -64,6 +111,37 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const mainVet = importantContacts.find((c) => c.type === 'vet')
   const emergencyPerson = importantContacts.find((c) => c.type === 'emergency_person')
   const shareLink = `https://lovedandknown.app/pets/${pet.id}?share=verified`
+
+  const openDetailsEditor = () => {
+    setDetailsForm(buildDetailsForm(pet))
+    setDetailsOpen(true)
+  }
+
+  const handleSaveDetails = (e: React.FormEvent) => {
+    e.preventDefault()
+    const weightRaw = detailsForm.weight.trim().replace(',', '.')
+    const weightNum = weightRaw ? Number(weightRaw) : undefined
+    let ageNum = detailsForm.age.trim() ? Number(detailsForm.age) : undefined
+    if ((ageNum == null || Number.isNaN(ageNum)) && detailsForm.dateOfBirthIso) {
+      ageNum = ageYearsFromIso(detailsForm.dateOfBirthIso)
+    }
+
+    updatePet(pet.id, {
+      dateOfBirth: detailsForm.dateOfBirthIso
+        ? formatIsoDateToCzech(detailsForm.dateOfBirthIso)
+        : undefined,
+      age: ageNum != null && !Number.isNaN(ageNum) ? ageNum : undefined,
+      gender: detailsForm.gender || undefined,
+      weight: weightNum != null && !Number.isNaN(weightNum) ? weightNum : undefined,
+      microchip: detailsForm.microchip.trim() || undefined,
+      neutered:
+        detailsForm.neutered === ''
+          ? undefined
+          : detailsForm.neutered === 'yes',
+    })
+    setDetailsOpen(false)
+    showToast('Údaje profilu uloženy', `${pet.name} — základní informace aktualizovány.`, 'gold')
+  }
 
   const handleCopyChip = async () => {
     if (!hasMicrochip(microchipValue)) return
@@ -265,73 +343,96 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
           </div>
 
-          <div
-            className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 sm:gap-x-6 sm:p-5"
-            style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}
-          >
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Datum narození
-              </p>
-              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                <Calendar size={13} className="shrink-0 text-[#234B54]" />
-                {formatOptionalText(pet.dateOfBirth)}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Věk a stádium
-              </p>
-              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                {formatOptionalAge(pet.age)}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Pohlaví
-              </p>
-              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                {formatOptionalText(pet.gender)}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Aktuální hmotnost
-              </p>
-              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                {formatOptionalWeight(pet.weight)}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                ID mikročipu
-              </p>
-              {hasMicrochip(microchipValue) ? (
-                <button
-                  onClick={handleCopyChip}
-                  className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
-                  title="Klikněte pro zkopírování ID mikročipu"
-                >
-                  <span>{microchipValue}</span>
-                  {copied ? (
-                    <Check size={12} className="shrink-0 text-emerald-600" />
-                  ) : (
-                    <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
-                  )}
-                </button>
-              ) : (
-                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  {EMPTY_PROFILE_LABEL}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={openDetailsEditor}
+              className="absolute -top-1 right-0 z-10 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2C4A3E] hover:bg-[#EBF2EE] cursor-pointer"
+            >
+              <Pencil size={12} />
+              Upravit
+            </button>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={openDetailsEditor}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openDetailsEditor()
+                }
+              }}
+              className="flex w-full flex-wrap items-start justify-between gap-x-4 gap-y-4 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-4 pt-8 sm:gap-x-6 sm:p-5 sm:pt-8 cursor-pointer transition-colors hover:border-[#D1E0D8] hover:bg-[#F7F4EE]"
+              title="Klepnutím upravíte údaje"
+            >
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Datum narození
                 </p>
-              )}
-            </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Kastrace
-              </p>
-              <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                {formatNeuteredStatus(pet.neutered)}
-              </p>
+                <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  <Calendar size={13} className="shrink-0 text-[#234B54]" />
+                  {formatOptionalText(pet.dateOfBirth)}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Věk a stádium
+                </p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  {formatOptionalAge(pet.age)}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Pohlaví
+                </p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  {formatOptionalText(pet.gender)}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Aktuální hmotnost
+                </p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  {formatOptionalWeight(pet.weight)}
+                </p>
+              </div>
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  ID mikročipu
+                </p>
+                {hasMicrochip(microchipValue) ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleCopyChip()
+                    }}
+                    className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
+                    title="Klikněte pro zkopírování ID mikročipu"
+                  >
+                    <span>{microchipValue}</span>
+                    {copied ? (
+                      <Check size={12} className="shrink-0 text-emerald-600" />
+                    ) : (
+                      <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
+                    )}
+                  </button>
+                ) : (
+                  <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                    {EMPTY_PROFILE_LABEL}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Kastrace
+                </p>
+                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                  {formatNeuteredStatus(pet.neutered, pet.gender)}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -405,6 +506,104 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        title="Upravit údaje"
+        subtitle={`Základní informace o ${pet.name}`}
+        maxWidth="lg"
+      >
+        <form onSubmit={handleSaveDetails} className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              id="pet-details-dob"
+              label="Datum narození"
+              type="date"
+              value={detailsForm.dateOfBirthIso}
+              onChange={(e) => {
+                const dateOfBirthIso = e.target.value
+                const computed = dateOfBirthIso ? ageYearsFromIso(dateOfBirthIso) : undefined
+                setDetailsForm((prev) => ({
+                  ...prev,
+                  dateOfBirthIso,
+                  age: computed != null ? String(computed) : prev.age,
+                }))
+              }}
+            />
+            <Input
+              id="pet-details-age"
+              label="Věk (roky)"
+              type="number"
+              min={0}
+              max={40}
+              step={1}
+              placeholder="např. 3"
+              value={detailsForm.age}
+              onChange={(e) => setDetailsForm((prev) => ({ ...prev, age: e.target.value }))}
+              hint="Při vyplnění data narození se věk dopočítá automaticky."
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <OptionSelect
+              id="pet-details-gender"
+              label="Pohlaví"
+              value={detailsForm.gender}
+              onChange={(gender) => setDetailsForm((prev) => ({ ...prev, gender }))}
+              options={[
+                { value: '', label: 'Zatím nevyplněno' },
+                ...getGenderOptions(pet.type),
+              ]}
+              placeholder="Vyberte pohlaví"
+            />
+            <Input
+              id="pet-details-weight"
+              label="Aktuální hmotnost (kg)"
+              inputMode="decimal"
+              placeholder="např. 12,5"
+              value={detailsForm.weight}
+              onChange={(e) => setDetailsForm((prev) => ({ ...prev, weight: e.target.value }))}
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              id="pet-details-microchip"
+              label="ID mikročipu"
+              placeholder="15místné číslo"
+              value={detailsForm.microchip}
+              onChange={(e) => setDetailsForm((prev) => ({ ...prev, microchip: e.target.value }))}
+            />
+            <OptionSelect
+              id="pet-details-neutered"
+              label="Kastrace"
+              value={detailsForm.neutered}
+              onChange={(neutered) =>
+                setDetailsForm((prev) => ({
+                  ...prev,
+                  neutered: neutered as DetailsForm['neutered'],
+                }))
+              }
+              options={[
+                { value: '', label: 'Zatím nevyplněno' },
+                { value: 'yes', label: 'Ano' },
+                { value: 'no', label: 'Ne' },
+              ]}
+              placeholder="Vyberte stav"
+            />
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setDetailsOpen(false)}>
+              Zrušit
+            </Button>
+            <Button type="submit" variant="primary">
+              Uložit změny
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={shareOpen}

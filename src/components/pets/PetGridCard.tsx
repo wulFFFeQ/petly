@@ -4,6 +4,7 @@ import { petTypeLabel } from '../../data/mockData'
 import type { Pet } from '../../types'
 import {
   formatHealthStatus,
+  formatNeuteredStatus,
   formatOptionalText,
   formatOptionalWeight,
   hasMicrochip,
@@ -120,7 +121,7 @@ export function PetGridCard({ pet }: PetGridCardProps) {
             </p>
             {pet.neutered != null && (
               <Badge variant="outline" size="sm" className="shrink-0">
-                {pet.neutered ? 'Kastrovaný' : 'Nekastrovaný'}
+                {formatNeuteredStatus(pet.neutered, pet.gender)}
               </Badge>
             )}
           </div>

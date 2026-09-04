@@ -6,6 +6,7 @@ import {
   getAvailableCategories,
   getDefaultEventLocation,
   getDefaultEventTitle,
+  getEventCategory,
   getEventTypesForCategory,
   getLocationFieldLabel,
   HEAT_DURATION_HINT,
@@ -20,6 +21,7 @@ import {
 import { todayIsoDate } from '../../lib/petProfileUtils'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 import type {
+  CalendarEvent,
   CalendarEventCategory,
   EventType,
   HealthRecordType,
@@ -58,16 +60,39 @@ function getDefaultEventForm(petName = 'Luna') {
   }
 }
 
+function calendarEventToForm(event: CalendarEvent) {
+  const isPregnancy = event.type === 'pregnancy'
+  const isHeat = event.type === 'heat'
+  return {
+    category: getEventCategory(event.type),
+    type: event.type,
+    title: event.title,
+    petName: event.petName,
+    date: event.date,
+    time: isPregnancy || isHeat ? '' : event.time || '14:30',
+    location: event.location || '',
+    notes: event.notes || '',
+    reminderEnabled: Boolean(event.reminderEnabled),
+    expectedBirthDate: event.expectedBirthDate || '',
+    expectedEndDate: event.expectedEndDate || '',
+    actualEndDate: event.actualEndDate || '',
+  }
+}
+
 export function Modals() {
   const {
     activeModal,
     setActiveModal,
     addPet,
     addCalendarEvent,
+    updateCalendarEvent,
+    deleteCalendarEvent,
+    editingCalendarEventId,
     addPetPhotos,
     addHealthRecord,
     showToast,
     pets,
+    calendarEvents,
     modalPetId,
   } = useApp()
   const location = useLocation()
@@ -111,12 +136,21 @@ export function Modals() {
 
   useEffect(() => {
     if (activeModal !== 'bookVet') return
+    if (editingCalendarEventId) {
+      const event = calendarEvents.find((item) => item.id === editingCalendarEventId)
+      if (event) {
+        setEventForm(calendarEventToForm(event))
+        return
+      }
+    }
     const preferredId = modalPetId || routePetId || pets[0]?.id || ''
     const pet = pets.find((item) => item.id === preferredId) ?? pets[0]
     setEventForm(getDefaultEventForm(pet?.name ?? pets[0]?.name ?? 'Luna'))
-    // Reset only when the modal opens, not on every pets update while editing.
+    // Reset only when the modal opens or edit target changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModal])
+  }, [activeModal, editingCalendarEventId])
+
+  const isEditingEvent = Boolean(editingCalendarEventId)
 
   const selectedEventPet = useMemo(
     () => pets.find((pet) => pet.name === eventForm.petName) ?? pets[0],
@@ -245,7 +279,7 @@ export function Modals() {
 
     const title = eventForm.title.trim() || getDefaultEventTitle(eventForm.type)
     const usesPeriodDates = eventForm.type === 'pregnancy' || eventForm.type === 'heat'
-    addCalendarEvent({
+    const payload = {
       title,
       petName: eventForm.petName,
       type: eventForm.type,
@@ -268,7 +302,13 @@ export function Modals() {
         eventForm.type === 'heat' && eventForm.actualEndDate
           ? eventForm.actualEndDate
           : undefined,
-    })
+    }
+
+    if (editingCalendarEventId) {
+      updateCalendarEvent(editingCalendarEventId, payload)
+    } else {
+      addCalendarEvent(payload)
+    }
     setEventForm(getDefaultEventForm(eventForm.petName))
   }
 
@@ -527,8 +567,12 @@ export function Modals() {
       <Modal
         open={activeModal === 'bookVet'}
         onClose={() => setActiveModal(null)}
-        title="Přidat událost do kalendáře"
-        subtitle="Důležité termíny péče a života mazlíčka — ne běžné denní rutiny."
+        title={isEditingEvent ? 'Upravit událost' : 'Přidat událost do kalendáře'}
+        subtitle={
+          isEditingEvent
+            ? 'Upravte termín nebo detaily — změny se hned projeví v kalendáři.'
+            : 'Důležité termíny péče a života mazlíčka — ne běžné denní rutiny.'
+        }
       >
         <form onSubmit={handleAddCalendarEvent} className="flex flex-col gap-4">
           <OptionSelect
@@ -593,10 +637,11 @@ export function Modals() {
           />
 
           {eventForm.type === 'pregnancy' ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
               <Input
                 id="event-pregnancy-start"
                 label="Od kdy (pravděpodobný začátek)"
+                labelClassName="min-h-[2.5rem] flex items-end leading-snug"
                 type="date"
                 value={eventForm.date}
                 onChange={(e) => {
@@ -614,6 +659,7 @@ export function Modals() {
               <Input
                 id="event-pregnancy-due"
                 label="Předpoklad porodu"
+                labelClassName="min-h-[2.5rem] flex items-end leading-snug"
                 type="date"
                 value={eventForm.expectedBirthDate}
                 onChange={(e) =>
@@ -625,10 +671,11 @@ export function Modals() {
             </div>
           ) : eventForm.type === 'heat' ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
                 <Input
                   id="event-heat-start"
                   label="Začátek hárání"
+                  labelClassName="min-h-[2.5rem] flex items-end leading-snug"
                   type="date"
                   value={eventForm.date}
                   onChange={(e) => {
@@ -646,6 +693,7 @@ export function Modals() {
                 <Input
                   id="event-heat-expected-end"
                   label="Pravděpodobný konec"
+                  labelClassName="min-h-[2.5rem] flex items-end leading-snug"
                   type="date"
                   value={eventForm.expectedEndDate}
                   onChange={(e) =>
@@ -723,18 +771,33 @@ export function Modals() {
             onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
           />
 
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-[#F0EDE6]">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveModal(null)}
-            >
-              Zrušit
-            </Button>
-            <Button type="submit" variant="gold" size="sm">
-              Přidat do kalendáře
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-4 border-t border-[#F0EDE6]">
+            {isEditingEvent && editingCalendarEventId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                onClick={() => deleteCalendarEvent(editingCalendarEventId)}
+              >
+                Smazat událost
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex justify-end gap-2.5 ml-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveModal(null)}
+              >
+                Zrušit
+              </Button>
+              <Button type="submit" variant="gold" size="sm">
+                {isEditingEvent ? 'Uložit změny' : 'Přidat do kalendáře'}
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

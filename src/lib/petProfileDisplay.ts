@@ -1,5 +1,6 @@
 import type { HealthStatus } from '../types'
 import { healthStatusLabel } from '../data/mockData'
+import { isFemalePetGender } from './petTypes'
 
 export const EMPTY_PROFILE_LABEL = 'Zatím nevyplněno'
 
@@ -19,9 +20,14 @@ export function formatOptionalAge(age?: number | null): string {
   return `${age} let (${stage})`
 }
 
-export function formatNeuteredStatus(neutered?: boolean): string {
+export function formatNeuteredStatus(
+  neutered?: boolean,
+  gender?: string | null,
+): string {
   if (neutered == null) return EMPTY_PROFILE_LABEL
-  return neutered ? 'Kastrovaný / kastrovaná' : 'Nekastrovaný'
+  const female = isFemalePetGender(gender ?? undefined)
+  if (neutered) return female ? 'Kastrovaná' : 'Kastrovaný'
+  return female ? 'Nekastrovaná' : 'Nekastrovaný'
 }
 
 export function formatHealthStatus(status?: HealthStatus): string {
