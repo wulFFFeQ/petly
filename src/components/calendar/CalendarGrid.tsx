@@ -25,6 +25,10 @@ import { Card } from '../ui/Card'
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 
+type CalendarDayEvent = CalendarEvent & {
+  calendarRole?: 'start' | 'due' | 'heat-end' | 'heat-actual'
+}
+
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
@@ -32,6 +36,20 @@ function getDaysInMonth(year: number, month: number) {
 function getFirstDayOfMonth(year: number, month: number) {
   const day = new Date(year, month, 1).getDay()
   return day === 0 ? 6 : day - 1
+}
+
+function addEventToDayMap(
+  map: Record<number, CalendarDayEvent[]>,
+  isoDate: string,
+  year: number,
+  month: number,
+  event: CalendarDayEvent,
+) {
+  const eventDate = new Date(`${isoDate}T12:00:00`)
+  if (eventDate.getFullYear() !== year || eventDate.getMonth() !== month) return
+  const day = eventDate.getDate()
+  if (!map[day]) map[day] = []
+  map[day].push(event)
 }
 
 export function CalendarGrid() {
@@ -57,13 +75,34 @@ export function CalendarGrid() {
   }, [calendarEvents, filterCategory])
 
   const eventsByDay = useMemo(() => {
-    const map: Record<number, CalendarEvent[]> = {}
+    const map: Record<number, CalendarDayEvent[]> = {}
     filteredEvents.forEach((event) => {
-      const eventDate = new Date(event.date)
-      if (eventDate.getFullYear() === year && eventDate.getMonth() === month) {
-        const day = eventDate.getDate()
-        if (!map[day]) map[day] = []
-        map[day].push(event)
+      const isPregnancy = event.type === 'pregnancy'
+      const isHeat = event.type === 'heat'
+      addEventToDayMap(map, event.date, year, month, {
+        ...event,
+        calendarRole: isPregnancy || isHeat ? 'start' : undefined,
+      })
+      if (isPregnancy && event.expectedBirthDate) {
+        addEventToDayMap(map, event.expectedBirthDate, year, month, {
+          ...event,
+          title: `Předpoklad porodu · ${event.petName}`,
+          calendarRole: 'due',
+        })
+      }
+      if (isHeat && event.expectedEndDate) {
+        addEventToDayMap(map, event.expectedEndDate, year, month, {
+          ...event,
+          title: `Konec hárání (odhad) · ${event.petName}`,
+          calendarRole: 'heat-end',
+        })
+      }
+      if (isHeat && event.actualEndDate) {
+        addEventToDayMap(map, event.actualEndDate, year, month, {
+          ...event,
+          title: `Hárání skončilo · ${event.petName}`,
+          calendarRole: 'heat-actual',
+        })
       }
     })
     return map
@@ -231,7 +270,7 @@ export function CalendarGrid() {
                       const style = getEventVisualStyle(event.type)
                       return (
                         <div
-                          key={event.id}
+                          key={`${event.id}-${event.calendarRole ?? 'main'}`}
                           className={cn(
                             'text-[10px] font-semibold truncate rounded px-1.5 py-0.5 border leading-tight',
                             style.bg,
@@ -291,9 +330,30 @@ export function CalendarGrid() {
               <div className="space-y-3">
                 {selectedEvents.map((event) => {
                   const style = getEventVisualStyle(event.type)
+                  const isPregnancyDue = event.calendarRole === 'due'
+                  const isPregnancyStart =
+                    event.type === 'pregnancy' && event.calendarRole === 'start'
+                  const isHeatStart = event.type === 'heat' && event.calendarRole === 'start'
+                  const isHeatEnd = event.calendarRole === 'heat-end'
+                  const isHeatActual = event.calendarRole === 'heat-actual'
+                  const roleLabel = isPregnancyDue
+                    ? 'Předpoklad porodu'
+                    : isHeatEnd
+                      ? 'Odhad konce hárání'
+                      : isHeatActual
+                        ? 'Skutečný konec hárání'
+                        : getCategoryLabel(getEventCategory(event.type))
+                  const heading = isPregnancyDue
+                    ? 'Předpokládaný porod'
+                    : isHeatEnd
+                      ? 'Pravděpodobný konec hárání'
+                      : isHeatActual
+                        ? 'Hárání skončilo'
+                        : event.title
+
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}-${event.calendarRole ?? 'main'}`}
                       className="rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all"
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -305,7 +365,7 @@ export function CalendarGrid() {
                             style.border,
                           )}
                         >
-                          {getCategoryLabel(getEventCategory(event.type))}
+                          {roleLabel}
                         </span>
                         {event.time && (
                           <span className="text-xs font-mono font-bold text-[#2C4A3E] flex items-center gap-1">
@@ -315,13 +375,62 @@ export function CalendarGrid() {
                         )}
                       </div>
 
-                      <h5 className="mt-2 text-sm font-bold text-[#191E1B]">
-                        {event.title}
-                      </h5>
+                      <h5 className="mt-2 text-sm font-bold text-[#191E1B]">{heading}</h5>
 
                       <p className="mt-1 text-xs text-[#4A564F] font-medium">
                         Mazlíček: <strong className="text-[#191E1B]">{event.petName}</strong>
                       </p>
+
+                      {isPregnancyStart && event.expectedBirthDate && (
+                        <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                          Předpoklad porodu:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.expectedBirthDate}T12:00:00`).toLocaleDateString(
+                              'cs-CZ',
+                            )}
+                          </strong>
+                        </p>
+                      )}
+
+                      {isPregnancyDue && (
+                        <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                          Začátek březosti:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                          </strong>
+                        </p>
+                      )}
+
+                      {isHeatStart && event.expectedEndDate && (
+                        <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                          Pravděpodobný konec:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.expectedEndDate}T12:00:00`).toLocaleDateString(
+                              'cs-CZ',
+                            )}
+                          </strong>
+                        </p>
+                      )}
+
+                      {isHeatStart && event.actualEndDate && (
+                        <p className="mt-1 text-[11px] text-[#5A6660]">
+                          Skutečný konec:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.actualEndDate}T12:00:00`).toLocaleDateString(
+                              'cs-CZ',
+                            )}
+                          </strong>
+                        </p>
+                      )}
+
+                      {(isHeatEnd || isHeatActual) && (
+                        <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                          Začátek hárání:{' '}
+                          <strong className="text-[#191E1B]">
+                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                          </strong>
+                        </p>
+                      )}
 
                       {event.location && (
                         <p className="mt-1.5 text-[11px] text-[#7D8B82] flex items-center gap-1">
@@ -330,7 +439,7 @@ export function CalendarGrid() {
                         </p>
                       )}
 
-                      {event.notes && (
+                      {event.notes && event.calendarRole !== 'due' && !isHeatEnd && !isHeatActual && (
                         <p className="mt-2 text-[11px] text-[#7D8B82] bg-white p-2 rounded-lg border border-[#E8E4DC]">
                           {event.notes}
                         </p>

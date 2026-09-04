@@ -1,3 +1,4 @@
+import type { PetType } from './petTypes'
 import type { CalendarEventCategory, EventType } from '../types'
 
 export type CalendarEventTypeOption = {
@@ -236,9 +237,66 @@ export function getAvailableCategories(hasBreedingProfile: boolean): CalendarCat
 
 export function getEventTypesForCategory(
   category: CalendarEventCategory,
+  options?: { isFemale?: boolean; petType?: PetType },
 ): CalendarEventTypeOption[] {
-  return EVENT_TYPES_BY_CATEGORY[category]
+  const types = EVENT_TYPES_BY_CATEGORY[category]
+  if (category !== 'breeding') return types
+
+  const isFemale = options?.isFemale !== false
+  const petType = options?.petType
+
+  return types.filter((option) => {
+    // Males: only mating remains relevant among breeding events.
+    if (!isFemale) {
+      return option.value === 'mating'
+    }
+
+    // Hárání is dog-specific terminology / flow for feny.
+    if (option.value === 'heat') {
+      return !petType || petType === 'dog'
+    }
+
+    // Pregnancy, birth, litter check: female dogs and cats only.
+    if (
+      option.value === 'pregnancy' ||
+      option.value === 'birth' ||
+      option.value === 'litter_check'
+    ) {
+      return true
+    }
+
+    return true
+  })
 }
+
+function addDaysToIsoDate(startIso: string, days: number): string {
+  const match = startIso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return startIso
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
+  date.setDate(date.getDate() + days)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/** Typical gestation length for dogs and cats (~9 weeks). */
+export function suggestPregnancyDueDate(startIso: string): string {
+  return addDaysToIsoDate(startIso, 63)
+}
+
+/**
+ * Typical heat (proestrus + estrus) for bitches is about 14–21 days;
+ * we use 21 days as a practical default the owner can edit.
+ */
+export const TYPICAL_HEAT_DAYS = 21
+
+export function suggestHeatEndDate(startIso: string): string {
+  return addDaysToIsoDate(startIso, TYPICAL_HEAT_DAYS)
+}
+
+export const HEAT_DURATION_HINT =
+  'U fen obvykle trvá hárání cca 14–21 dní. Doplnili jsme odhad 21 dní — můžete upravit, nebo později zaznamenat skutečný konec.'
 
 export type EventVisualStyle = {
   bg: string

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Calendar,
   Stethoscope,
+  HeartHandshake,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -238,6 +239,11 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                       {formatHealthStatus(pet.healthStatus)}
                     </Badge>
                   )}
+                  {pet.breedingProfile && (
+                    <Badge variant="primary" size="sm">
+                      Chovný profil
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm font-medium text-[#4A564F] mt-0.5">
                   {pet.breed} · {petTypeLabel[pet.type]}
@@ -327,34 +333,75 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 {formatNeuteredStatus(pet.neutered)}
               </p>
             </div>
-            <div className="shrink-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Chovný profil
-              </p>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(pet.breedingProfile)}
-                onClick={() => {
-                  const next = !pet.breedingProfile
-                  updatePet(pet.id, { breedingProfile: next })
-                  showToast(
-                    next ? 'Chovný profil zapnut' : 'Chovný profil vypnut',
-                    next
-                      ? 'V kalendáři jsou teď dostupné chovatelské události.'
-                      : 'Chovatelské události se v kalendáři skryjí.',
-                    'info',
-                  )
-                }}
-                className={`mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+          </div>
+
+          <div
+            className={`mt-4 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4 ${
+              pet.breedingProfile
+                ? 'border-[#D1E0D8] bg-[#EBF2EE]/70'
+                : 'border-[#E8E4DC] bg-white'
+            }`}
+          >
+            <div className="flex min-w-0 items-start gap-3">
+              <div
+                className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
                   pet.breedingProfile
-                    ? 'bg-[#EBF2EE] text-[#2C4A3E]'
-                    : 'bg-[#FAF8F5] text-[#7D8B82] hover:text-[#4A564F]'
+                    ? 'border-[#D1E0D8] bg-white text-[#2C4A3E]'
+                    : 'border-[#E8E4DC] bg-[#FAF8F5] text-[#7D8B82]'
+                }`}
+              >
+                <HeartHandshake size={18} strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[#191E1B]">Chovný profil</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
+                  Zapnutím zpřístupníte chovatelské události v kalendáři (hárání, krytí, vrh…).
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(pet.breedingProfile)}
+              aria-label={
+                pet.breedingProfile
+                  ? 'Vypnout chovný profil'
+                  : 'Zapnout chovný profil'
+              }
+              onClick={() => {
+                const next = !pet.breedingProfile
+                updatePet(pet.id, { breedingProfile: next })
+                showToast(
+                  next ? 'Chovný profil zapnut' : 'Chovný profil vypnut',
+                  next
+                    ? 'V kalendáři jsou teď dostupné chovatelské události.'
+                    : 'Chovatelské události se v kalendáři skryjí.',
+                  'info',
+                )
+              }}
+              className="inline-flex shrink-0 cursor-pointer items-center gap-3 self-stretch rounded-xl border border-[#E8E4DC] bg-white px-3 py-2.5 transition-colors hover:border-[#D1E0D8] sm:self-auto"
+            >
+              <span
+                className={`text-xs font-bold ${
+                  pet.breedingProfile ? 'text-[#2C4A3E]' : 'text-[#7D8B82]'
                 }`}
               >
                 {pet.breedingProfile ? 'Zapnuto' : 'Vypnuto'}
-              </button>
-            </div>
+              </span>
+              <span
+                aria-hidden
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  pet.breedingProfile ? 'bg-[#2C4A3E]' : 'bg-[#D1D9D4]'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    pet.breedingProfile ? 'left-5' : 'left-0.5'
+                  }`}
+                />
+              </span>
+            </button>
           </div>
         </div>
       </div>

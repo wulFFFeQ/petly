@@ -59,6 +59,11 @@ function isFemaleGender(gender: string | undefined) {
   return gender === 'Samice' || gender === 'Fena' || gender === 'Kočka'
 }
 
+/** Female dog (fena) or female cat (kočka), including legacy „Samice“. */
+export function isFemalePetGender(gender: string | undefined) {
+  return isFemaleGender(gender)
+}
+
 export function normalizeGenderForType(gender: string | undefined, type: PetType) {
   const options = getGenderOptions(type)
   if (gender && options.some((option) => option.value === gender)) {

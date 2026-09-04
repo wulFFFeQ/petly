@@ -8,9 +8,13 @@ import {
   getDefaultEventTitle,
   getEventTypesForCategory,
   getLocationFieldLabel,
+  HEAT_DURATION_HINT,
+  suggestHeatEndDate,
+  suggestPregnancyDueDate,
 } from '../../lib/calendarEventTypes'
 import {
   getGenderOptions,
+  isFemalePetGender,
   normalizeGenderForType,
 } from '../../lib/petTypes'
 import { todayIsoDate } from '../../lib/petProfileUtils'
@@ -48,6 +52,9 @@ function getDefaultEventForm(petName = 'Luna') {
     location: getDefaultEventLocation('vet'),
     notes: '',
     reminderEnabled: false,
+    expectedBirthDate: '',
+    expectedEndDate: '',
+    actualEndDate: '',
   }
 }
 
@@ -117,6 +124,13 @@ export function Modals() {
   )
 
   const hasBreedingProfile = Boolean(selectedEventPet?.breedingProfile)
+  const isFemalePet = isFemalePetGender(selectedEventPet?.gender)
+  const eventPetType = selectedEventPet?.type
+
+  const breedingTypeOptions = useMemo(
+    () => ({ isFemale: isFemalePet, petType: eventPetType }),
+    [isFemalePet, eventPetType],
+  )
 
   const categoryOptions = useMemo(
     () =>
@@ -129,11 +143,11 @@ export function Modals() {
 
   const typeOptions = useMemo(
     () =>
-      getEventTypesForCategory(eventForm.category).map((option) => ({
+      getEventTypesForCategory(eventForm.category, breedingTypeOptions).map((option) => ({
         value: option.value,
         label: option.label,
       })),
-    [eventForm.category],
+    [eventForm.category, breedingTypeOptions],
   )
 
   useEffect(() => {
@@ -147,17 +161,50 @@ export function Modals() {
       title: getDefaultEventTitle('vet'),
       location: getDefaultEventLocation('vet'),
       reminderEnabled: false,
+      expectedBirthDate: '',
+      expectedEndDate: '',
+      actualEndDate: '',
     }))
   }, [activeModal, hasBreedingProfile, eventForm.category])
 
-  const applyEventType = (type: EventType) => {
+  useEffect(() => {
+    if (activeModal !== 'bookVet') return
+    if (eventForm.category !== 'breeding') return
+    const allowed = getEventTypesForCategory('breeding', breedingTypeOptions).some(
+      (option) => option.value === eventForm.type,
+    )
+    if (allowed) return
+    const fallback =
+      getEventTypesForCategory('breeding', breedingTypeOptions)[0]?.value ?? 'mating'
     setEventForm((prev) => ({
       ...prev,
-      type,
-      title: type === 'custom' ? '' : getDefaultEventTitle(type),
-      location: getDefaultEventLocation(type),
-      reminderEnabled: eventSupportsReminder(type) ? prev.reminderEnabled : false,
+      type: fallback,
+      title: getDefaultEventTitle(fallback),
+      location: getDefaultEventLocation(fallback),
+      expectedBirthDate: '',
+      expectedEndDate: '',
+      actualEndDate: '',
+      time: prev.time || '14:30',
     }))
+  }, [activeModal, breedingTypeOptions, eventForm.category, eventForm.type])
+
+  const applyEventType = (type: EventType) => {
+    setEventForm((prev) => {
+      const isPregnancy = type === 'pregnancy'
+      const isHeat = type === 'heat'
+      const start = prev.date || todayIsoDate()
+      return {
+        ...prev,
+        type,
+        title: type === 'custom' ? '' : getDefaultEventTitle(type),
+        location: getDefaultEventLocation(type),
+        reminderEnabled: eventSupportsReminder(type) ? prev.reminderEnabled : false,
+        expectedBirthDate: isPregnancy ? suggestPregnancyDueDate(start) : '',
+        expectedEndDate: isHeat ? suggestHeatEndDate(start) : '',
+        actualEndDate: '',
+        time: isPregnancy || isHeat ? '' : prev.time || '14:30',
+      }
+    })
   }
 
   const handleAddHealth = (e: React.FormEvent) => {
@@ -183,18 +230,44 @@ export function Modals() {
     e.preventDefault()
     if (!eventForm.date || !eventForm.petName || !eventForm.type) return
     if (eventForm.type === 'custom' && !eventForm.title.trim()) return
+    if (eventForm.type === 'pregnancy' && !eventForm.expectedBirthDate) return
+    if (eventForm.type === 'heat' && !eventForm.expectedEndDate) return
+
+    const allowedTypes = getEventTypesForCategory('breeding', breedingTypeOptions).map(
+      (option) => option.value,
+    )
+    if (
+      eventForm.category === 'breeding' &&
+      !allowedTypes.includes(eventForm.type)
+    ) {
+      return
+    }
+
     const title = eventForm.title.trim() || getDefaultEventTitle(eventForm.type)
+    const usesPeriodDates = eventForm.type === 'pregnancy' || eventForm.type === 'heat'
     addCalendarEvent({
       title,
       petName: eventForm.petName,
       type: eventForm.type,
       date: eventForm.date,
-      time: eventForm.time || undefined,
+      time: usesPeriodDates ? undefined : eventForm.time || undefined,
       location: eventForm.location.trim() || undefined,
       notes: eventForm.notes.trim() || undefined,
       reminderEnabled: eventSupportsReminder(eventForm.type)
         ? eventForm.reminderEnabled
         : undefined,
+      expectedBirthDate:
+        eventForm.type === 'pregnancy' && eventForm.expectedBirthDate
+          ? eventForm.expectedBirthDate
+          : undefined,
+      expectedEndDate:
+        eventForm.type === 'heat' && eventForm.expectedEndDate
+          ? eventForm.expectedEndDate
+          : undefined,
+      actualEndDate:
+        eventForm.type === 'heat' && eventForm.actualEndDate
+          ? eventForm.actualEndDate
+          : undefined,
     })
     setEventForm(getDefaultEventForm(eventForm.petName))
   }
@@ -472,14 +545,26 @@ export function Modals() {
             value={eventForm.category}
             onChange={(categoryValue) => {
               const category = categoryValue as CalendarEventCategory
-              const firstType = getEventTypesForCategory(category)[0]?.value ?? 'custom'
+              const firstType =
+                getEventTypesForCategory(category, breedingTypeOptions)[0]?.value ?? 'custom'
+              const start = eventForm.date || todayIsoDate()
               setEventForm((prev) => ({
                 ...prev,
                 category,
                 type: firstType,
                 title: getDefaultEventTitle(firstType),
                 location: getDefaultEventLocation(firstType),
-                reminderEnabled: eventSupportsReminder(firstType) ? prev.reminderEnabled : false,
+                reminderEnabled: eventSupportsReminder(firstType)
+                  ? prev.reminderEnabled
+                  : false,
+                expectedBirthDate:
+                  firstType === 'pregnancy' ? suggestPregnancyDueDate(start) : '',
+                expectedEndDate: firstType === 'heat' ? suggestHeatEndDate(start) : '',
+                actualEndDate: '',
+                time:
+                  firstType === 'pregnancy' || firstType === 'heat'
+                    ? ''
+                    : prev.time || '14:30',
               }))
             }}
             options={categoryOptions}
@@ -507,23 +592,99 @@ export function Modals() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              id="event-date"
-              label="Datum"
-              type="date"
-              value={eventForm.date}
-              onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-              required
-            />
-            <Input
-              id="event-time"
-              label="Čas"
-              type="time"
-              value={eventForm.time}
-              onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
-            />
-          </div>
+          {eventForm.type === 'pregnancy' ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                id="event-pregnancy-start"
+                label="Od kdy (pravděpodobný začátek)"
+                type="date"
+                value={eventForm.date}
+                onChange={(e) => {
+                  const start = e.target.value
+                  setEventForm((prev) => ({
+                    ...prev,
+                    date: start,
+                    expectedBirthDate: start
+                      ? suggestPregnancyDueDate(start)
+                      : prev.expectedBirthDate,
+                  }))
+                }}
+                required
+              />
+              <Input
+                id="event-pregnancy-due"
+                label="Předpoklad porodu"
+                type="date"
+                value={eventForm.expectedBirthDate}
+                onChange={(e) =>
+                  setEventForm({ ...eventForm, expectedBirthDate: e.target.value })
+                }
+                required
+                hint="Výchozí odhad je cca 63 dní — můžete upravit."
+              />
+            </div>
+          ) : eventForm.type === 'heat' ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  id="event-heat-start"
+                  label="Začátek hárání"
+                  type="date"
+                  value={eventForm.date}
+                  onChange={(e) => {
+                    const start = e.target.value
+                    setEventForm((prev) => ({
+                      ...prev,
+                      date: start,
+                      expectedEndDate: start
+                        ? suggestHeatEndDate(start)
+                        : prev.expectedEndDate,
+                    }))
+                  }}
+                  required
+                />
+                <Input
+                  id="event-heat-expected-end"
+                  label="Pravděpodobný konec"
+                  type="date"
+                  value={eventForm.expectedEndDate}
+                  onChange={(e) =>
+                    setEventForm({ ...eventForm, expectedEndDate: e.target.value })
+                  }
+                  required
+                  hint={HEAT_DURATION_HINT}
+                />
+              </div>
+              <Input
+                id="event-heat-actual-end"
+                label="Skutečný konec (pokud už víte)"
+                type="date"
+                value={eventForm.actualEndDate}
+                onChange={(e) =>
+                  setEventForm({ ...eventForm, actualEndDate: e.target.value })
+                }
+                hint="Volitelné — vyplňte, až hárání opravdu skončí."
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                id="event-date"
+                label="Datum"
+                type="date"
+                value={eventForm.date}
+                onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                required
+              />
+              <Input
+                id="event-time"
+                label="Čas"
+                type="time"
+                value={eventForm.time}
+                onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
+              />
+            </div>
+          )}
 
           <Input
             id="event-location"

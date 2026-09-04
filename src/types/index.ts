@@ -212,6 +212,12 @@ export interface CalendarEvent {
   notes?: string
   /** Optional reminder flag for medication / treatment calendar events. */
   reminderEnabled?: boolean
+  /** For pregnancy events: expected whelping / queening date. */
+  expectedBirthDate?: string
+  /** For heat events: estimated end of heat (auto-suggested ~21 days). */
+  expectedEndDate?: string
+  /** For heat events: actual end date when the owner marks heat as finished. */
+  actualEndDate?: string
   /** Links medication reminder events to a health record. */
   sourceRecordId?: string
 }
