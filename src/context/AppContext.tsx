@@ -46,10 +46,14 @@ function loadPets(): Pet[] {
     if (!raw) return initialPets
     const parsed = JSON.parse(raw) as Pet[]
     if (!Array.isArray(parsed) || parsed.length === 0) return initialPets
-    return parsed.map((pet) => ({
-      ...pet,
-      breed: localizeBreedName(pet.breed),
-    }))
+    return parsed.map((pet) => {
+      const seed = initialPets.find((item) => item.id === pet.id)
+      return {
+        ...pet,
+        breed: localizeBreedName(pet.breed),
+        breedingProfile: pet.breedingProfile ?? seed?.breedingProfile,
+      }
+    })
   } catch {
     return initialPets
   }
@@ -142,6 +146,7 @@ interface AppContextValue {
   setDiscoverFilter: (filter: DiscoverFilter) => void
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
+  updatePet: (petId: string, updates: Partial<Pet>) => void
   updatePetImage: (petId: string, image: string) => void
   updatePetCoverImage: (petId: string, coverImage: string) => void
   addPetPhotos: (petId: string, urls: string[]) => void
@@ -305,6 +310,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       `${newPet.name} přidán mezi vaše mazlíčky`,
       'Doplňte profil podle potřeby — ostatní údaje zůstávají prázdné.',
       'gold',
+    )
+  }
+
+  const updatePet = (petId: string, updates: Partial<Pet>) => {
+    setPets((prev) =>
+      prev.map((pet) => (pet.id === petId ? { ...pet, ...updates } : pet)),
     )
   }
 
@@ -780,6 +791,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDiscoverFilter,
         setNotificationsOpen,
         addPet,
+        updatePet,
         updatePetImage,
         updatePetCoverImage,
         addPetPhotos,

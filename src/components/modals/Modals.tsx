@@ -1,16 +1,30 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import {
+  eventSupportsReminder,
+  getAvailableCategories,
+  getDefaultEventLocation,
+  getDefaultEventTitle,
+  getEventTypesForCategory,
+  getLocationFieldLabel,
+} from '../../lib/calendarEventTypes'
 import {
   getGenderOptions,
   normalizeGenderForType,
 } from '../../lib/petTypes'
 import { todayIsoDate } from '../../lib/petProfileUtils'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
-import type { EventType, HealthRecordType, NewPetForm } from '../../types'
+import type {
+  CalendarEventCategory,
+  EventType,
+  HealthRecordType,
+  NewPetForm,
+} from '../../types'
 import { Button } from '../ui/Button'
 import { BreedSelect } from '../ui/BreedSelect'
 import { Input, Select, Textarea } from '../ui/Input'
+import { OptionSelect } from '../ui/OptionSelect'
 import { PetTypeSelect } from '../ui/PetTypeSelect'
 import { Modal } from '../ui/Modal'
 import { Upload } from 'lucide-react'
@@ -23,39 +37,17 @@ function getDefaultPetForm(): NewPetForm {
   }
 }
 
-const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
-  { value: 'vet', label: 'Veterinární klinika' },
-  { value: 'vaccination', label: 'Očkování' },
-  { value: 'medication', label: 'Léky / doplňky' },
-  { value: 'grooming', label: 'Péče o srst / grooming' },
-  { value: 'feeding', label: 'Krmení / dieta' },
-]
-
-const EVENT_DEFAULT_TITLES: Record<EventType, string> = {
-  vet: 'Návštěva veterinární kliniky',
-  vaccination: 'Očkování',
-  medication: 'Podání léku',
-  grooming: 'Péče o srst',
-  feeding: 'Krmení',
-}
-
-const EVENT_DEFAULT_LOCATIONS: Record<EventType, string> = {
-  vet: 'PetCare Central Praha',
-  vaccination: 'PetCare Central Praha',
-  medication: 'Doma',
-  grooming: 'Grooming studio',
-  feeding: 'Doma',
-}
-
 function getDefaultEventForm(petName = 'Luna') {
   return {
+    category: 'health' as CalendarEventCategory,
     type: 'vet' as EventType,
-    title: EVENT_DEFAULT_TITLES.vet,
+    title: getDefaultEventTitle('vet'),
     petName,
     date: todayIsoDate(),
     time: '14:30',
-    location: EVENT_DEFAULT_LOCATIONS.vet,
+    location: getDefaultEventLocation('vet'),
     notes: '',
+    reminderEnabled: false,
   }
 }
 
@@ -119,6 +111,55 @@ export function Modals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModal])
 
+  const selectedEventPet = useMemo(
+    () => pets.find((pet) => pet.name === eventForm.petName) ?? pets[0],
+    [pets, eventForm.petName],
+  )
+
+  const hasBreedingProfile = Boolean(selectedEventPet?.breedingProfile)
+
+  const categoryOptions = useMemo(
+    () =>
+      getAvailableCategories(hasBreedingProfile).map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    [hasBreedingProfile],
+  )
+
+  const typeOptions = useMemo(
+    () =>
+      getEventTypesForCategory(eventForm.category).map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    [eventForm.category],
+  )
+
+  useEffect(() => {
+    if (activeModal !== 'bookVet') return
+    if (hasBreedingProfile) return
+    if (eventForm.category !== 'breeding') return
+    setEventForm((prev) => ({
+      ...prev,
+      category: 'health',
+      type: 'vet',
+      title: getDefaultEventTitle('vet'),
+      location: getDefaultEventLocation('vet'),
+      reminderEnabled: false,
+    }))
+  }, [activeModal, hasBreedingProfile, eventForm.category])
+
+  const applyEventType = (type: EventType) => {
+    setEventForm((prev) => ({
+      ...prev,
+      type,
+      title: type === 'custom' ? '' : getDefaultEventTitle(type),
+      location: getDefaultEventLocation(type),
+      reminderEnabled: eventSupportsReminder(type) ? prev.reminderEnabled : false,
+    }))
+  }
+
   const handleAddHealth = (e: React.FormEvent) => {
     e.preventDefault()
     if (!healthForm.title.trim() || !healthForm.petId || !healthForm.date) return
@@ -140,8 +181,9 @@ export function Modals() {
 
   const handleAddCalendarEvent = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!eventForm.date || !eventForm.petName) return
-    const title = eventForm.title.trim() || EVENT_DEFAULT_TITLES[eventForm.type]
+    if (!eventForm.date || !eventForm.petName || !eventForm.type) return
+    if (eventForm.type === 'custom' && !eventForm.title.trim()) return
+    const title = eventForm.title.trim() || getDefaultEventTitle(eventForm.type)
     addCalendarEvent({
       title,
       petName: eventForm.petName,
@@ -150,6 +192,9 @@ export function Modals() {
       time: eventForm.time || undefined,
       location: eventForm.location.trim() || undefined,
       notes: eventForm.notes.trim() || undefined,
+      reminderEnabled: eventSupportsReminder(eventForm.type)
+        ? eventForm.reminderEnabled
+        : undefined,
     })
     setEventForm(getDefaultEventForm(eventForm.petName))
   }
@@ -405,36 +450,48 @@ export function Modals() {
         </form>
       </Modal>
 
-      {/* 3. Add calendar event (any type) */}
+      {/* 3. Add calendar event (category → type) */}
       <Modal
         open={activeModal === 'bookVet'}
         onClose={() => setActiveModal(null)}
         title="Přidat událost do kalendáře"
-        subtitle="Zvolte typ termínu — veterinář, očkování, léky, grooming nebo krmení."
+        subtitle="Důležité termíny péče a života mazlíčka — ne běžné denní rutiny."
       >
         <form onSubmit={handleAddCalendarEvent} className="flex flex-col gap-4">
-          <Select
-            id="event-type"
-            label="Typ události"
-            value={eventForm.type}
-            onChange={(e) => {
-              const type = e.target.value as EventType
-              setEventForm((prev) => ({
-                ...prev,
-                type,
-                title: EVENT_DEFAULT_TITLES[type],
-                location: EVENT_DEFAULT_LOCATIONS[type],
-              }))
-            }}
-            options={EVENT_TYPE_OPTIONS}
-          />
-
-          <Select
+          <OptionSelect
             id="event-pet"
             label="Mazlíček"
             value={eventForm.petName}
-            onChange={(e) => setEventForm({ ...eventForm, petName: e.target.value })}
+            onChange={(petName) => setEventForm((prev) => ({ ...prev, petName }))}
             options={petNameOptions.length ? petNameOptions : [{ value: 'Luna', label: 'Luna' }]}
+          />
+
+          <OptionSelect
+            id="event-category"
+            label="Kategorie"
+            value={eventForm.category}
+            onChange={(categoryValue) => {
+              const category = categoryValue as CalendarEventCategory
+              const firstType = getEventTypesForCategory(category)[0]?.value ?? 'custom'
+              setEventForm((prev) => ({
+                ...prev,
+                category,
+                type: firstType,
+                title: getDefaultEventTitle(firstType),
+                location: getDefaultEventLocation(firstType),
+                reminderEnabled: eventSupportsReminder(firstType) ? prev.reminderEnabled : false,
+              }))
+            }}
+            options={categoryOptions}
+          />
+
+          <OptionSelect
+            id="event-type"
+            label="Typ události"
+            value={eventForm.type}
+            onChange={(typeValue) => applyEventType(typeValue as EventType)}
+            options={typeOptions}
+            maxListHeightClassName="max-h-64"
           />
 
           <Input
@@ -442,7 +499,11 @@ export function Modals() {
             label="Název události"
             value={eventForm.title}
             onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-            placeholder="např. Kontrola zubů, večerní lék…"
+            placeholder={
+              eventForm.type === 'custom'
+                ? 'Napište vlastní název události…'
+                : 'např. Kontrola zubů, výstava Brno…'
+            }
             required
           />
 
@@ -466,11 +527,32 @@ export function Modals() {
 
           <Input
             id="event-location"
-            label="Místo"
+            label={getLocationFieldLabel(eventForm.type)}
             value={eventForm.location}
             onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-            placeholder="např. Doma, klinika, park…"
+            placeholder="např. Doma, klinika, výstaviště…"
           />
+
+          {eventSupportsReminder(eventForm.type) && (
+            <label className="flex items-start gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5]/80 px-3.5 py-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={eventForm.reminderEnabled}
+                onChange={(e) =>
+                  setEventForm({ ...eventForm, reminderEnabled: e.target.checked })
+                }
+                className="mt-0.5 h-4 w-4 rounded border-[#D1E0D8] text-[#2C4A3E] focus:ring-[#2C4A3E]/30 cursor-pointer"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[#191E1B]">
+                  Nastavit připomínku
+                </span>
+                <span className="block text-[11px] text-[#7D8B82] mt-0.5 leading-relaxed">
+                  Připomeneme termín léčení nebo ochrany v kalendáři.
+                </span>
+              </span>
+            </label>
+          )}
 
           <Textarea
             id="event-notes"

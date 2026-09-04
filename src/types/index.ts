@@ -2,7 +2,60 @@ import type { PetType } from '../lib/petTypes'
 
 export type { PetType } from '../lib/petTypes'
 export type HealthStatus = 'excellent' | 'good' | 'attention'
-export type EventType = 'vaccination' | 'medication' | 'vet' | 'grooming' | 'feeding'
+
+/** Top-level calendar categories (modal: category → type). */
+export type CalendarEventCategory =
+  | 'health'
+  | 'care'
+  | 'activity'
+  | 'show'
+  | 'breeding'
+  | 'other'
+
+/**
+ * Concrete calendar event kinds.
+ * Legacy `feeding` remains for older demo data; it is not offered in the add-event modal.
+ */
+export type EventType =
+  | 'vet'
+  | 'vaccination'
+  | 'deworming'
+  | 'antiparasitic'
+  | 'medication'
+  | 'examination'
+  | 'lab'
+  | 'surgery'
+  | 'rehab'
+  | 'dental'
+  | 'grooming'
+  | 'bathing'
+  | 'nail_trim'
+  | 'teeth_cleaning'
+  | 'ear_cleaning'
+  | 'coat_care'
+  | 'training'
+  | 'agility'
+  | 'socialization'
+  | 'course'
+  | 'doggy_daycare'
+  | 'pet_sitting'
+  | 'trip'
+  | 'travel'
+  | 'exhibition'
+  | 'competition'
+  | 'exam'
+  | 'seminar'
+  | 'heat'
+  | 'mating'
+  | 'pregnancy'
+  | 'birth'
+  | 'litter_check'
+  | 'birthday'
+  | 'adoption_anniversary'
+  | 'community_meetup'
+  | 'custom'
+  | 'feeding'
+
 export type HealthRecordType = 'vaccination' | 'vet' | 'medication' | 'examination'
 export type ModalType = 'addPet' | 'addHealthRecord' | 'bookVet' | 'addActivity' | 'addPhoto' | null
 
@@ -21,6 +74,8 @@ export interface Pet {
   weight?: number
   microchip?: string
   neutered?: boolean
+  /** When true, breeding calendar events (Chov) are available for this pet. */
+  breedingProfile?: boolean
   lastVetVisit?: string
   nextVaccination?: string
   healthScore?: number
@@ -155,6 +210,8 @@ export interface CalendarEvent {
   time?: string
   location?: string
   notes?: string
+  /** Optional reminder flag for medication / treatment calendar events. */
+  reminderEnabled?: boolean
   /** Links medication reminder events to a health record. */
   sourceRecordId?: string
 }

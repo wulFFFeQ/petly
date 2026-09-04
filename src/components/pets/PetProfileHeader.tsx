@@ -47,7 +47,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
-  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage } = useApp()
+  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet } = useApp()
 
   const statusVariant =
     pet.healthStatus === 'excellent'
@@ -326,6 +326,34 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
                 {formatNeuteredStatus(pet.neutered)}
               </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Chovný profil
+              </p>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(pet.breedingProfile)}
+                onClick={() => {
+                  const next = !pet.breedingProfile
+                  updatePet(pet.id, { breedingProfile: next })
+                  showToast(
+                    next ? 'Chovný profil zapnut' : 'Chovný profil vypnut',
+                    next
+                      ? 'V kalendáři jsou teď dostupné chovatelské události.'
+                      : 'Chovatelské události se v kalendáři skryjí.',
+                    'info',
+                  )
+                }}
+                className={`mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                  pet.breedingProfile
+                    ? 'bg-[#EBF2EE] text-[#2C4A3E]'
+                    : 'bg-[#FAF8F5] text-[#7D8B82] hover:text-[#4A564F]'
+                }`}
+              >
+                {pet.breedingProfile ? 'Zapnuto' : 'Vypnuto'}
+              </button>
             </div>
           </div>
         </div>

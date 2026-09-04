@@ -1,4 +1,7 @@
 import {
+  Award,
+  Footprints,
+  Heart,
   Pill,
   Scissors,
   Stethoscope,
@@ -7,7 +10,8 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
-import type { CalendarEvent, EventType } from '../../types'
+import type { CalendarEvent, CalendarEventCategory, EventType } from '../../types'
+import { getEventCategory } from '../../lib/calendarEventTypes'
 import {
   APP_TODAY,
   formatTodayHeader,
@@ -25,15 +29,45 @@ function sortByDateTime(a: CalendarEvent, b: CalendarEvent) {
   return (a.time ?? '').localeCompare(b.time ?? '')
 }
 
-const eventAccent: Record<
-  EventType,
+const categoryAccent: Record<
+  CalendarEventCategory,
   { icon: typeof Pill; iconClass: string; rowTint: string }
 > = {
-  vet: {
+  health: {
     icon: Stethoscope,
     iconClass: 'text-sky-800 bg-sky-100 border-sky-200/60',
     rowTint: 'bg-sky-50/50',
   },
+  care: {
+    icon: Scissors,
+    iconClass: 'text-purple-800 bg-purple-100 border-purple-200/60',
+    rowTint: 'bg-purple-50/40',
+  },
+  activity: {
+    icon: Footprints,
+    iconClass: 'text-emerald-800 bg-emerald-100 border-emerald-200/60',
+    rowTint: 'bg-emerald-50/40',
+  },
+  show: {
+    icon: Award,
+    iconClass: 'text-amber-900 bg-amber-100 border-amber-200/60',
+    rowTint: 'bg-amber-50/50',
+  },
+  breeding: {
+    icon: Heart,
+    iconClass: 'text-rose-800 bg-rose-100 border-rose-200/60',
+    rowTint: 'bg-rose-50/40',
+  },
+  other: {
+    icon: Heart,
+    iconClass: 'text-[#4A564F] bg-[#FAF8F5] border-[#E8E4DC]',
+    rowTint: 'bg-[#FAF8F5]/80',
+  },
+}
+
+const typeAccentOverride: Partial<
+  Record<EventType, { icon: typeof Pill; iconClass: string; rowTint: string }>
+> = {
   vaccination: {
     icon: Syringe,
     iconClass: 'text-[#234B54] bg-[#E0EAEC] border-[#C5D5D9]/70',
@@ -49,11 +83,10 @@ const eventAccent: Record<
     iconClass: 'text-[#234B54] bg-[#FAF4E6] border-[#E8D8B5]/70',
     rowTint: 'bg-[#FBF7F0]/80',
   },
-  grooming: {
-    icon: Scissors,
-    iconClass: 'text-purple-800 bg-purple-100 border-purple-200/60',
-    rowTint: 'bg-purple-50/40',
-  },
+}
+
+function getAccent(type: EventType) {
+  return typeAccentOverride[type] ?? categoryAccent[getEventCategory(type)]
 }
 
 function CareEventRow({
@@ -67,7 +100,7 @@ function CareEventRow({
   petImage?: string
   highlightTime?: boolean
 }) {
-  const accent = eventAccent[event.type]
+  const accent = getAccent(event.type)
   const Icon = accent.icon
 
   return (

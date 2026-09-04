@@ -1,4 +1,4 @@
-import type { CalendarEvent, EventType, Pet } from '../types'
+import type { CalendarEvent, Pet } from '../types'
 
 /** Demo „dnešek“ aplikace — 1. září 2026 */
 export const APP_TODAY = new Date(2026, 8, 1)
@@ -49,16 +49,7 @@ export function formatTodayHeader(): string {
   return `${APP_TODAY.getDate()}. ${months[APP_TODAY.getMonth()]}`
 }
 
-export function getEventTypeLabel(type: EventType): string {
-  const labels: Record<EventType, string> = {
-    medication: 'Lék',
-    feeding: 'Krmení',
-    vet: 'Veterinář',
-    vaccination: 'Očkování',
-    grooming: 'Péče o srst',
-  }
-  return labels[type]
-}
+export { getEventTypeLabel } from './calendarEventTypes'
 
 export function formatAge(age?: number): string {
   if (age == null || age <= 0) return 'věk neuveden'

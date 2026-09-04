@@ -1,7 +1,17 @@
-import { Stethoscope, Syringe, Scissors, UtensilsCrossed, Pill } from 'lucide-react'
+import {
+  Award,
+  Footprints,
+  Heart,
+  Pill,
+  Scissors,
+  Stethoscope,
+  Syringe,
+  UtensilsCrossed,
+} from 'lucide-react'
 import { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
-import type { CalendarEvent, EventType } from '../../types'
+import type { CalendarEvent, CalendarEventCategory, EventType } from '../../types'
+import { getEventCategory } from '../../lib/calendarEventTypes'
 import {
   APP_TODAY,
   formatTodayHeader,
@@ -18,15 +28,45 @@ function sortByDateTime(a: CalendarEvent, b: CalendarEvent) {
   return (a.time ?? '').localeCompare(b.time ?? '')
 }
 
-const eventAccent: Record<
-  EventType,
+const categoryAccent: Record<
+  CalendarEventCategory,
   { icon: typeof Pill; iconClass: string; ring: string }
 > = {
-  vet: {
+  health: {
     icon: Stethoscope,
     iconClass: 'text-sky-700 bg-sky-50/90',
     ring: 'ring-sky-100/80',
   },
+  care: {
+    icon: Scissors,
+    iconClass: 'text-purple-700 bg-purple-50/80',
+    ring: 'ring-purple-100/80',
+  },
+  activity: {
+    icon: Footprints,
+    iconClass: 'text-emerald-700 bg-emerald-50/80',
+    ring: 'ring-emerald-100/80',
+  },
+  show: {
+    icon: Award,
+    iconClass: 'text-amber-800 bg-amber-50/90',
+    ring: 'ring-amber-100/80',
+  },
+  breeding: {
+    icon: Heart,
+    iconClass: 'text-rose-700 bg-rose-50/90',
+    ring: 'ring-rose-100/80',
+  },
+  other: {
+    icon: Heart,
+    iconClass: 'text-[#4A564F] bg-[#FAF8F5]',
+    ring: 'ring-[#E8E4DC]/80',
+  },
+}
+
+const typeAccentOverride: Partial<
+  Record<EventType, { icon: typeof Pill; iconClass: string; ring: string }>
+> = {
   vaccination: {
     icon: Syringe,
     iconClass: 'text-[#2C4A3E] bg-[#EBF2EE]',
@@ -42,11 +82,10 @@ const eventAccent: Record<
     iconClass: 'text-emerald-700 bg-emerald-50/80',
     ring: 'ring-emerald-100/80',
   },
-  grooming: {
-    icon: Scissors,
-    iconClass: 'text-purple-700 bg-purple-50/80',
-    ring: 'ring-purple-100/80',
-  },
+}
+
+function getAccent(type: EventType) {
+  return typeAccentOverride[type] ?? categoryAccent[getEventCategory(type)]
 }
 
 function ScheduleEventRow({
@@ -58,7 +97,7 @@ function ScheduleEventRow({
   timeLabel: string
   highlighted?: boolean
 }) {
-  const accent = eventAccent[event.type]
+  const accent = getAccent(event.type)
   const Icon = accent.icon
 
   return (

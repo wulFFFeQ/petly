@@ -9,53 +9,19 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { BRAND_NAME } from '../../lib/brand'
+import {
+  CALENDAR_CATEGORY_OPTIONS,
+  getCategoryLabel,
+  getEventCategory,
+  getEventCategoryStyle,
+  getEventVisualStyle,
+} from '../../lib/calendarEventTypes'
 import { useApp } from '../../context/AppContext'
-import type { CalendarEvent, EventType } from '../../types'
+import type { CalendarEvent, CalendarEventCategory } from '../../types'
 import { cn } from '../../lib/utils'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
-
-const eventCategoryStyles: Record<
-  EventType,
-  { bg: string; text: string; border: string; dot: string; label: string }
-> = {
-  vet: {
-    bg: 'bg-sky-50',
-    text: 'text-sky-800',
-    border: 'border-sky-200/60',
-    dot: 'bg-sky-500',
-    label: 'Veterinární klinika',
-  },
-  vaccination: {
-    bg: 'bg-[#EBF2EE]',
-    text: 'text-[#2C4A3E]',
-    border: 'border-[#D1E0D8]',
-    dot: 'bg-[#2C4A3E]',
-    label: 'Očkování',
-  },
-  medication: {
-    bg: 'bg-amber-50',
-    text: 'text-amber-800',
-    border: 'border-amber-200/60',
-    dot: 'bg-amber-500',
-    label: 'Léky',
-  },
-  grooming: {
-    bg: 'bg-purple-50',
-    text: 'text-purple-800',
-    border: 'border-purple-200/60',
-    dot: 'bg-purple-500',
-    label: 'Spa a péče o srst',
-  },
-  feeding: {
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-800',
-    border: 'border-emerald-200/60',
-    dot: 'bg-emerald-500',
-    label: 'Stravovací režim',
-  },
-}
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 
@@ -72,7 +38,7 @@ export function CalendarGrid() {
   const { calendarEvents, setActiveModal, showToast } = useApp()
   const [currentDate, setCurrentDate] = useState(new Date(2026, 8, 1))
   const [selectedDay, setSelectedDay] = useState<number | null>(1)
-  const [filterType, setFilterType] = useState<EventType | 'all'>('all')
+  const [filterCategory, setFilterCategory] = useState<CalendarEventCategory | 'all'>('all')
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -86,9 +52,9 @@ export function CalendarGrid() {
 
   const filteredEvents = useMemo(() => {
     return calendarEvents.filter(
-      (e) => filterType === 'all' || e.type === filterType,
+      (e) => filterCategory === 'all' || getEventCategory(e.type) === filterCategory,
     )
-  }, [calendarEvents, filterType])
+  }, [calendarEvents, filterCategory])
 
   const eventsByDay = useMemo(() => {
     const map: Record<number, CalendarEvent[]> = {}
@@ -113,50 +79,58 @@ export function CalendarGrid() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   const handleSyncCalendar = () => {
-    showToast('Kalendář synchronizován', `Události ${BRAND_NAME} synchronizovány s kalendářem Apple / Google.`, 'gold')
+    showToast(
+      'Kalendář synchronizován',
+      `Události ${BRAND_NAME} synchronizovány s kalendářem Apple / Google.`,
+      'gold',
+    )
   }
+
+  const filterCategories = CALENDAR_CATEGORY_OPTIONS.filter(
+    (option) => option.value !== 'breeding',
+  )
 
   return (
     <div className="space-y-6">
-      {/* Filter Category Chips */}
       <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-[#E8E4DC]">
         <button
-          onClick={() => setFilterType('all')}
+          type="button"
+          onClick={() => setFilterCategory('all')}
           className={cn(
             'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer',
-            filterType === 'all'
+            filterCategory === 'all'
               ? 'bg-[#2C4A3E] text-white shadow-xs'
               : 'text-[#7D8B82] hover:text-[#191E1B] hover:bg-[#FAF8F5]',
           )}
         >
           Všechny události ({calendarEvents.length})
         </button>
-        {(['vet', 'vaccination', 'medication', 'grooming', 'feeding'] as EventType[]).map(
-          (type) => {
-            const style = eventCategoryStyles[type]
-            const count = calendarEvents.filter((e) => e.type === type).length
-            return (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer',
-                  filterType === type
-                    ? `${style.bg} ${style.text} ${style.border} border font-bold`
-                    : 'text-[#7D8B82] hover:text-[#191E1B] hover:bg-[#FAF8F5]',
-                )}
-              >
-                <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                <span>{style.label}</span>
-                <span className="text-[10px] opacity-70">({count})</span>
-              </button>
-            )
-          },
-        )}
+        {filterCategories.map((option) => {
+          const style = getEventCategoryStyle(option.value)
+          const count = calendarEvents.filter(
+            (e) => getEventCategory(e.type) === option.value,
+          ).length
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setFilterCategory(option.value)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer',
+                filterCategory === option.value
+                  ? `${style.bg} ${style.text} ${style.border} border font-bold`
+                  : 'text-[#7D8B82] hover:text-[#191E1B] hover:bg-[#FAF8F5]',
+              )}
+            >
+              <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+              <span>{option.label}</span>
+              <span className="text-[10px] opacity-70">({count})</span>
+            </button>
+          )
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Month Grid (2 cols) */}
         <Card variant="elevated" padding="lg" className="lg:col-span-2">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -170,6 +144,7 @@ export function CalendarGrid() {
 
             <div className="flex items-center gap-1.5 bg-[#FAF8F5] p-1 rounded-xl border border-[#E8E4DC]">
               <button
+                type="button"
                 onClick={prevMonth}
                 className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-white hover:text-[#191E1B] transition-colors cursor-pointer"
                 aria-label="Předchozí měsíc"
@@ -177,12 +152,14 @@ export function CalendarGrid() {
                 <ChevronLeft size={18} />
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentDate(new Date(2026, 8, 1))}
                 className="px-2.5 py-1 text-xs font-semibold text-[#2C4A3E] hover:bg-white rounded-lg transition-colors cursor-pointer"
               >
                 Dnes
               </button>
               <button
+                type="button"
                 onClick={nextMonth}
                 className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-white hover:text-[#191E1B] transition-colors cursor-pointer"
                 aria-label="Další měsíc"
@@ -218,6 +195,7 @@ export function CalendarGrid() {
               return (
                 <button
                   key={day}
+                  type="button"
                   onClick={() => setSelectedDay(day)}
                   className={cn(
                     'relative flex min-h-[85px] flex-col items-start rounded-xl p-2 text-left transition-all duration-200 cursor-pointer border',
@@ -248,10 +226,9 @@ export function CalendarGrid() {
                     )}
                   </div>
 
-                  {/* Day Events Indicator Pills */}
                   <div className="mt-1.5 flex flex-col gap-1 w-full overflow-hidden">
                     {dayEvents.slice(0, 2).map((event) => {
-                      const style = eventCategoryStyles[event.type]
+                      const style = getEventVisualStyle(event.type)
                       return (
                         <div
                           key={event.id}
@@ -278,7 +255,6 @@ export function CalendarGrid() {
           </div>
         </Card>
 
-        {/* Selected Day Agenda Sidebar (1 col) */}
         <div className="space-y-4">
           <Card variant="elevated" padding="md">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F0EDE6]">
@@ -307,12 +283,14 @@ export function CalendarGrid() {
               <div className="py-8 text-center text-xs text-[#7D8B82]">
                 <CalendarIcon size={24} className="mx-auto text-[#A3AEA7] mb-2" />
                 <p className="font-semibold text-[#191E1B]">Žádné naplánované události</p>
-                <p className="mt-0.5">Klikněte na „Přidat událost“ pro záznam schůzky nebo rutiny.</p>
+                <p className="mt-0.5">
+                  Klikněte na „Přidat událost“ pro záznam důležitého termínu.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {selectedEvents.map((event) => {
-                  const style = eventCategoryStyles[event.type]
+                  const style = getEventVisualStyle(event.type)
                   return (
                     <div
                       key={event.id}
@@ -327,7 +305,7 @@ export function CalendarGrid() {
                             style.border,
                           )}
                         >
-                          {style.label}
+                          {getCategoryLabel(getEventCategory(event.type))}
                         </span>
                         {event.time && (
                           <span className="text-xs font-mono font-bold text-[#2C4A3E] flex items-center gap-1">
@@ -365,6 +343,7 @@ export function CalendarGrid() {
 
             <div className="mt-5 pt-4 border-t border-[#F0EDE6]">
               <button
+                type="button"
                 onClick={handleSyncCalendar}
                 className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-[#2C4A3E] hover:underline cursor-pointer"
               >
