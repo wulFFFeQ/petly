@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, FileText, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import type { TimelineEvent } from '../../../types'
 import { HealthRecordDetailBody } from '../../health/HealthRecordDetailBody'
 import { HealthAssessmentModal } from '../HealthAssessmentModal'
@@ -28,6 +28,22 @@ function timelineCategoryLabel(category: TimelineEvent['category']) {
   if (category === 'milestone') return 'Milník'
   if (category === 'memory') return 'Vzpomínka'
   return 'Událost'
+}
+
+function lifestyleAddLabel(field: PetProfileTabState['modals']['lifestyleEdit']) {
+  if (field === 'diet') return 'Přidat další krmivo'
+  if (field === 'supplements') return 'Přidat další doplněk'
+  return 'Přidat další hračku'
+}
+
+function lifestyleRowLabel(
+  field: PetProfileTabState['modals']['lifestyleEdit'],
+  index: number,
+) {
+  const n = index + 1
+  if (field === 'diet') return `Krmivo ${n}`
+  if (field === 'supplements') return `Doplněk ${n}`
+  return `Hračka / stimulace ${n}`
 }
 
 export function PetProfileModals({
@@ -63,8 +79,10 @@ export function PetProfileModals({
   setAssessmentOpen,
   lifestyleEdit,
   setLifestyleEdit,
-  lifestyleValue,
-  setLifestyleValue,
+  lifestyleValues,
+  updateLifestyleValueAt,
+  addLifestyleValue,
+  removeLifestyleValueAt,
   handleLifestyleSubmit,
   toggleMedicationReminder,
   setMedicationReminderTime,
@@ -401,39 +419,70 @@ export function PetProfileModals({
               ? 'Denní doplňky stravy'
               : 'Oblíbené hračky a stimulace'
         }
-        subtitle={`Údaje pro ${pet.name}`}
+        subtitle={`Údaje pro ${pet.name} · můžete přidat více možností`}
       >
         <form className="flex flex-col gap-4" onSubmit={handleLifestyleSubmit}>
-          {lifestyleEdit === 'diet' ? (
-            <FoodSelect
-              id="lifestyle-diet"
-              label="Hlavní výživa"
-              petType={pet.type}
-              value={lifestyleValue}
-              onChange={setLifestyleValue}
-              placeholder={
-                pet.type === 'cat' ? 'Hledejte krmivo pro kočky…' : 'Hledejte krmivo pro psy…'
-              }
-            />
-          ) : lifestyleEdit === 'favoriteToy' ? (
-            <Input
-              id="lifestyle-field"
-              label="Oblíbené hračky a stimulace"
-              value={lifestyleValue}
-              onChange={(e) => setLifestyleValue(e.target.value)}
-              placeholder="např. míček, peříčko, čichací kobereček…"
-              autoFocus
-            />
-          ) : (
-            <Textarea
-              id="lifestyle-field"
-              label="Denní doplňky stravy"
-              value={lifestyleValue}
-              onChange={(e) => setLifestyleValue(e.target.value)}
-              placeholder="např. omega-3, kloubní výživa…"
-              rows={3}
-            />
-          )}
+          <div className="space-y-3">
+            {lifestyleValues.map((value, index) => (
+              <div key={`lifestyle-${lifestyleEdit}-${index}`} className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  {lifestyleEdit === 'diet' ? (
+                    <FoodSelect
+                      id={`lifestyle-diet-${index}`}
+                      label={lifestyleRowLabel(lifestyleEdit, index)}
+                      petType={pet.type}
+                      value={value}
+                      onChange={(next) => updateLifestyleValueAt(index, next)}
+                      placeholder={
+                        pet.type === 'cat'
+                          ? 'Hledejte krmivo pro kočky…'
+                          : 'Hledejte krmivo pro psy…'
+                      }
+                    />
+                  ) : lifestyleEdit === 'favoriteToy' ? (
+                    <Input
+                      id={`lifestyle-toy-${index}`}
+                      label={lifestyleRowLabel(lifestyleEdit, index)}
+                      value={value}
+                      onChange={(e) => updateLifestyleValueAt(index, e.target.value)}
+                      placeholder="např. míček, peříčko, čichací kobereček…"
+                      autoFocus={index === 0}
+                    />
+                  ) : (
+                    <Input
+                      id={`lifestyle-supplement-${index}`}
+                      label={lifestyleRowLabel(lifestyleEdit, index)}
+                      value={value}
+                      onChange={(e) => updateLifestyleValueAt(index, e.target.value)}
+                      placeholder="např. omega-3, kloubní výživa…"
+                      autoFocus={index === 0}
+                    />
+                  )}
+                </div>
+                {lifestyleValues.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLifestyleValueAt(index)}
+                    className="mt-7 rounded-xl p-2 text-[#7D8B82] transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+                    aria-label="Odebrat"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addLifestyleValue}
+            className="w-full gap-1.5 border-dashed"
+          >
+            <Plus size={15} />
+            {lifestyleAddLabel(lifestyleEdit)}
+          </Button>
+
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setLifestyleEdit(null)}>
               Zrušit

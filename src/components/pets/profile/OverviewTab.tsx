@@ -13,6 +13,7 @@ import { useApp } from '../../../context/AppContext'
 import { formatTodayHeader } from '../../../lib/dashboardDates'
 import {
   formatHealthStatus,
+  formatLifestyleList,
   formatOptionalText,
   formatOptionalWeight,
 } from '../../../lib/petProfileDisplay'
@@ -43,8 +44,7 @@ export function OverviewTab({
   dailyCarePercent,
   toggleDailyCareTask,
   openDailyCareTaskDetail,
-  setLifestyleEdit,
-  setLifestyleValue,
+  openLifestyleEditor,
 }: OverviewTabProps) {
   const { earnedBadges } = useApp()
 
@@ -188,29 +188,23 @@ export function OverviewTab({
                   key: 'diet' as const,
                   label: 'Hlavní výživa',
                   value: pet.diet,
-                  placeholder: 'např. Royal Canin Adult, BARF…',
                 },
                 {
                   key: 'supplements' as const,
                   label: 'Denní doplňky stravy',
                   value: pet.supplements,
-                  placeholder: 'např. omega-3, kloubní výživa…',
                 },
                 {
                   key: 'favoriteToy' as const,
                   label: 'Oblíbené hračky a stimulace',
                   value: pet.favoriteToy,
-                  placeholder: 'např. míček, peříčko, čichací kobereček…',
                 },
               ] as const
             ).map((item) => (
               <button
                 key={item.key}
                 type="button"
-                onClick={() => {
-                  setLifestyleEdit(item.key)
-                  setLifestyleValue(item.value ?? '')
-                }}
+                onClick={() => openLifestyleEditor(item.key)}
                 className="flex w-full items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 text-left transition-colors hover:border-[#D1E0D8] hover:bg-white cursor-pointer"
               >
                 <div className="min-w-0 flex-1">
@@ -218,7 +212,7 @@ export function OverviewTab({
                     {item.label}
                   </span>
                   <p className="mt-0.5 font-semibold text-[#191E1B]">
-                    {formatOptionalText(item.value)}
+                    {formatLifestyleList(item.value)}
                   </p>
                 </div>
                 <ChevronRight size={16} className="shrink-0 text-[#A3AEA7]" />

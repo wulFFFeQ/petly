@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { discoverPets, healthRecords } from '../../data/mockData'
 import { saveConversationPrefs } from '../../lib/archivedConversations'
 import { useApp } from '../../context/AppContext'
@@ -7,10 +8,15 @@ import { Card } from '../ui/Card'
 import { ChatThread } from './ChatThread'
 import { ContactProfileModal } from './ContactProfileModal'
 import { ConversationSidebar } from './ConversationSidebar'
-import { buildHealthShareMessage, buildInitialConversations } from './messageShareUtils'
+import {
+  buildConversationFromDiscoverPet,
+  buildHealthShareMessage,
+  buildInitialConversations,
+} from './messageShareUtils'
 
 export function MessagesPageContent() {
   const { showToast } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
   const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
   const [activeId, setActiveId] = useState(() => {
@@ -25,6 +31,38 @@ export function MessagesPageContent() {
   const [contactProfileOpen, setContactProfileOpen] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const contactPetId = searchParams.get('contactPetId')
+    if (!contactPetId) return
+
+    let openedId: string | null = null
+
+    setConversations((prev) => {
+      const existing = prev.find((c) => c.contactPetId === contactPetId)
+      if (existing) {
+        openedId = existing.id
+        return prev.map((c) =>
+          c.id === existing.id ? { ...c, archived: false, unread: 0 } : c,
+        )
+      }
+
+      const pet = discoverPets.find((item) => item.id === contactPetId)
+      if (!pet) return prev
+
+      const created = buildConversationFromDiscoverPet(pet)
+      openedId = created.id
+      return [created, ...prev]
+    })
+
+    if (openedId) {
+      setListMode('inbox')
+      setActiveId(openedId)
+      setMobileShowChat(true)
+    }
+
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const active = conversations.find((c) => c.id === activeId)
   const contactPet = active?.contactPetId

@@ -28,6 +28,7 @@ import {
   parseCzechDate,
 } from '../../../lib/petProfileUtils'
 import { isMedicationCurrentlyActive } from '../../../lib/medicationReminders'
+import { normalizeLifestyleList } from '../../../lib/petProfileDisplay'
 import { takeSelectedFiles, readImageFileAsDataUrl } from '../../../lib/readImageFile'
 import {
   formatFileSize,
@@ -105,7 +106,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   const healthOverviewRef = useRef<HTMLDivElement>(null)
   const [assessmentOpen, setAssessmentOpen] = useState(false)
   const [lifestyleEdit, setLifestyleEdit] = useState<LifestyleField | null>(null)
-  const [lifestyleValue, setLifestyleValue] = useState('')
+  const [lifestyleValues, setLifestyleValues] = useState<string[]>([''])
   const [dailyCareDone, setDailyCareDone] = useState<string[]>(() =>
     loadDailyCareCompleted(pet.id),
   )
@@ -494,12 +495,33 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     }
   }
 
+  const openLifestyleEditor = (field: LifestyleField) => {
+    const existing = normalizeLifestyleList(pet[field])
+    setLifestyleEdit(field)
+    setLifestyleValues(existing.length > 0 ? existing : [''])
+  }
+
+  const updateLifestyleValueAt = (index: number, value: string) => {
+    setLifestyleValues((prev) => prev.map((item, i) => (i === index ? value : item)))
+  }
+
+  const addLifestyleValue = () => {
+    setLifestyleValues((prev) => [...prev, ''])
+  }
+
+  const removeLifestyleValueAt = (index: number) => {
+    setLifestyleValues((prev) => {
+      if (prev.length <= 1) return ['']
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
   const handleLifestyleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!lifestyleEdit) return
-    const trimmed = lifestyleValue.trim()
+    const cleaned = normalizeLifestyleList(lifestyleValues)
     updatePet(pet.id, {
-      [lifestyleEdit]: trimmed || undefined,
+      [lifestyleEdit]: cleaned.length > 0 ? cleaned : undefined,
     })
     showToast('Údaj uložen', undefined, 'gold')
     setLifestyleEdit(null)
@@ -530,8 +552,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       dailyCarePercent,
       toggleDailyCareTask,
       openDailyCareTaskDetail,
-      setLifestyleEdit,
-      setLifestyleValue,
+      openLifestyleEditor,
     },
     health: {
       pet,
@@ -621,8 +642,10 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       setAssessmentOpen,
       lifestyleEdit,
       setLifestyleEdit,
-      lifestyleValue,
-      setLifestyleValue,
+      lifestyleValues,
+      updateLifestyleValueAt,
+      addLifestyleValue,
+      removeLifestyleValueAt,
       handleLifestyleSubmit,
       toggleMedicationReminder,
       setMedicationReminderTime,

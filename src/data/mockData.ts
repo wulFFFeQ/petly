@@ -35,8 +35,8 @@ export const myPets: Pet[] = [
     lastVetVisit: '3. 7. 2026',
     nextVaccination: '24. 9. 2026',
     healthScore: 98,
-    favoriteToy: 'Plyšová kachna a tenisový míček',
-    diet: 'Royal Canin Golden Retriever Adult',
+    favoriteToy: ['Plyšová kachna', 'Tenisový míček'],
+    diet: ['Royal Canin Golden Retriever Adult'],
   },
   {
     id: 'milo',
@@ -55,8 +55,8 @@ export const myPets: Pet[] = [
     lastVetVisit: '18. 6. 2026',
     nextVaccination: '15. 10. 2026',
     healthScore: 94,
-    favoriteToy: 'Peříčková hůlka',
-    diet: 'Hill’s Science Plan Optimal Care',
+    favoriteToy: ['Peříčková hůlka'],
+    diet: ['Hill’s Science Plan Optimal Care'],
   },
   {
     id: 'bella',
@@ -76,8 +76,8 @@ export const myPets: Pet[] = [
     lastVetVisit: '22. 5. 2026',
     nextVaccination: '10. 11. 2026',
     healthScore: 92,
-    favoriteToy: 'Létající disk a provaz',
-    diet: 'Acana Grasslands Heritage',
+    favoriteToy: ['Létající disk', 'Provaz'],
+    diet: ['Acana Grasslands Heritage'],
   },
 ]
 

@@ -152,7 +152,7 @@ const HELP_TOPICS: {
     items: [
       {
         q: 'Jak kontaktuji podporu?',
-        a: `Napište na support@lovedandknown.cz nebo použijte Concierge službu pro asistenci s péčí o mazlíčka. Odpovídáme obvykle do 1 pracovního dne.`,
+        a: `Klikněte na tlačítko podpory vpravo dole a napište dotaz nebo připomínku. Alternativně e-mail support@lovedandknown.cz. Pro asistenci s péčí o mazlíčka použijte Concierge. Odpovídáme obvykle do 1 pracovního dne.`,
       },
       {
         q: 'Co mám uvést v požadavku?',

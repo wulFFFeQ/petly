@@ -97,9 +97,9 @@ export interface Pet {
   lastVetVisit?: string
   nextVaccination?: string
   healthScore?: number
-  favoriteToy?: string
-  diet?: string
-  supplements?: string
+  favoriteToy?: string[]
+  diet?: string[]
+  supplements?: string[]
 }
 
 export interface HealthAssessmentSnapshot {

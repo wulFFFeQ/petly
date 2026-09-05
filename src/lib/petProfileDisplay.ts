@@ -9,6 +9,22 @@ export function formatOptionalText(value?: string | null): string {
   return value
 }
 
+/** Normalize legacy single-string lifestyle fields and string arrays. */
+export function normalizeLifestyleList(value?: string | string[] | null): string[] {
+  if (value == null) return []
+  if (Array.isArray(value)) {
+    return value.map((item) => item.trim()).filter(Boolean)
+  }
+  const trimmed = value.trim()
+  return trimmed ? [trimmed] : []
+}
+
+export function formatLifestyleList(value?: string | string[] | null): string {
+  const items = normalizeLifestyleList(value)
+  if (items.length === 0) return EMPTY_PROFILE_LABEL
+  return items.join(', ')
+}
+
 export function formatOptionalWeight(weight?: number | null): string {
   if (weight == null || weight <= 0) return EMPTY_PROFILE_LABEL
   return `${String(weight).replace('.', ',')} kg`

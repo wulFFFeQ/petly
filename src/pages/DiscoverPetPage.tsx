@@ -13,6 +13,18 @@ export function DiscoverPetPage() {
   const { showToast } = useApp()
   const pet = discoverPets.find((item) => item.id === petId)
 
+  const handleConnect = () => {
+    if (!pet) return
+    showToast(
+      `Propojeno s ${pet.name}`,
+      pet.ownerName
+        ? `Otevíráme konverzaci s ${pet.ownerName}.`
+        : 'Otevíráme konverzaci ve zprávách.',
+      'gold',
+    )
+    navigate(`/messages?contactPetId=${encodeURIComponent(pet.id)}`)
+  }
+
   if (!pet) {
     return (
       <Card variant="elevated" className="mx-auto max-w-lg text-center">
@@ -94,22 +106,9 @@ export function DiscoverPetPage() {
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              variant="primary"
-              size="sm"
-              className="gap-1.5"
-              onClick={() =>
-                showToast(
-                  `Propojeno s ${pet.name}`,
-                  pet.ownerName
-                    ? `Můžete domluvit schůzku s ${pet.ownerName} ve zprávách.`
-                    : 'Nyní můžete domlouvat schůzky ve zprávách.',
-                  'gold',
-                )
-              }
-            >
+            <Button variant="primary" size="sm" className="gap-1.5" onClick={handleConnect}>
               <MessageCircle size={14} />
-              Oslovit majitele
+              Oslovit a propojit se
             </Button>
             <Link
               to="/discover"

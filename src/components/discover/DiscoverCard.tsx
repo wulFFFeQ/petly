@@ -1,4 +1,6 @@
-import { MapPin, Sparkles, MessageCircle, ShieldCheck } from 'lucide-react'
+import { MapPin, Sparkles, MessageCircle, ShieldCheck, User } from 'lucide-react'
+import type { MouseEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import type { DiscoverPet } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -12,13 +14,18 @@ interface DiscoverCardProps {
 
 export function DiscoverCard({ pet }: DiscoverCardProps) {
   const { showToast } = useApp()
+  const navigate = useNavigate()
+  const profilePath = `/discover/${pet.id}`
 
-  const handleConnect = () => {
+  const handleConnect = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
     showToast(
       `Propojeno s ${pet.name} a ${pet.ownerName || 'majitelem'}`,
-      'Nyní můžete domlouvat schůzky a procházky ve zprávách.',
+      'Otevíráme konverzaci ve zprávách.',
       'gold',
     )
+    navigate(`/messages?contactPetId=${encodeURIComponent(pet.id)}`)
   }
 
   return (
@@ -27,7 +34,11 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
       padding="none"
       className="overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_15px_35px_rgba(25,30,27,0.08)] hover:border-[#D1E0D8] flex h-full flex-col"
     >
-      <div className="flex flex-1 flex-col">
+      <Link
+        to={profilePath}
+        className="flex flex-1 flex-col text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2C4A3E]/40 focus-visible:ring-inset"
+        aria-label={`Zobrazit profil ${pet.name}`}
+      >
         <PetPhotoCard
           image={pet.image}
           name={pet.name}
@@ -74,9 +85,9 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
             {pet.bio || '\u00A0'}
           </p>
         </div>
-      </div>
+      </Link>
 
-      <div className="px-4 pb-4 pt-0">
+      <div className="flex flex-col gap-2 px-4 pb-4 pt-0">
         <Button
           variant="outline"
           fullWidth
@@ -87,6 +98,13 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
           <MessageCircle size={14} />
           <span>Oslovit a propojit se</span>
         </Button>
+        <Link
+          to={profilePath}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium text-[#5A6660] hover:bg-[#EBF2EE] hover:text-[#2C4A3E] transition-colors"
+        >
+          <User size={14} />
+          Zobrazit profil
+        </Link>
       </div>
     </Card>
   )

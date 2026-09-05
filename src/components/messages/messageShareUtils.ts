@@ -1,6 +1,6 @@
 import { conversations as initialConversations } from '../../data/mockData'
 import { loadConversationPrefs } from '../../lib/archivedConversations'
-import type { Conversation, HealthRecord } from '../../types'
+import type { Conversation, DiscoverPet, HealthRecord } from '../../types'
 import {
   Syringe,
   Pill,
@@ -60,4 +60,35 @@ export function buildInitialConversations(): Conversation[] {
         ? prefs.unreadById[conversation.id]
         : conversation.unread,
   }))
+}
+
+/** Start (or describe) a community chat from a Discover pet profile. */
+export function buildConversationFromDiscoverPet(pet: DiscoverPet): Conversation {
+  const now = new Date()
+  const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
+  const intro = pet.ownerName
+    ? `Ahoj ${pet.ownerName.split(' ')[0]}! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`
+    : `Ahoj! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`
+
+  return {
+    id: `conv_discover_${pet.id}`,
+    name: pet.ownerName || `Majitel · ${pet.name}`,
+    role: `Majitel · ${pet.name}`,
+    petContext: `${pet.name} · ${pet.breed}`,
+    contactPetId: pet.id,
+    contactType: 'community',
+    online: true,
+    avatar: pet.image,
+    lastMessage: intro,
+    time: 'Právě teď',
+    unread: 0,
+    messages: [
+      {
+        id: `m_connect_${pet.id}_${Date.now()}`,
+        sender: 'me',
+        text: intro,
+        time: timeString,
+      },
+    ],
+  }
 }

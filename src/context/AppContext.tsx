@@ -12,6 +12,7 @@ import { localizeBreedName } from '../lib/petBreeds'
 import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
+import { normalizeLifestyleList } from '../lib/petProfileDisplay'
 import { getBadgeDefinition } from '../lib/badges/catalog'
 import {
   computeBadgeProgress,
@@ -52,6 +53,11 @@ const DOCUMENTS_STORAGE_KEY = 'lovedandknown.petDocuments'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
 
+function normalizeLifestyleField(value: unknown): string[] | undefined {
+  const list = normalizeLifestyleList(value as string | string[] | null | undefined)
+  return list.length > 0 ? list : undefined
+}
+
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') return initialPets
   try {
@@ -61,13 +67,19 @@ function loadPets(): Pet[] {
     if (!Array.isArray(parsed) || parsed.length === 0) return initialPets
     return parsed.map((pet) => {
       const seed = initialPets.find((item) => item.id === pet.id)
+      const { lifestyleExtras: _removed, ...rest } = pet as Pet & {
+        lifestyleExtras?: unknown
+      }
       return {
-        ...pet,
+        ...rest,
         breed: localizeBreedName(pet.breed),
         breedingProfile: pet.breedingProfile ?? seed?.breedingProfile,
         gender: pet.gender
           ? normalizeGenderForType(pet.gender, pet.type) ?? pet.gender
           : pet.gender,
+        diet: normalizeLifestyleField(pet.diet),
+        supplements: normalizeLifestyleField(pet.supplements),
+        favoriteToy: normalizeLifestyleField(pet.favoriteToy),
       }
     })
   } catch {
@@ -597,14 +609,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if ('neutered' in updates && updates.neutered === undefined) {
           delete next.neutered
         }
-        if ('diet' in updates && !updates.diet?.trim()) {
-          delete next.diet
+        if ('diet' in updates) {
+          const list = normalizeLifestyleField(updates.diet)
+          if (list) next.diet = list
+          else delete next.diet
         }
-        if ('supplements' in updates && !updates.supplements?.trim()) {
-          delete next.supplements
+        if ('supplements' in updates) {
+          const list = normalizeLifestyleField(updates.supplements)
+          if (list) next.supplements = list
+          else delete next.supplements
         }
-        if ('favoriteToy' in updates && !updates.favoriteToy?.trim()) {
-          delete next.favoriteToy
+        if ('favoriteToy' in updates) {
+          const list = normalizeLifestyleField(updates.favoriteToy)
+          if (list) next.favoriteToy = list
+          else delete next.favoriteToy
         }
 
         return next

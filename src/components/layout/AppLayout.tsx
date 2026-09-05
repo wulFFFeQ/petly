@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { Modals } from '../modals/Modals'
+import { SupportWidget } from '../support/SupportWidget'
 import { ToastContainer } from '../ui/Toast'
 import { BottomNav } from './BottomNav'
 import { Header } from './Header'
@@ -16,6 +17,7 @@ export function AppLayout() {
         </main>
       </div>
       <BottomNav />
+      <SupportWidget />
       <Modals />
       <ToastContainer />
     </div>
