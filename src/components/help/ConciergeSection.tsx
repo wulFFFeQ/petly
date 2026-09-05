@@ -43,7 +43,7 @@ const CONCIERGE_DATA_ACCESS = [
 
 type ConciergeAccessKey = (typeof CONCIERGE_DATA_ACCESS)[number]['id']
 
-export function ConciergeSection() {
+export function ConciergeSection({ hideHeader = false }: { hideHeader?: boolean }) {
   const { pets, showToast } = useApp()
   const [selectedTopic, setSelectedTopic] = useState<ConciergeTopicId>('vet_care')
   const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? '')
@@ -86,9 +86,11 @@ export function ConciergeSection() {
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <Badge variant="gold" size="sm" className="mb-2">
-              {BRAND_NAME} Concierge
-            </Badge>
+            {!hideHeader && (
+              <Badge variant="gold" size="sm" className="mb-2">
+                {BRAND_NAME} Concierge
+              </Badge>
+            )}
             <h3 className="text-lg font-bold text-[#191E1B]">
               Kdykoliv požádejte o pomoc
             </h3>

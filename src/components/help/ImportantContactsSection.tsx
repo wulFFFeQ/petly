@@ -12,17 +12,21 @@ const CONTACT_ICONS: Record<ImportantContactType, typeof Phone> = {
   emergency_person: Phone,
 }
 
-export function ImportantContactsSection() {
+export function ImportantContactsSection({ hideHeader = false }: { hideHeader?: boolean }) {
   return (
     <Card variant="elevated">
-      <h3 className="text-base font-bold text-[#191E1B] mb-1 flex items-center gap-2">
-        <Phone size={18} className="text-[#234B54]" />
-        <span>Důležité kontakty</span>
-      </h3>
-      <p className="text-xs text-[#4A564F] mb-4">
-        Rychlý přístup k pohotovosti, veterináři, pojišťovně a kontaktům pro nouzové situace.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      {!hideHeader && (
+        <>
+          <h3 className="text-base font-bold text-[#191E1B] mb-1 flex items-center gap-2">
+            <Phone size={18} className="text-[#234B54]" />
+            <span>Důležité kontakty</span>
+          </h3>
+          <p className="text-xs text-[#4A564F] mb-4">
+            Rychlý přístup k pohotovosti, veterináři, pojišťovně a kontaktům pro nouzové situace.
+          </p>
+        </>
+      )}
+      <div className={hideHeader ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3 sm:grid-cols-2'}>
         {importantContacts.map((contact) => {
           const Icon = CONTACT_ICONS[contact.type]
           return (

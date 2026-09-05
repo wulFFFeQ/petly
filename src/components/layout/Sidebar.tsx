@@ -5,6 +5,9 @@ import {
   LayoutDashboard,
   MessageCircle,
   PawPrint,
+  Phone,
+  PhoneCall,
+  Plane,
   Search,
   Settings,
   Users,
@@ -27,6 +30,12 @@ export function Sidebar() {
     { to: '/health', label: 'Zdraví', icon: Heart, badge: 'Aktivní' },
     { to: '/calendar', label: 'Kalendář', icon: Calendar },
     { to: '/messages', label: 'Zprávy', icon: MessageCircle, badge: '2' },
+  ]
+
+  const servicesNav = [
+    { to: '/travel', label: 'Cestování', icon: Plane },
+    { to: '/contacts', label: 'Důležité kontakty', icon: Phone },
+    { to: '/concierge', label: 'Concierge', icon: PhoneCall },
   ]
 
   const bottomNav = [
@@ -95,6 +104,45 @@ export function Sidebar() {
                       </span>
                     )}
 
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-[#2C4A3E]" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="mt-5 px-3">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A3AEA7]">
+              Služby
+            </span>
+          </div>
+          <nav className="mt-3 flex flex-col gap-1">
+            {servicesNav.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-[#EBF2EE] text-[#2C4A3E] font-semibold shadow-xs'
+                      : 'text-[#4A564F] hover:bg-white/60 hover:text-[#191E1B]',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      size={19}
+                      strokeWidth={isActive ? 2.2 : 1.75}
+                      className={cn(
+                        'transition-colors',
+                        isActive ? 'text-[#2C4A3E]' : 'text-[#7D8B82] group-hover:text-[#191E1B]',
+                      )}
+                    />
+                    <span>{label}</span>
                     {isActive && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-[#2C4A3E]" />
                     )}

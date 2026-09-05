@@ -3,6 +3,8 @@ import { AppLayout } from './components/layout/AppLayout'
 import { AppProvider } from './context/AppContext'
 import { CalendarPage } from './pages/CalendarPage'
 import { CommunityPage } from './pages/CommunityPage'
+import { ConciergePage } from './pages/ConciergePage'
+import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { DiscoverPetPage } from './pages/DiscoverPetPage'
@@ -12,6 +14,7 @@ import { MessagesPage } from './pages/MessagesPage'
 import { MyPetsPage } from './pages/MyPetsPage'
 import { PetProfilePage } from './pages/PetProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
+import { TravelPage } from './pages/TravelPage'
 
 function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
@@ -30,6 +33,9 @@ function App() {
             <Route path="health" element={<HealthPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="messages" element={<MessagesPage />} />
+            <Route path="travel" element={<TravelPage />} />
+            <Route path="contacts" element={<ContactsPage />} />
+            <Route path="concierge" element={<ConciergePage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="help" element={<HelpPage />} />
           </Route>

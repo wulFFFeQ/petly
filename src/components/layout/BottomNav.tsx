@@ -5,6 +5,9 @@ import {
   MessageCircle,
   MoreHorizontal,
   PawPrint,
+  Phone,
+  PhoneCall,
+  Plane,
   Search,
   Settings,
   HelpCircle,
@@ -26,6 +29,9 @@ const mainItems = [
 const moreItems = [
   { to: '/calendar', label: 'Kalendář', icon: Calendar },
   { to: '/messages', label: 'Zprávy', icon: MessageCircle },
+  { to: '/travel', label: 'Cestování', icon: Plane },
+  { to: '/contacts', label: 'Důležité kontakty', icon: Phone },
+  { to: '/concierge', label: 'Concierge', icon: PhoneCall },
   { to: '/settings', label: 'Nastavení', icon: Settings },
   { to: '/help', label: 'Nápověda', icon: HelpCircle },
 ]

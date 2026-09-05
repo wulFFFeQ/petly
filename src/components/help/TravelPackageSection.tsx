@@ -87,7 +87,7 @@ const REQUIREMENT_STATUS_LABEL: Record<RequirementStatus, string> = {
   missing: 'Chybí',
 }
 
-export function TravelPackageSection() {
+export function TravelPackageSection({ hideHeader = false }: { hideHeader?: boolean }) {
   const { pets, showToast } = useApp()
   const [activeTravelPetId, setActiveTravelPetId] = useState(pets[0]?.id ?? '')
   const [selectedDestinationId, setSelectedDestinationId] = useState(travelDestinations[0]?.id ?? '')
@@ -100,34 +100,105 @@ export function TravelPackageSection() {
       ? getDestinationReadiness(activeDestination, activeTravelPackage)
       : null
 
+  const buildTravelPackText = () => {
+    if (!activeTravelPet || !activeTravelPackage || !activeDestination) return null
+
+    const docLines = activeTravelPackage.documents
+      .map((doc) => `${doc.ready ? '[x]' : '[ ]'} ${doc.label}`)
+      .join('\n')
+
+    return [
+      `${BRAND_NAME} — Balíček pro cestování`,
+      '',
+      `Mazlíček: ${activeTravelPet.name} (${activeTravelPet.breed})`,
+      `Destinace: ${activeDestination.country}`,
+      '',
+      `EU pas: ${activeTravelPackage.euPassport.number}`,
+      `Platnost do: ${activeTravelPackage.euPassport.validUntil}`,
+      `Očkování: ${activeTravelPackage.vaccinationSummary}`,
+      `Mikročip: ${activeTravelPackage.microchip}`,
+      `Zdravotní záznamy: ${activeTravelPackage.healthRecordCount}`,
+      `Poslední návštěva: ${activeTravelPet.lastVetVisit}`,
+      '',
+      'Dokumenty v balíčku:',
+      docLines,
+      '',
+      `Vygenerováno: ${new Date().toLocaleString('cs-CZ')}`,
+    ].join('\n')
+  }
+
   const handleDownloadTravelPack = () => {
     if (!activeTravelPet) return
+    const content = buildTravelPackText()
+    if (!content) return
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `cestovni-balicek-${activeTravelPet.name.toLowerCase()}.txt`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+
     showToast(
-      'Balíček pro cestování',
-      `Dokumenty pro ${activeTravelPet.name} byly připraveny ke stažení.`,
+      'Stahování zahájeno',
+      `Balíček pro ${activeTravelPet.name} se ukládá do stažených souborů.`,
       'gold',
     )
   }
 
-  const handleShareTravelPack = () => {
+  const handleShareTravelPack = async () => {
     if (!activeTravelPet) return
-    showToast(
-      'Balíček sdílen',
-      `Cestovní dokumenty ${activeTravelPet.name} jsou připraveny ke sdílení.`,
-      'info',
-    )
+    const content = buildTravelPackText()
+    if (!content) return
+
+    const shareData = {
+      title: `Cestovní balíček — ${activeTravelPet.name}`,
+      text: content,
+    }
+
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share(shareData)
+        showToast(
+          'Balíček sdílen',
+          `Cestovní dokumenty ${activeTravelPet.name} byly odeslány.`,
+          'info',
+        )
+        return
+      }
+
+      await navigator.clipboard.writeText(content)
+      showToast(
+        'Zkopírováno do schránky',
+        `Cestovní dokumenty ${activeTravelPet.name} můžete vložit kamkoli.`,
+        'info',
+      )
+    } catch {
+      showToast(
+        'Sdílení se nezdařilo',
+        'Zkuste balíček stáhnout a odeslat ručně.',
+        'info',
+      )
+    }
   }
 
   return (
     <Card variant="elevated">
-      <h3 className="text-base font-bold text-[#191E1B] mb-1 flex items-center gap-2">
-        <Plane size={18} className="text-[#B8934A]" />
-        <span>Balíček pro cestování</span>
-      </h3>
-      <p className="text-xs text-[#4A564F] mb-4">
-        EU pas, očkování, čip, zdravotní záznamy a dokumenty pohromadě u každého mazlíčka.
-        Vyberte destinaci a {BRAND_NAME} zobrazí požadavky pro danou zemi.
-      </p>
+      {!hideHeader && (
+        <>
+          <h3 className="text-base font-bold text-[#191E1B] mb-1 flex items-center gap-2">
+            <Plane size={18} className="text-[#B8934A]" />
+            <span>Balíček pro cestování</span>
+          </h3>
+          <p className="text-xs text-[#4A564F] mb-4">
+            EU pas, očkování, čip, zdravotní záznamy a dokumenty pohromadě u každého mazlíčka.
+            Vyberte destinaci a {BRAND_NAME} zobrazí požadavky pro danou zemi.
+          </p>
+        </>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 mb-4">
         <div>

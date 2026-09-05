@@ -9,6 +9,9 @@ export const cs = {
     messages: 'Zprávy',
     settings: 'Nastavení',
     help: 'Nápověda',
+    travel: 'Cestování',
+    contacts: 'Důležité kontakty',
+    concierge: 'Concierge',
     mainMenu: 'Hlavní menu',
     preferences: 'Předvolby',
     home: 'Domů',
@@ -18,7 +21,7 @@ export const cs = {
     moreServices: 'Další sekce',
     calendarRoutines: 'Kalendář a rutiny',
     messagesVet: 'Zprávy a veterinář',
-    helpConcierge: 'Nápověda a concierge',
+    helpConcierge: 'Nápověda a podpora',
   },
   greeting: {
     morning: 'Dobré ráno',
