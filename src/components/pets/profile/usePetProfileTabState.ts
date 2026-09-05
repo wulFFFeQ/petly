@@ -29,6 +29,11 @@ import {
 } from '../../../lib/petProfileUtils'
 import { isMedicationCurrentlyActive } from '../../../lib/medicationReminders'
 import { normalizeLifestyleList } from '../../../lib/petProfileDisplay'
+import {
+  getDislikePresets,
+  getLikePresets,
+  togglePersonalityPreset,
+} from '../../../lib/petAboutPresets'
 import { takeSelectedFiles, readImageFileAsDataUrl } from '../../../lib/readImageFile'
 import {
   formatFileSize,
@@ -107,6 +112,14 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   const [assessmentOpen, setAssessmentOpen] = useState(false)
   const [lifestyleEdit, setLifestyleEdit] = useState<LifestyleField | null>(null)
   const [lifestyleValues, setLifestyleValues] = useState<string[]>([''])
+  const [aboutEditOpen, setAboutEditOpen] = useState(false)
+  const [aboutForm, setAboutForm] = useState({
+    bio: '',
+    personality: '',
+    likes: [''] as string[],
+    dislikes: [''] as string[],
+    lookingFor: '',
+  })
   const [dailyCareDone, setDailyCareDone] = useState<string[]>(() =>
     loadDailyCareCompleted(pet.id),
   )
@@ -527,6 +540,108 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     setLifestyleEdit(null)
   }
 
+  const openAboutEditor = () => {
+    const likes = normalizeLifestyleList(pet.likes)
+    const dislikes = normalizeLifestyleList(pet.dislikes)
+    setAboutForm({
+      bio: pet.bio ?? '',
+      personality: pet.personality ?? '',
+      likes: likes.length > 0 ? likes : [''],
+      dislikes: dislikes.length > 0 ? dislikes : [''],
+      lookingFor: pet.lookingFor ?? '',
+    })
+    setAboutEditOpen(true)
+  }
+
+  const updateAboutListValue = (
+    field: 'likes' | 'dislikes',
+    index: number,
+    value: string,
+  ) => {
+    setAboutForm((prev) => ({
+      ...prev,
+      [field]: prev[field].map((item, i) => (i === index ? value : item)),
+    }))
+  }
+
+  const addAboutListValue = (field: 'likes' | 'dislikes') => {
+    setAboutForm((prev) => ({ ...prev, [field]: [...prev[field], ''] }))
+  }
+
+  const removeAboutListValue = (field: 'likes' | 'dislikes', index: number) => {
+    setAboutForm((prev) => {
+      const list = prev[field]
+      if (list.length <= 1) return { ...prev, [field]: [''] }
+      return { ...prev, [field]: list.filter((_, i) => i !== index) }
+    })
+  }
+
+  const toggleAboutListPreset = (field: 'likes' | 'dislikes', preset: string) => {
+    setAboutForm((prev) => {
+      const cleaned = prev[field].map((item) => item.trim()).filter(Boolean)
+      const exists = cleaned.some((item) => item.toLowerCase() === preset.toLowerCase())
+      const next = exists
+        ? cleaned.filter((item) => item.toLowerCase() !== preset.toLowerCase())
+        : [...cleaned, preset]
+      return { ...prev, [field]: next.length > 0 ? next : [''] }
+    })
+  }
+
+  const togglePersonalityPresetChip = (preset: string) => {
+    setAboutForm((prev) => ({
+      ...prev,
+      personality: togglePersonalityPreset(prev.personality, preset),
+    }))
+  }
+
+  const toggleLookingForPreset = (preset: string) => {
+    setAboutForm((prev) => {
+      const current = prev.lookingFor.trim()
+      if (!current) return { ...prev, lookingFor: preset }
+      if (current.toLowerCase() === preset.toLowerCase()) {
+        return { ...prev, lookingFor: '' }
+      }
+      if (current.toLowerCase().includes(preset.toLowerCase())) {
+        return {
+          ...prev,
+          lookingFor: current
+            .split(/[,;]+/)
+            .map((p) => p.trim())
+            .filter((p) => p && p.toLowerCase() !== preset.toLowerCase())
+            .join(', '),
+        }
+      }
+      return { ...prev, lookingFor: `${current}, ${preset}` }
+    })
+  }
+
+  /** Custom (non-preset) rows for likes / dislikes editors. */
+  const setAboutCustomList = (field: 'likes' | 'dislikes', customs: string[]) => {
+    setAboutForm((prev) => {
+      const presets =
+        field === 'likes' ? getLikePresets(pet.type) : getDislikePresets(pet.type)
+      const presetSet = new Set(presets.map((p) => p.toLowerCase()))
+      const selectedPresets = prev[field].filter((item) =>
+        presetSet.has(item.trim().toLowerCase()),
+      )
+      const next = [...selectedPresets, ...customs]
+      return { ...prev, [field]: next.length > 0 ? next : [''] }
+    })
+  }
+
+  const handleAboutSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    updatePet(pet.id, {
+      bio: aboutForm.bio,
+      personality: aboutForm.personality,
+      likes: normalizeLifestyleList(aboutForm.likes),
+      dislikes: normalizeLifestyleList(aboutForm.dislikes),
+      lookingFor: aboutForm.lookingFor,
+    })
+    showToast('Profil mazlíčka uložen', 'Sekce „O mazlíčkovi“ byla aktualizována.', 'gold')
+    setAboutEditOpen(false)
+  }
+
   const activeGalleryPhoto = galleryIndex !== null ? photos[galleryIndex] : null
 
   return {
@@ -553,6 +668,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       toggleDailyCareTask,
       openDailyCareTaskDetail,
       openLifestyleEditor,
+      openAboutEditor,
     },
     health: {
       pet,
@@ -647,6 +763,18 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       addLifestyleValue,
       removeLifestyleValueAt,
       handleLifestyleSubmit,
+      aboutEditOpen,
+      setAboutEditOpen,
+      aboutForm,
+      setAboutForm,
+      updateAboutListValue,
+      addAboutListValue,
+      removeAboutListValue,
+      toggleAboutListPreset,
+      togglePersonalityPresetChip,
+      toggleLookingForPreset,
+      setAboutCustomList,
+      handleAboutSubmit,
       toggleMedicationReminder,
       setMedicationReminderTime,
       setMedicationReminderDays,

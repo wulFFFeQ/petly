@@ -100,6 +100,14 @@ export interface Pet {
   favoriteToy?: string[]
   diet?: string[]
   supplements?: string[]
+  /** Public-facing short bio (Discover / shared profile). */
+  bio?: string
+  /** Temperament / character summary. */
+  personality?: string
+  likes?: string[]
+  dislikes?: string[]
+  /** What they are looking for (walk buddy, playdates…). */
+  lookingFor?: string
 }
 
 export interface HealthAssessmentSnapshot {

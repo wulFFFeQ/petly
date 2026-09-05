@@ -38,6 +38,11 @@ export const myPets: Pet[] = [
     healthScore: 98,
     favoriteToy: ['Plyšová kachna', 'Tenisový míček'],
     diet: ['Royal Canin Golden Retriever Adult'],
+    bio: 'Zlatá duše milující aport, vodu a společné výlety. Vždy připravená na nové kamarády.',
+    personality: 'Přátelská, klidná a zvídavá — skvěle vychází s lidmi i ostatními psy.',
+    likes: ['Aport u vody', 'Dlouhé procházky', 'Psí hřiště', 'Rodinné výlety'],
+    dislikes: ['Samota přes den', 'Bouřky'],
+    lookingFor: 'Parťáka na procházky, plavání a víkendové výlety',
   },
   {
     id: 'milo',

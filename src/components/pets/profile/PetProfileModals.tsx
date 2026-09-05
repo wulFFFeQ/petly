@@ -1,5 +1,14 @@
 import { ChevronLeft, ChevronRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import type { TimelineEvent } from '../../../types'
+import {
+  getCustomListItems,
+  getDislikePresets,
+  getLikePresets,
+  getLookingForPresets,
+  PERSONALITY_PRESETS,
+  personalityHasPreset,
+} from '../../../lib/petAboutPresets'
+import { cn } from '../../../lib/utils'
 import { HealthRecordDetailBody } from '../../health/HealthRecordDetailBody'
 import { HealthAssessmentModal } from '../HealthAssessmentModal'
 import { Button } from '../../ui/Button'
@@ -84,6 +93,15 @@ export function PetProfileModals({
   addLifestyleValue,
   removeLifestyleValueAt,
   handleLifestyleSubmit,
+  aboutEditOpen,
+  setAboutEditOpen,
+  aboutForm,
+  setAboutForm,
+  toggleAboutListPreset,
+  togglePersonalityPresetChip,
+  toggleLookingForPreset,
+  setAboutCustomList,
+  handleAboutSubmit,
   toggleMedicationReminder,
   setMedicationReminderTime,
   setMedicationReminderDays,
@@ -485,6 +503,248 @@ export function PetProfileModals({
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setLifestyleEdit(null)}>
+              Zrušit
+            </Button>
+            <Button type="submit" variant="primary">
+              Uložit
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={aboutEditOpen}
+        onClose={() => setAboutEditOpen(false)}
+        title="O mazlíčkovi"
+        subtitle={`Veřejný popis ${pet.name} · zobrazí se i na profilu v Objevovat`}
+      >
+        <form className="flex flex-col gap-4" onSubmit={handleAboutSubmit}>
+          <Textarea
+            id="about-bio"
+            label="Krátký popis"
+            value={aboutForm.bio}
+            onChange={(e) => setAboutForm((prev) => ({ ...prev, bio: e.target.value }))}
+            placeholder="např. Energický plavec a šampion v aportu…"
+            rows={3}
+            autoFocus
+          />
+
+          <div className="space-y-2">
+            <Textarea
+              id="about-personality"
+              label="Povaha"
+              value={aboutForm.personality}
+              onChange={(e) => setAboutForm((prev) => ({ ...prev, personality: e.target.value }))}
+              placeholder="např. Přátelský, hravý a vyrovnaný…"
+              rows={2}
+            />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+              Rychlý výběr
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {PERSONALITY_PRESETS.map((preset) => {
+                const active = personalityHasPreset(aboutForm.personality, preset)
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => togglePersonalityPresetChip(preset)}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                      active
+                        ? 'bg-[#2C4A3E] text-white'
+                        : 'bg-[#F3F0EA] text-[#5A6660] hover:bg-[#EBF2EE] hover:text-[#2C4A3E]',
+                    )}
+                  >
+                    {preset}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-[#4A564F]">Má rád</p>
+            <div className="flex flex-wrap gap-1.5">
+              {getLikePresets(pet.type).map((preset) => {
+                const active = aboutForm.likes.some(
+                  (item) => item.trim().toLowerCase() === preset.toLowerCase(),
+                )
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => toggleAboutListPreset('likes', preset)}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                      active
+                        ? 'bg-[#EBF2EE] text-[#2C4A3E] ring-1 ring-[#2C4A3E]/25'
+                        : 'bg-[#F3F0EA] text-[#5A6660] hover:bg-[#EBF2EE] hover:text-[#2C4A3E]',
+                    )}
+                  >
+                    {preset}
+                  </button>
+                )
+              })}
+            </div>
+            {(() => {
+              const rows = getCustomListItems(aboutForm.likes, getLikePresets(pet.type))
+              return rows.map((value, index) => (
+                <div key={`about-like-custom-${index}`} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      id={`about-like-custom-${index}`}
+                      label={index === 0 ? 'Vlastní' : `Vlastní ${index + 1}`}
+                      value={value}
+                      onChange={(e) => {
+                        const next = [...rows]
+                        next[index] = e.target.value
+                        setAboutCustomList('likes', next)
+                      }}
+                      placeholder="nebo napište vlastní…"
+                    />
+                  </div>
+                  {(rows.length > 1 || value.trim()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = rows.filter((_, i) => i !== index)
+                        setAboutCustomList('likes', next.length > 0 ? next : [''])
+                      }}
+                      className="mt-7 rounded-xl p-2 text-[#7D8B82] transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+                      aria-label="Odebrat"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))
+            })()}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const rows = getCustomListItems(aboutForm.likes, getLikePresets(pet.type))
+                setAboutCustomList('likes', [...rows.filter((r) => r.trim()), ''])
+              }}
+              className="w-full gap-1.5 border-dashed"
+            >
+              <Plus size={15} />
+              Přidat vlastní
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-[#4A564F]">Nemá rád</p>
+            <div className="flex flex-wrap gap-1.5">
+              {getDislikePresets(pet.type).map((preset) => {
+                const active = aboutForm.dislikes.some(
+                  (item) => item.trim().toLowerCase() === preset.toLowerCase(),
+                )
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => toggleAboutListPreset('dislikes', preset)}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                      active
+                        ? 'bg-[#F3F0EA] text-[#5A6660] ring-1 ring-[#C8C2B8]'
+                        : 'bg-white border border-[#E8E4DC] text-[#7D8B82] hover:bg-[#F3F0EA]',
+                    )}
+                  >
+                    {preset}
+                  </button>
+                )
+              })}
+            </div>
+            {(() => {
+              const rows = getCustomListItems(aboutForm.dislikes, getDislikePresets(pet.type))
+              return rows.map((value, index) => (
+                <div key={`about-dislike-custom-${index}`} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      id={`about-dislike-custom-${index}`}
+                      label={index === 0 ? 'Vlastní' : `Vlastní ${index + 1}`}
+                      value={value}
+                      onChange={(e) => {
+                        const next = [...rows]
+                        next[index] = e.target.value
+                        setAboutCustomList('dislikes', next)
+                      }}
+                      placeholder="nebo napište vlastní…"
+                    />
+                  </div>
+                  {(rows.length > 1 || value.trim()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = rows.filter((_, i) => i !== index)
+                        setAboutCustomList('dislikes', next.length > 0 ? next : [''])
+                      }}
+                      className="mt-7 rounded-xl p-2 text-[#7D8B82] transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+                      aria-label="Odebrat"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))
+            })()}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const rows = getCustomListItems(
+                  aboutForm.dislikes,
+                  getDislikePresets(pet.type),
+                )
+                setAboutCustomList('dislikes', [...rows.filter((r) => r.trim()), ''])
+              }}
+              className="w-full gap-1.5 border-dashed"
+            >
+              <Plus size={15} />
+              Přidat vlastní
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Input
+              id="about-looking-for"
+              label="Hledá"
+              value={aboutForm.lookingFor}
+              onChange={(e) => setAboutForm((prev) => ({ ...prev, lookingFor: e.target.value }))}
+              placeholder="např. Parťáka na procházky a výlety"
+            />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+              Rychlý výběr
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {getLookingForPresets(pet.type).map((preset) => {
+                const active = aboutForm.lookingFor
+                  .toLowerCase()
+                  .includes(preset.toLowerCase())
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => toggleLookingForPreset(preset)}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer',
+                      active
+                        ? 'bg-[#FAF4E6] text-[#B8934A] ring-1 ring-[#E8D8B5]'
+                        : 'bg-[#F3F0EA] text-[#5A6660] hover:bg-[#FAF4E6] hover:text-[#B8934A]',
+                    )}
+                  >
+                    {preset}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setAboutEditOpen(false)}>
               Zrušit
             </Button>
             <Button type="submit" variant="primary">

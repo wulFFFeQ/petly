@@ -3,9 +3,14 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Heart,
   HeartHandshake,
+  Pencil,
+  Search,
   ShieldCheck,
   Stethoscope,
+  ThumbsDown,
+  ThumbsUp,
   Utensils,
 } from 'lucide-react'
 import { BadgesSection } from '../../badges/BadgesSection'
@@ -20,6 +25,7 @@ import {
 import { formatIsoDateToCzech } from '../../../lib/petProfileUtils'
 import { cn } from '../../../lib/utils'
 import { Badge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
 import type { PetProfileTabState } from './usePetProfileTabState'
 
@@ -45,6 +51,7 @@ export function OverviewTab({
   toggleDailyCareTask,
   openDailyCareTaskDetail,
   openLifestyleEditor,
+  openAboutEditor,
 }: OverviewTabProps) {
   const { earnedBadges } = useApp()
 
@@ -169,6 +176,107 @@ export function OverviewTab({
           </Card>
         )}
       </div>
+
+      <Card variant="elevated">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FAF4E6] text-[#B8934A]">
+              <Heart size={16} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#191E1B]">O mazlíčkovi</h3>
+              <p className="text-xs text-[#7D8B82]">
+                Veřejný popis, povaha a to, co hledá — vhodné i pro Objevovat
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={openAboutEditor}>
+            <Pencil size={13} />
+            Upravit
+          </Button>
+        </div>
+
+        {pet.bio ||
+        pet.personality ||
+        (pet.likes && pet.likes.length > 0) ||
+        (pet.dislikes && pet.dislikes.length > 0) ||
+        pet.lookingFor ? (
+          <div className="space-y-4">
+            {pet.bio && (
+              <p className="text-sm leading-relaxed text-[#4A564F]">{pet.bio}</p>
+            )}
+
+            {pet.personality && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+                  Povaha
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-[#191E1B]">{pet.personality}</p>
+              </div>
+            )}
+
+            {pet.likes && pet.likes.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+                  <ThumbsUp size={11} className="text-[#2C4A3E]" />
+                  Má rád
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pet.likes.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-[#EBF2EE] px-2.5 py-1 text-xs font-medium text-[#2C4A3E]"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pet.dislikes && pet.dislikes.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+                  <ThumbsDown size={11} className="text-[#7D8B82]" />
+                  Nemá rád
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pet.dislikes.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-[#F3F0EA] px-2.5 py-1 text-xs font-medium text-[#5A6660]"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pet.lookingFor && (
+              <div className="rounded-xl border border-[#E8D8B5]/70 bg-[#FAF4E6]/60 px-3.5 py-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#B8934A]">
+                  <Search size={11} />
+                  Hledá
+                </p>
+                <p className="mt-1 text-sm font-medium text-[#191E1B]">{pet.lookingFor}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={openAboutEditor}
+            className="w-full rounded-xl border border-dashed border-[#E8E4DC] bg-[#FAF8F5] px-4 py-5 text-left transition-colors hover:border-[#D1E0D8] hover:bg-white cursor-pointer"
+          >
+            <p className="text-sm font-semibold text-[#191E1B]">Zatím nevyplněno</p>
+            <p className="mt-1 text-xs text-[#7D8B82] leading-relaxed">
+              Přidejte krátký popis, povahu, co má rád a co hledá — stejně jako na veřejném
+              profilu v Objevovat.
+            </p>
+          </button>
+        )}
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card variant="elevated">

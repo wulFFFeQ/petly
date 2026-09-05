@@ -80,6 +80,26 @@ function loadPets(): Pet[] {
         diet: normalizeLifestyleField(pet.diet),
         supplements: normalizeLifestyleField(pet.supplements),
         favoriteToy: normalizeLifestyleField(pet.favoriteToy),
+        bio:
+          'bio' in pet
+            ? typeof pet.bio === 'string' && pet.bio.trim()
+              ? pet.bio.trim()
+              : undefined
+            : seed?.bio,
+        personality:
+          'personality' in pet
+            ? typeof pet.personality === 'string' && pet.personality.trim()
+              ? pet.personality.trim()
+              : undefined
+            : seed?.personality,
+        likes: 'likes' in pet ? normalizeLifestyleField(pet.likes) : seed?.likes,
+        dislikes: 'dislikes' in pet ? normalizeLifestyleField(pet.dislikes) : seed?.dislikes,
+        lookingFor:
+          'lookingFor' in pet
+            ? typeof pet.lookingFor === 'string' && pet.lookingFor.trim()
+              ? pet.lookingFor.trim()
+              : undefined
+            : seed?.lookingFor,
       }
     })
   } catch {
@@ -623,6 +643,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const list = normalizeLifestyleField(updates.favoriteToy)
           if (list) next.favoriteToy = list
           else delete next.favoriteToy
+        }
+        if ('likes' in updates) {
+          const list = normalizeLifestyleField(updates.likes)
+          if (list) next.likes = list
+          else delete next.likes
+        }
+        if ('dislikes' in updates) {
+          const list = normalizeLifestyleField(updates.dislikes)
+          if (list) next.dislikes = list
+          else delete next.dislikes
+        }
+        if ('bio' in updates) {
+          const value = updates.bio?.trim()
+          if (value) next.bio = value
+          else delete next.bio
+        }
+        if ('personality' in updates) {
+          const value = updates.personality?.trim()
+          if (value) next.personality = value
+          else delete next.personality
+        }
+        if ('lookingFor' in updates) {
+          const value = updates.lookingFor?.trim()
+          if (value) next.lookingFor = value
+          else delete next.lookingFor
         }
 
         return next
