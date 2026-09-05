@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import { formatCommentDisplayTime } from '../../lib/relativeTime'
 import type { CommunityPost } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
@@ -24,12 +25,22 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const { toggleLike, addComment, deletePost, showToast } = useApp()
+  const { toggleLike, addComment, deleteComment, deletePost, showToast } = useApp()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const menuRef = useRef<HTMLDivElement>(null)
   const isOwnPost = post.author === CURRENT_USER_NAME
+
+  useEffect(() => {
+    if (!showComments) return
+    const hasLiveTimes = post.comments?.some((comment) => comment.createdAt != null)
+    if (!hasLiveTimes) return
+    setNowTick(Date.now())
+    const id = window.setInterval(() => setNowTick(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [showComments, post.comments])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -197,11 +208,11 @@ export function PostCard({ post }: PostCardProps) {
 
       {/* Post Image */}
       {post.image && (
-        <div className="mt-3 overflow-hidden rounded-xl bg-stone-100 ring-1 ring-[#E8E4DC]/70">
+        <div className="mt-3 flex justify-center overflow-hidden rounded-xl bg-stone-100 ring-1 ring-[#E8E4DC]/70">
           <img
             src={post.image}
             alt=""
-            className="max-h-72 w-full object-cover object-center"
+            className="h-auto w-auto max-h-72 max-w-full object-contain"
           />
         </div>
       )}
@@ -255,25 +266,41 @@ export function PostCard({ post }: PostCardProps) {
         <div className="mt-3 pt-3 border-t border-[#F0EDE6]/80 space-y-2.5">
           {post.comments && post.comments.length > 0 && (
             <div className="space-y-2 mb-2">
-              {post.comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="flex items-start gap-2 bg-[#FAF8F5]/90 p-2.5 rounded-lg text-xs"
-                >
-                  <Avatar src={comment.avatar} alt={comment.author} size="xs" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-[#191E1B]">
-                        {comment.author}
-                      </span>
-                      <span className="shrink-0 text-[10px] text-[#7D8B82]">
-                        {comment.time}
-                      </span>
+              {post.comments.map((comment) => {
+                const isOwnComment = comment.author === CURRENT_USER_NAME
+                return (
+                  <div
+                    key={comment.id}
+                    className="flex items-start gap-2 bg-[#FAF8F5]/90 p-2.5 rounded-lg text-xs group"
+                  >
+                    <Avatar src={comment.avatar} alt={comment.author} size="xs" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-[#191E1B]">
+                          {comment.author}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] text-[#7D8B82]">
+                            {formatCommentDisplayTime(comment, nowTick)}
+                          </span>
+                          {isOwnComment && (
+                            <button
+                              type="button"
+                              onClick={() => deleteComment(post.id, comment.id)}
+                              aria-label="Smazat komentář"
+                              title="Smazat komentář"
+                              className="rounded-md p-1 text-[#A3AEA7] hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-0.5 text-[#4A564F] leading-relaxed">{comment.text}</p>
                     </div>
-                    <p className="mt-0.5 text-[#4A564F] leading-relaxed">{comment.text}</p>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 

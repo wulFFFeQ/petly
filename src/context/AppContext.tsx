@@ -34,7 +34,7 @@ import type {
   ToastMessage,
 } from '../types'
 
-export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'other' | 'nearby' | 'popular'
+export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'nearby' | 'popular'
 
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
@@ -199,6 +199,7 @@ interface AppContextValue {
   markNotificationsRead: () => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
+  deleteComment: (postId: string, commentId: string) => void
   addCommunityPost: (input: { text: string; image?: string; petTag?: string }) => void
   deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -860,12 +861,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addComment = (postId: string, text: string) => {
     if (!text.trim()) return
+    const createdAt = Date.now()
     const newComment = {
-      id: `c_${Date.now()}`,
+      id: `c_${createdAt}`,
       author: 'Tereza V.',
       avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
       text: text.trim(),
       time: 'Právě teď',
+      createdAt,
     }
 
     setPosts((prev) =>
@@ -880,6 +883,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ),
     )
     showToast('Komentář publikován', undefined, 'success')
+  }
+
+  const deleteComment = (postId: string, commentId: string) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postId) return post
+        const comments = post.comments || []
+        const target = comments.find((comment) => comment.id === commentId)
+        if (!target || target.author !== 'Tereza V.') return post
+        const nextComments = comments.filter((comment) => comment.id !== commentId)
+        return {
+          ...post,
+          comments: nextComments,
+          commentsCount: Math.max(0, nextComments.length),
+        }
+      }),
+    )
+    showToast('Komentář smazán', undefined, 'info')
   }
 
   const deletePost = (postId: string) => {
@@ -1028,6 +1049,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         markNotificationsRead,
         toggleLike,
         addComment,
+        deleteComment,
+        addCommunityPost,
         deletePost,
         addCalendarEvent,
         updateCalendarEvent,

@@ -627,7 +627,18 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               inputMode="decimal"
               placeholder="např. 12,5"
               value={detailsForm.weight}
-              onChange={(e) => setDetailsForm((prev) => ({ ...prev, weight: e.target.value }))}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^\d.,]/g, '')
+                const sepMatch = raw.match(/[.,]/)
+                const weight = !sepMatch
+                  ? raw
+                  : (() => {
+                      const sep = sepMatch[0]
+                      const [whole, ...fractionParts] = raw.split(/[.,]/)
+                      return `${whole}${sep}${fractionParts.join('')}`
+                    })()
+                setDetailsForm((prev) => ({ ...prev, weight }))
+              }}
             />
           </div>
 

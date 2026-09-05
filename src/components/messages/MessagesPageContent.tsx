@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowLeft,
   Send,
   Search,
@@ -227,6 +228,35 @@ export function MessagesPageContent() {
     }
   }
 
+  const messagePreview = (msg: Conversation['messages'][number]) => {
+    if (msg.attachment?.kind === 'health_record') {
+      return `Sdílen zdravotní záznam: ${msg.attachment.title}`
+    }
+    return msg.text
+  }
+
+  const handleArchiveMessage = (messageId: string) => {
+    if (!activeId) return
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== activeId) return c
+        const messages = c.messages.map((msg) =>
+          msg.id === messageId ? { ...msg, archived: true } : msg,
+        )
+        const visible = messages.filter((msg) => !msg.archived)
+        const lastVisible = visible[visible.length - 1]
+        return {
+          ...c,
+          messages,
+          lastMessage: lastVisible
+            ? messagePreview(lastVisible)
+            : 'Žádné aktivní zprávy',
+        }
+      }),
+    )
+    showToast('Zpráva archivována', 'Zpráva byla skryta z aktivní konverzace.', 'info')
+  }
+
   const filteredConversations = conversations.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -431,18 +461,29 @@ export function MessagesPageContent() {
                 </span>
               </div>
 
-              {active.messages.map((msg) => {
+              {active.messages.filter((msg) => !msg.archived).map((msg) => {
                 const isMe = msg.sender === 'me'
                 return (
                   <div
                     key={msg.id}
                     className={cn(
-                      'flex items-end gap-2',
+                      'group flex items-end gap-1.5',
                       isMe ? 'justify-end' : 'justify-start',
                     )}
                   >
                     {!isMe && (
                       <Avatar src={active.avatar} alt={active.name} size="xs" />
+                    )}
+                    {isMe && (
+                      <button
+                        type="button"
+                        onClick={() => handleArchiveMessage(msg.id)}
+                        title="Archivovat zprávu"
+                        aria-label="Archivovat zprávu"
+                        className="mb-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#A3AEA7] opacity-0 transition-all hover:bg-[#FAF8F5] hover:text-[#234B54] group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                      >
+                        <Archive size={14} />
+                      </button>
                     )}
                     <div
                       className={cn(
@@ -521,6 +562,17 @@ export function MessagesPageContent() {
                         {isMe && <CheckCheck size={12} className="text-white/80" />}
                       </div>
                     </div>
+                    {!isMe && (
+                      <button
+                        type="button"
+                        onClick={() => handleArchiveMessage(msg.id)}
+                        title="Archivovat zprávu"
+                        aria-label="Archivovat zprávu"
+                        className="mb-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#A3AEA7] opacity-0 transition-all hover:bg-[#FAF8F5] hover:text-[#234B54] group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                      >
+                        <Archive size={14} />
+                      </button>
+                    )}
                   </div>
                 )
               })}

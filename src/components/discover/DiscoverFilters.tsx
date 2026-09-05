@@ -6,7 +6,6 @@ const filters: { id: DiscoverFilter; label: string; icon?: typeof Sparkles }[] =
   { id: 'all', label: 'Všichni mazlíčci' },
   { id: 'dog', label: 'Psi' },
   { id: 'cat', label: 'Kočky' },
-  { id: 'other', label: 'Jiné druhy' },
   { id: 'nearby', label: 'V okolí (Kolín / Kutná Hora)', icon: MapPin },
   { id: 'popular', label: 'Populární profily', icon: Sparkles },
 ]

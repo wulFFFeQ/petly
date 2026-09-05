@@ -207,6 +207,8 @@ export interface PostComment {
   avatar: string
   text: string
   time: string
+  /** Unix ms — when set, UI shows live relative time from this moment. */
+  createdAt?: number
 }
 
 export interface CommunityPost {
@@ -261,6 +263,8 @@ export interface Message {
   sender: 'me' | 'them'
   text: string
   time: string
+  /** Hidden from the active chat stream when true. */
+  archived?: boolean
   attachment?: {
     kind: 'health_record'
     recordId: string

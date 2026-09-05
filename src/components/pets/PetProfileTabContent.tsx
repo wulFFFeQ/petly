@@ -136,7 +136,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   const documents = allDocuments.filter((d) => d.petId === pet.id)
   const photos = allPhotos.filter((p) => p.petId === pet.id)
   const [customTimeline, setCustomTimeline] = useState<TimelineEvent[]>([])
-
+  const [hiddenTimelineIds, setHiddenTimelineIds] = useState<string[]>([])
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
   const [selectedTimelineEvent, setSelectedTimelineEvent] = useState<TimelineEvent | null>(null)
   const [documentPreview, setDocumentPreview] = useState<PetDocument | null>(null)
@@ -152,7 +152,10 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     category: 'memory' as TimelineEvent['category'],
     description: '',
   })
-  const [healthFilter, setHealthFilter] = useState<'all' | HealthRecordType>('all')
+  const [healthCategoryView, setHealthCategoryView] = useState<
+    'vaccination' | 'medication' | 'vet' | 'examination' | null
+  >(null)
+  const healthOverviewRef = useRef<HTMLDivElement>(null)
   const [assessmentOpen, setAssessmentOpen] = useState(false)
   type LifestyleField = 'diet' | 'supplements' | 'favoriteToy'
   const [lifestyleEdit, setLifestyleEdit] = useState<LifestyleField | null>(null)
@@ -163,6 +166,11 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
   useEffect(() => {
     setDailyCareDone(loadDailyCareCompleted(pet.id))
+  }, [pet.id])
+
+  useEffect(() => {
+    setHealthCategoryView(null)
+    setHiddenTimelineIds([])
   }, [pet.id])
 
   const dailyCareTasks = useMemo(
@@ -186,6 +194,13 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
         : [...prev, taskId]
       saveDailyCareCompleted(pet.id, next)
       return next
+    })
+  }
+
+  const returnToHealthOverview = () => {
+    setHealthCategoryView(null)
+    requestAnimationFrame(() => {
+      healthOverviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -223,9 +238,17 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   }, [petRecords])
 
   const filteredPetRecords = useMemo(() => {
-    if (healthFilter === 'all') return sortedPetRecords
-    return sortedPetRecords.filter((r) => r.type === healthFilter)
-  }, [sortedPetRecords, healthFilter])
+    if (!healthCategoryView) return []
+    return sortedPetRecords.filter((r) => r.type === healthCategoryView)
+  }, [sortedPetRecords, healthCategoryView])
+
+  const categoryActiveMedications = useMemo(
+    () =>
+      healthCategoryView === 'medication'
+        ? filteredPetRecords.filter((r) => r.status === 'active')
+        : [],
+    [healthCategoryView, filteredPetRecords],
+  )
 
   const nextVaccinationDue = useMemo(() => {
     const withDue = vaccinations
@@ -399,14 +422,27 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     },
   ]
 
-  const healthFilters: { key: 'all' | HealthRecordType; label: string }[] = [
-    { key: 'all', label: 'Vše' },
-    { key: 'vaccination', label: 'Očkování' },
-    { key: 'medication', label: 'Léky' },
-    { key: 'vet', label: 'Veterinář' },
-    { key: 'examination', label: 'Vyšetření' },
-    { key: 'assessment', label: 'Přehledy' },
-  ]
+  const healthCategoryCopy: Record<
+    'vaccination' | 'medication' | 'vet' | 'examination',
+    { title: string; subtitle: string }
+  > = {
+    vaccination: {
+      title: 'Očkování',
+      subtitle: 'Kompletní historie očkování, termíny, stav a veterinář',
+    },
+    medication: {
+      title: 'Léky',
+      subtitle: 'Aktivní léčba a kompletní historie léků',
+    },
+    vet: {
+      title: 'Návštěvy veterináře',
+      subtitle: 'Historie návštěv, diagnózy a doporučení',
+    },
+    examination: {
+      title: 'Vyšetření',
+      subtitle: 'Výsledky a historie vyšetření',
+    },
+  }
 
   const recordTypeMeta = (type: HealthRecordType) => {
     if (type === 'vaccination') {
@@ -446,8 +482,8 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
         staticTimelineEvents,
         allRecords,
         customTimeline,
-      ),
-    [pet.id, allRecords, customTimeline],
+      ).filter((event) => !hiddenTimelineIds.includes(event.id)),
+    [pet.id, allRecords, customTimeline, hiddenTimelineIds],
   )
 
   const chartData = useMemo(
@@ -487,8 +523,14 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     setSelectedTimelineEvent(event)
   }
 
-  const handleDeleteTimelineEvent = (eventId: string) => {
-    setCustomTimeline((prev) => prev.filter((item) => item.id !== eventId))
+  const handleDeleteTimelineEvent = (event: TimelineEvent) => {
+    if (event.source === 'manual' || event.id.startsWith('custom_')) {
+      setCustomTimeline((prev) => prev.filter((item) => item.id !== event.id))
+    } else {
+      setHiddenTimelineIds((prev) =>
+        prev.includes(event.id) ? prev : [...prev, event.id],
+      )
+    }
     setSelectedTimelineEvent(null)
     showToast('Událost smazána', 'Položka byla odstraněna z časové osy.', 'info')
   }
@@ -942,266 +984,97 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
 
       {activeTab === 'health' && (
         <div className="space-y-6">
-          <Card variant="elevated">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-[#191E1B] flex items-center gap-2">
-                  <TrendingUp size={18} className="text-[#234B54]" />
-                  Vývoj hmotnosti
-                </h3>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <p className="text-xs text-[#7D8B82]">
-                    Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight ?? '—'} kg
-                  </p>
-                  {idealWeightHint && (
-                    <span className="inline-flex items-center rounded-full border border-[#D1E0D8] bg-[#EBF2EE] px-2.5 py-0.5 text-[11px] font-semibold tracking-tight text-[#2C4A3E]">
-                      {idealWeightHint}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            {chartData.length > 0 && (
-              <div className="h-48 mb-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE6" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#7D8B82' }} />
-                    <YAxis domain={yDomain} tick={{ fontSize: 10, fill: '#7D8B82' }} width={36} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="weight"
-                      stroke="#234B54"
-                      fill="#E0EAEC"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 border-t border-[#F0EDE6] pt-4">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Hmotnost (kg)"
-                value={newWeight}
-                onChange={(e) => setNewWeight(e.target.value)}
-                className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-              />
-              <input
-                type="text"
-                placeholder="Poznámka (volitelné)"
-                value={newWeightNote}
-                onChange={(e) => setNewWeightNote(e.target.value)}
-                className="h-9 flex-1 min-w-[140px] rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-              />
-              <Button size="sm" variant="primary" onClick={handleAddWeight} disabled={!newWeight.trim()}>
-                <Plus size={14} />
-                Přidat měření
-              </Button>
-            </div>
-            <ul className="mt-3 space-y-1.5">
-              {[...weightData]
-                .sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))
-                .slice(0, 4)
-                .map((w) => (
-                  <li key={w.id} className="flex justify-between text-[11px] text-[#5A6660] px-1">
-                    <span>{w.date}{w.note ? ` · ${w.note}` : ''}</span>
-                    <span className="font-bold text-[#191E1B] tabular-nums">{w.weight} kg</span>
-                  </li>
-                ))}
-            </ul>
-          </Card>
-
-          <Card variant="elevated">
-            <div className="space-y-8">
-              {/* 1. Rychlý zdravotní přehled */}
-              <section>
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                      1 · Rychlý stav
-                    </p>
-                    <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">
-                      Rychlý zdravotní přehled
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[#7D8B82]">
-                      Souhrn kategorií — klepnutím filtrujete historii níže
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => setActiveModal('addHealthRecord', pet.id)}
-                    className="shrink-0"
+          {healthCategoryView ? (
+            <Card variant="elevated">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={returnToHealthOverview}
+                    className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-[#5A6660] hover:text-[#234B54] cursor-pointer"
                   >
-                    <Plus size={15} />
-                    <span>Přidat záznam</span>
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {healthSummaryCards.map(({ key, label, value, subtext, icon: Icon, color, accent }) => {
-                    const isActive = healthFilter === key
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setHealthFilter(isActive ? 'all' : key)}
-                        className={cn(
-                          'rounded-2xl border p-3.5 text-left transition-all cursor-pointer',
-                          isActive
-                            ? 'border-[#234B54]/40 bg-white shadow-sm ring-1 ring-[#234B54]/15'
-                            : 'border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8]',
-                        )}
-                      >
-                        <div className={cn('mb-2.5 h-0.5 w-8 rounded-full', accent)} aria-hidden />
-                        <div className="flex items-start gap-2.5">
-                          <div
-                            className={cn(
-                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
-                              color,
-                            )}
-                          >
-                            <Icon size={16} strokeWidth={1.75} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]/80">
-                              {label}
-                            </p>
-                            <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{value}</p>
-                            <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">{subtext}</p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-
-              {/* 2. Co je potřeba řešit */}
-              <section className="border-t border-[#F0EDE6] pt-8">
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                    2 · Aktuální úkoly
-                  </p>
-                  <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">Co je potřeba řešit</h3>
+                    <ChevronLeft size={14} />
+                    Zpět k přehledu
+                  </button>
+                  <h3 className="text-lg font-bold text-[#191E1B]">
+                    {healthCategoryCopy[healthCategoryView].title}
+                  </h3>
                   <p className="mt-0.5 text-xs text-[#7D8B82]">
-                    Aktivní léčba, blížící se očkování a naplánované kontroly
+                    {healthCategoryCopy[healthCategoryView].subtitle}
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium text-[#7D8B82]">
+                    {filteredPetRecords.length}{' '}
+                    {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'} · chronologicky
                   </p>
                 </div>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() =>
+                    openNewHealthRecord({ petId: pet.id, type: healthCategoryView })
+                  }
+                  className="shrink-0"
+                >
+                  <Plus size={15} />
+                  <span>Přidat záznam</span>
+                </Button>
+              </div>
 
-                {healthActionItems.length === 0 ? (
-                  <div className="flex items-start gap-3 rounded-2xl border border-[#D1E0D8] bg-[#EBF2EE]/50 px-4 py-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#2C4A3E] border border-[#D1E0D8]">
-                      <Check size={18} strokeWidth={2.5} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-[#2C4A3E]">
-                        Vše je aktuálně v pořádku
-                      </p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
-                        Nemáte žádné blížící se zdravotní úkoly.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
+              {healthCategoryView === 'medication' && categoryActiveMedications.length > 0 && (
+                <div className="mb-5 rounded-2xl border border-[#E8D8B5] bg-[#FAF4E6]/50 p-3.5">
+                  <p className="mb-2.5 text-[10px] font-bold uppercase tracking-wider text-[#8A6B2E]">
+                    Aktivní léčba
+                  </p>
                   <ul className="space-y-2">
-                    {healthActionItems.map((item) => (
+                    {categoryActiveMedications.map((record) => (
                       <li
-                        key={item.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5"
+                        key={record.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E8E4DC] bg-white/90 px-3 py-2"
                       >
                         <button
                           type="button"
-                          onClick={() => openRecordDetail(item.record)}
+                          onClick={() => openRecordDetail(record)}
                           className="min-w-0 flex-1 cursor-pointer text-left"
                         >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                              {item.kind === 'medication'
-                                ? 'Lék'
-                                : item.kind === 'vaccination'
-                                  ? 'Očkování'
-                                  : item.kind === 'examination'
-                                    ? 'Vyšetření'
-                                    : 'Kontrola'}
-                            </span>
-                            <p className="text-sm font-bold text-[#191E1B] truncate">
-                              {item.label}
-                            </p>
-                          </div>
-                          <p className="mt-0.5 text-[11px] text-[#5A6660]">{item.detail}</p>
+                          <p className="text-sm font-bold text-[#191E1B] truncate">
+                            {record.subtitle || record.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-[#5A6660]">
+                            {[record.dosage || 'dle předpisu', record.scheduleTime]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
                           <p className="mt-0.5 text-[11px] font-semibold text-[#2C4A3E]">
-                            {item.meta}
+                            {formatMedicationRemainingLabel(record)}
                           </p>
                         </button>
-                        {item.kind === 'medication' && (
-                          <button
-                            type="button"
-                            onClick={() => toggleMedicationReminder(item.record.id)}
-                            className={cn(
-                              'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
-                              item.record.reminderEnabled
-                                ? 'border border-[#D1E0D8] bg-[#EBF2EE] text-[#2C4A3E]'
-                                : 'border border-[#E8D8B5] bg-[#FAF4E6] text-[#8A6B2E]',
-                            )}
-                          >
-                            {item.record.reminderEnabled ? (
-                              <Bell size={12} />
-                            ) : (
-                              <BellOff size={12} />
-                            )}
-                            {item.record.reminderEnabled ? 'Aktivní' : 'Připomínka'}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleMedicationReminder(record.id)}
+                          className={cn(
+                            'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
+                            record.reminderEnabled
+                              ? 'border border-[#D1E0D8] bg-[#EBF2EE] text-[#2C4A3E]'
+                              : 'border border-[#E8D8B5] bg-[#FAF4E6] text-[#8A6B2E]',
+                          )}
+                        >
+                          {record.reminderEnabled ? <Bell size={12} /> : <BellOff size={12} />}
+                          {record.reminderEnabled ? 'Aktivní' : 'Připomínka'}
+                        </button>
                       </li>
                     ))}
                   </ul>
-                )}
-              </section>
-
-              {/* 3. Zdravotní historie */}
-              <section className="border-t border-[#F0EDE6] pt-8">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                      3 · Kompletní záznamy
-                    </p>
-                    <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">
-                      Zdravotní historie
-                    </h3>
-                    <p className="mt-0.5 text-xs text-[#7D8B82]">
-                      {filteredPetRecords.length}{' '}
-                      {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'} · chronologicky
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {healthFilters.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setHealthFilter(key)}
-                        className={cn(
-                          'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer',
-                          healthFilter === key
-                            ? 'bg-[#234B54] text-white'
-                            : 'bg-[#FAF8F5] text-[#5A6660] border border-[#E8E4DC] hover:border-[#234B54]/30',
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
+              )}
 
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Historie
+                </p>
                 <ul className="divide-y divide-[#F0EDE6]">
                   {filteredPetRecords.length === 0 ? (
                     <li className="py-8 text-center text-sm text-[#7D8B82]">
-                      {petRecords.length === 0
-                        ? 'Pro tohoto mazlíčka zatím nejsou žádné záznamy.'
-                        : 'Pro zvolený filtr nejsou žádné záznamy.'}
+                      V této kategorii zatím nejsou žádné záznamy.
                     </li>
                   ) : (
                     filteredPetRecords.map((record) => {
@@ -1246,10 +1119,11 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                                 <p className="text-xs text-[#4A564F] font-medium mt-0.5 truncate">
                                   {record.subtitle}
                                 </p>
-                                {(record.doctor || record.nextDueDate) && (
+                                {(record.doctor || record.nextDueDate || record.clinic) && (
                                   <p className="text-[11px] text-[#7D8B82] mt-0.5">
                                     {[
                                       record.doctor,
+                                      record.clinic,
                                       record.nextDueDate && `Další: ${record.nextDueDate}`,
                                     ]
                                       .filter(Boolean)
@@ -1271,9 +1145,237 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                     })
                   )}
                 </ul>
-              </section>
-            </div>
-          </Card>
+              </div>
+            </Card>
+          ) : (
+            <>
+              <div ref={healthOverviewRef} className="space-y-6 scroll-mt-4">
+                <Card variant="elevated">
+                  <div className="space-y-8">
+                    {/* 1. Rychlý zdravotní přehled */}
+                    <section>
+                      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                            1 · Rychlý stav
+                          </p>
+                          <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">
+                            Rychlý zdravotní přehled
+                          </h3>
+                          <p className="mt-0.5 text-xs text-[#7D8B82]">
+                            Klepnutím otevřete historii vybrané kategorie
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => setActiveModal('addHealthRecord', pet.id)}
+                          className="shrink-0"
+                        >
+                          <Plus size={15} />
+                          <span>Přidat záznam</span>
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {healthSummaryCards.map(({ key, label, value, subtext, icon: Icon, color, accent }) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setHealthCategoryView(key)}
+                            className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5 text-left transition-all cursor-pointer hover:bg-white hover:border-[#D1E0D8] hover:shadow-sm"
+                          >
+                            <div className={cn('mb-2.5 h-0.5 w-8 rounded-full', accent)} aria-hidden />
+                            <div className="flex items-start gap-2.5">
+                              <div
+                                className={cn(
+                                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+                                  color,
+                                )}
+                              >
+                                <Icon size={16} strokeWidth={1.75} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]/80">
+                                  {label}
+                                </p>
+                                <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{value}</p>
+                                <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">{subtext}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* 2. Co je potřeba řešit */}
+                    <section className="border-t border-[#F0EDE6] pt-8">
+                      <div className="mb-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                          2 · Aktuální úkoly
+                        </p>
+                        <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">Co je potřeba řešit</h3>
+                        <p className="mt-0.5 text-xs text-[#7D8B82]">
+                          Aktivní léčba, blížící se očkování a naplánované kontroly
+                        </p>
+                      </div>
+
+                      {healthActionItems.length === 0 ? (
+                        <div className="flex items-start gap-3 rounded-2xl border border-[#D1E0D8] bg-[#EBF2EE]/50 px-4 py-4">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#2C4A3E] border border-[#D1E0D8]">
+                            <Check size={18} strokeWidth={2.5} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-[#2C4A3E]">
+                              Vše je aktuálně v pořádku
+                            </p>
+                            <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
+                              Nemáte žádné blížící se zdravotní úkoly.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <ul className="space-y-2">
+                          {healthActionItems.map((item) => (
+                            <li
+                              key={item.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => openRecordDetail(item.record)}
+                                className="min-w-0 flex-1 cursor-pointer text-left"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                                    {item.kind === 'medication'
+                                      ? 'Lék'
+                                      : item.kind === 'vaccination'
+                                        ? 'Očkování'
+                                        : item.kind === 'examination'
+                                          ? 'Vyšetření'
+                                          : 'Kontrola'}
+                                  </span>
+                                  <p className="text-sm font-bold text-[#191E1B] truncate">
+                                    {item.label}
+                                  </p>
+                                </div>
+                                <p className="mt-0.5 text-[11px] text-[#5A6660]">{item.detail}</p>
+                                <p className="mt-0.5 text-[11px] font-semibold text-[#2C4A3E]">
+                                  {item.meta}
+                                </p>
+                              </button>
+                              {item.kind === 'medication' && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleMedicationReminder(item.record.id)}
+                                  className={cn(
+                                    'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
+                                    item.record.reminderEnabled
+                                      ? 'border border-[#D1E0D8] bg-[#EBF2EE] text-[#2C4A3E]'
+                                      : 'border border-[#E8D8B5] bg-[#FAF4E6] text-[#8A6B2E]',
+                                  )}
+                                >
+                                  {item.record.reminderEnabled ? (
+                                    <Bell size={12} />
+                                  ) : (
+                                    <BellOff size={12} />
+                                  )}
+                                  {item.record.reminderEnabled ? 'Aktivní' : 'Připomínka'}
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                  </div>
+                </Card>
+
+                <Card variant="elevated">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-[#191E1B] flex items-center gap-2">
+                        <TrendingUp size={18} className="text-[#234B54]" />
+                        Vývoj hmotnosti
+                      </h3>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-[#7D8B82]">
+                          Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight ?? '—'} kg
+                        </p>
+                        {idealWeightHint && (
+                          <span className="inline-flex items-center rounded-full border border-[#D1E0D8] bg-[#EBF2EE] px-2.5 py-0.5 text-[11px] font-semibold tracking-tight text-[#2C4A3E]">
+                            {idealWeightHint}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {chartData.length > 0 && (
+                    <div className="h-48 mb-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE6" />
+                          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#7D8B82' }} />
+                          <YAxis domain={yDomain} tick={{ fontSize: 10, fill: '#7D8B82' }} width={36} />
+                          <Tooltip />
+                          <Area
+                            type="monotone"
+                            dataKey="weight"
+                            stroke="#234B54"
+                            fill="#E0EAEC"
+                            strokeWidth={2}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2 border-t border-[#F0EDE6] pt-4">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Hmotnost (kg)"
+                      value={newWeight}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^\d.,]/g, '')
+                        const sepMatch = raw.match(/[.,]/)
+                        if (!sepMatch) {
+                          setNewWeight(raw)
+                          return
+                        }
+                        const sep = sepMatch[0]
+                        const [whole, ...fractionParts] = raw.split(/[.,]/)
+                        setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
+                      }}
+                      className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Poznámka (volitelné)"
+                      value={newWeightNote}
+                      onChange={(e) => setNewWeightNote(e.target.value)}
+                      className="h-9 flex-1 min-w-[140px] rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+                    />
+                    <Button size="sm" variant="primary" onClick={handleAddWeight} disabled={!newWeight.trim()}>
+                      <Plus size={14} />
+                      Přidat měření
+                    </Button>
+                  </div>
+                  <ul className="mt-3 space-y-1.5">
+                    {[...weightData]
+                      .sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))
+                      .slice(0, 4)
+                      .map((w) => (
+                        <li key={w.id} className="flex justify-between text-[11px] text-[#5A6660] px-1">
+                          <span>{w.date}{w.note ? ` · ${w.note}` : ''}</span>
+                          <span className="font-bold text-[#191E1B] tabular-nums">{w.weight} kg</span>
+                        </li>
+                      ))}
+                  </ul>
+                </Card>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1296,38 +1398,56 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
             {mergedTimeline.map((event) => (
               <div key={event.id} className="relative group">
                 <div className="absolute -left-6 sm:-left-8 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#234B54] bg-white ring-4 ring-[#FAF8F5] transition-transform group-hover:scale-125" />
-                <button
-                  type="button"
-                  onClick={() => openTimelineEvent(event)}
-                  className="w-full cursor-pointer rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all text-left"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                    <h4 className="text-sm font-bold text-[#191E1B] flex items-center gap-2 flex-wrap">
-                      <span>{event.title}</span>
-                      {event.category === 'birthday' && (
-                        <Sparkles size={13} className="text-[#B8934A]" />
-                      )}
-                      {event.source && event.source !== 'manual' && (
-                        <Badge variant="outline" size="sm">
-                          {event.source === 'vaccination'
-                            ? 'Očkování'
-                            : event.source === 'medication'
-                              ? 'Léky'
-                              : 'Zdraví'}
-                        </Badge>
-                      )}
-                    </h4>
-                    <span className="text-xs font-semibold text-[#234B54] font-mono">{event.date}</span>
-                  </div>
-                  {event.description && (
-                    <p className="mt-1.5 text-xs text-[#4A564F] leading-relaxed">{event.description}</p>
-                  )}
-                  <p className="mt-1.5 text-[10px] font-semibold text-[#234B54]">
-                    {event.sourceId
-                      ? 'Klepnutím otevřete detail záznamu →'
-                      : 'Klepnutím otevřete detail události →'}
-                  </p>
-                </button>
+                <div className="relative rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:shadow-xs transition-all">
+                  <button
+                    type="button"
+                    onClick={() => openTimelineEvent(event)}
+                    className="w-full cursor-pointer p-4 pr-12 text-left"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <h4 className="text-sm font-bold text-[#191E1B] flex items-center gap-2 flex-wrap">
+                        <span>{event.title}</span>
+                        {event.category === 'birthday' && (
+                          <Sparkles size={13} className="text-[#B8934A]" />
+                        )}
+                        {event.source && event.source !== 'manual' && (
+                          <Badge variant="outline" size="sm">
+                            {event.source === 'vaccination'
+                              ? 'Očkování'
+                              : event.source === 'medication'
+                                ? 'Léky'
+                                : 'Zdraví'}
+                          </Badge>
+                        )}
+                      </h4>
+                      <span className="text-xs font-semibold text-[#234B54] font-mono">
+                        {event.date}
+                      </span>
+                    </div>
+                    {event.description && (
+                      <p className="mt-1.5 text-xs text-[#4A564F] leading-relaxed">
+                        {event.description}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-[10px] font-semibold text-[#234B54]">
+                      {event.sourceId
+                        ? 'Klepnutím otevřete detail záznamu →'
+                        : 'Klepnutím otevřete detail události →'}
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteTimelineEvent(event)
+                    }}
+                    aria-label={`Smazat událost ${event.title}`}
+                    title="Smazat událost"
+                    className="absolute right-2.5 top-2.5 inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#A3AEA7] opacity-70 transition-colors hover:bg-rose-50 hover:text-rose-700 group-hover:opacity-100 cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1665,15 +1785,13 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
             )}
 
             <div className="flex flex-wrap gap-2 pt-2">
-              {selectedTimelineEvent.source === 'manual' && (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => handleDeleteTimelineEvent(selectedTimelineEvent.id)}
-                >
-                  Smazat událost
-                </Button>
-              )}
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteTimelineEvent(selectedTimelineEvent)}
+              >
+                Smazat událost
+              </Button>
               <Button
                 variant="primary"
                 size="sm"
