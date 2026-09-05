@@ -19,7 +19,12 @@ export interface BadgeDefinition {
   scope: BadgeScope
   category: BadgeCategory
   name: string
+  /** Short flavor — what this milestone means. */
   description: string
+  /** Shown when earned: why / for what it was awarded. */
+  earnedFor: string
+  /** Guidance for “Další na cestě” (never shown for secrets). */
+  hint: string
   /** Hidden until earned. */
   secret?: boolean
   /** Max level; omit or 1 = single-level badge. */

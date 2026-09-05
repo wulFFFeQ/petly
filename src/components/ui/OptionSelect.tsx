@@ -1,11 +1,13 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '../../lib/utils'
 
 export type OptionSelectItem = {
   value: string
   label: string
+  /** Optional leading content (e.g. flag icon). */
+  leading?: ReactNode
 }
 
 interface OptionSelectProps {
@@ -122,6 +124,7 @@ export function OptionSelect({
                         : 'text-[#191E1B] hover:bg-[#FAF8F5]',
                     )}
                   >
+                    {option.leading}
                     <span className="flex-1 font-medium leading-snug">{option.label}</span>
                     {isSelected ? (
                       <Check size={16} strokeWidth={2.2} className="shrink-0 text-[#2C4A3E]" />
@@ -165,6 +168,7 @@ export function OptionSelect({
               : 'hover:border-[#D1E0D8] cursor-pointer text-[#191E1B]',
         )}
       >
+        {selected?.leading}
         <span
           className={cn(
             'flex-1 truncate text-left font-medium',

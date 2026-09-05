@@ -811,147 +811,284 @@ export const petTravelPackages: PetTravelPackage[] = [
   },
 ]
 
+type TravelReq = TravelDestination['requirements'][number]
+
+function euCoreReqs(prefix: string): TravelReq[] {
+  return [
+    {
+      id: `${prefix}_passport`,
+      category: 'passport',
+      label: 'Platný EU pas',
+      detail: 'Pas vydaný v EU s údaji o čipu a očkování, platný po celou dobu pobytu.',
+      check: 'eu_passport',
+    },
+    {
+      id: `${prefix}_rabies`,
+      category: 'vaccination',
+      label: 'Očkování proti vzteklině',
+      detail: 'Platné min. 21 dní před cestou (první vakcinace), zapsané v EU pasu.',
+      check: 'rabies',
+    },
+    {
+      id: `${prefix}_chip`,
+      category: 'microchip',
+      label: 'Mikročip ISO',
+      detail: 'Čip musí být načitelný a zapsaný v pasu před očkováním proti vzteklině.',
+      check: 'microchip',
+    },
+  ]
+}
+
+function withInsurance(prefix: string, detail: string): TravelReq {
+  return {
+    id: `${prefix}_insurance`,
+    category: 'document',
+    label: 'Cestovní pojištění mazlíčka',
+    detail,
+    check: 'insurance',
+  }
+}
+
+function withTapeworm(prefix: string, detail: string): TravelReq {
+  return {
+    id: `${prefix}_tapeworm`,
+    category: 'other',
+    label: 'Ošetření proti tasemnicím',
+    detail,
+    check: 'tapeworm',
+  }
+}
+
+function withParasitePrevention(prefix: string, detail: string): TravelReq {
+  return {
+    id: `${prefix}_parasites`,
+    category: 'other',
+    label: 'Prevence proti parazitům',
+    detail,
+    check: 'parasite_prevention',
+  }
+}
+
 export const travelDestinations: TravelDestination[] = [
   {
     id: 'de',
     country: 'Německo',
+    flagCode: 'de',
     emoji: '🇩🇪',
     summary: 'Cestování v rámci EU – standardní pravidla pro domácí mazlíčky.',
     requirements: [
-      {
-        id: 'de_passport',
-        category: 'passport',
-        label: 'Platný EU pas',
-        detail: 'Pas musí být platný po celou dobu pobytu.',
-        check: 'eu_passport',
-      },
-      {
-        id: 'de_rabies',
-        category: 'vaccination',
-        label: 'Očkování proti vzteklině',
-        detail: 'Platné min. 21 dní před cestou, ne starší než 1 rok (posilovač dle schématu).',
-        check: 'rabies',
-      },
-      {
-        id: 'de_chip',
-        category: 'microchip',
-        label: 'Mikročip ISO',
-        detail: 'Čip musí být načitelný a zapsaný v pasu.',
-        check: 'microchip',
-      },
-      {
-        id: 'de_insurance',
-        category: 'document',
-        label: 'Cestovní pojištění mazlíčka',
-        detail: 'Doporučeno pro veterinární péči v zahraničí.',
-        check: 'insurance',
-      },
+      ...euCoreReqs('de'),
+      withInsurance('de', 'Doporučeno pro veterinární péči v zahraničí.'),
     ],
   },
   {
     id: 'at',
     country: 'Rakousko',
+    flagCode: 'at',
     emoji: '🇦🇹',
     summary: 'EU destinace – bez karantény při splnění standardních podmínek.',
+    requirements: euCoreReqs('at'),
+  },
+  {
+    id: 'sk',
+    country: 'Slovensko',
+    flagCode: 'sk',
+    emoji: '🇸🇰',
+    summary: 'Sousední EU země – platí stejná pravidla jako v ČR (pas, čip, vzteklina).',
+    requirements: euCoreReqs('sk'),
+  },
+  {
+    id: 'pl',
+    country: 'Polsko',
+    flagCode: 'pl',
+    emoji: '🇵🇱',
+    summary: 'EU destinace – standardní podmínky vstupu pro psy a kočky z ČR.',
     requirements: [
-      {
-        id: 'at_passport',
-        category: 'passport',
-        label: 'Platný EU pas',
-        detail: 'Pas vydaný v EU s údaji o čipu a očkování.',
-        check: 'eu_passport',
-      },
-      {
-        id: 'at_rabies',
-        category: 'vaccination',
-        label: 'Očkování proti vzteklině',
-        detail: 'Platné očkování zapsané v pasu mazlíčka.',
-        check: 'rabies',
-      },
-      {
-        id: 'at_chip',
-        category: 'microchip',
-        label: 'Mikročip ISO',
-        detail: 'Povinný identifikátor pro vstup do Rakouska.',
-        check: 'microchip',
-      },
+      ...euCoreReqs('pl'),
+      withInsurance('pl', 'Doporučeno zejména při delším pobytu.'),
     ],
+  },
+  {
+    id: 'hu',
+    country: 'Maďarsko',
+    flagCode: 'hu',
+    emoji: '🇭🇺',
+    summary: 'EU destinace – bez karantény při platném pasu, čipu a očkování.',
+    requirements: euCoreReqs('hu'),
   },
   {
     id: 'hr',
     country: 'Chorvatsko',
+    flagCode: 'hr',
     emoji: '🇭🇷',
-    summary: 'Oblíbená letní destinace – platí EU pravidla, doporučena prevence proti klíšťatům.',
+    summary: 'Oblíbená letní destinace – EU pravidla, doporučena prevence proti klíšťatům.',
     requirements: [
-      {
-        id: 'hr_passport',
-        category: 'passport',
-        label: 'Platný EU pas',
-        detail: 'Pas platný minimálně po dobu plánovaného pobytu.',
-        check: 'eu_passport',
-      },
-      {
-        id: 'hr_rabies',
-        category: 'vaccination',
-        label: 'Očkování proti vzteklině',
-        detail: 'Povinné pro vstup, zapsané v EU pasu.',
-        check: 'rabies',
-      },
-      {
-        id: 'hr_chip',
-        category: 'microchip',
-        label: 'Mikročip ISO',
-        detail: 'Čip musí odpovídat údajům v pasu.',
-        check: 'microchip',
-      },
-      {
-        id: 'hr_insurance',
-        category: 'document',
-        label: 'Cestovní pojištění mazlíčka',
-        detail: 'Doporučeno pro pobyt u moře a aktivní dovolenou.',
-        check: 'insurance',
-      },
+      ...euCoreReqs('hr'),
+      withParasitePrevention(
+        'hr',
+        'Doporučena ochrana proti klíšťatům a blechám (pobyt u moře, příroda).',
+      ),
+      withInsurance('hr', 'Doporučeno pro pobyt u moře a aktivní dovolenou.'),
+    ],
+  },
+  {
+    id: 'si',
+    country: 'Slovinsko',
+    flagCode: 'si',
+    emoji: '🇸🇮',
+    summary: 'EU destinace – standardní podmínky, často tranzit směrem k Jadranu.',
+    requirements: euCoreReqs('si'),
+  },
+  {
+    id: 'it',
+    country: 'Itálie',
+    flagCode: 'it',
+    emoji: '🇮🇹',
+    summary: 'EU destinace – v teplých oblastech doporučena ochrana proti leishmanióze a klíšťatům.',
+    requirements: [
+      ...euCoreReqs('it'),
+      withParasitePrevention(
+        'it',
+        'Doporučena prevence proti klíšťatům a přenašečům leishmaniózy (zejména jih a ostrovy).',
+      ),
+      withInsurance('it', 'Doporučeno pro delší dovolenou.'),
+    ],
+  },
+  {
+    id: 'fr',
+    country: 'Francie',
+    flagCode: 'fr',
+    emoji: '🇫🇷',
+    summary: 'EU destinace – standardní podmínky; v některých regionech riziko klíšťat a blech.',
+    requirements: [
+      ...euCoreReqs('fr'),
+      withInsurance('fr', 'Doporučeno pro veterinární péči během pobytu.'),
+    ],
+  },
+  {
+    id: 'es',
+    country: 'Španělsko',
+    flagCode: 'es',
+    emoji: '🇪🇸',
+    summary: 'EU destinace – na jihu a ostrovech silně doporučena prevence proti leishmanióze.',
+    requirements: [
+      ...euCoreReqs('es'),
+      withParasitePrevention(
+        'es',
+        'Doporučena ochrana proti blechám, klíšťatům a leishmanióze (zejména Středomoří a Kanárské ostrovy).',
+      ),
+      withInsurance('es', 'Doporučeno – veterinární péče v turistických oblastech bývá drahá.'),
+    ],
+  },
+  {
+    id: 'pt',
+    country: 'Portugalsko',
+    flagCode: 'pt',
+    emoji: '🇵🇹',
+    summary: 'EU destinace – teplé klima, doporučena prevence proti parazitům.',
+    requirements: [
+      ...euCoreReqs('pt'),
+      withParasitePrevention(
+        'pt',
+        'Doporučena celoroční ochrana proti klíšťatům, blechám a leishmanióze.',
+      ),
+    ],
+  },
+  {
+    id: 'gr',
+    country: 'Řecko',
+    flagCode: 'gr',
+    emoji: '🇬🇷',
+    summary: 'EU destinace – u ostrovů a pevniny doporučena prevence proti klíšťatům a blechám.',
+    requirements: [
+      ...euCoreReqs('gr'),
+      withParasitePrevention(
+        'gr',
+        'Doporučena ochrana proti klíšťatům, blechám a přenašečům leishmaniózy.',
+      ),
+      withInsurance('gr', 'Doporučeno pro pobyt na ostrovech.'),
+    ],
+  },
+  {
+    id: 'nl',
+    country: 'Nizozemsko',
+    flagCode: 'nl',
+    emoji: '🇳🇱',
+    summary: 'EU destinace – standardní podmínky vstupu pro mazlíčky z ČR.',
+    requirements: euCoreReqs('nl'),
+  },
+  {
+    id: 'be',
+    country: 'Belgie',
+    flagCode: 'be',
+    emoji: '🇧🇪',
+    summary: 'EU destinace – bez karantény při splnění pasu, čipu a očkování.',
+    requirements: euCoreReqs('be'),
+  },
+  {
+    id: 'fi',
+    country: 'Finsko',
+    flagCode: 'fi',
+    emoji: '🇫🇮',
+    summary: 'EU s přísnějším pravidlem – u psů povinné ošetření proti tasemnicím před vstupem.',
+    requirements: [
+      ...euCoreReqs('fi'),
+      withTapeworm(
+        'fi',
+        'Pro psy povinné 1–5 dní před vstupem (praziquantel) – záznam veterináře v pasu.',
+      ),
+    ],
+  },
+  {
+    id: 'ie',
+    country: 'Irsko',
+    flagCode: 'ie',
+    emoji: '🇮🇪',
+    summary: 'EU s přísnějším pravidlem – u psů povinné ošetření proti tasemnicím před vstupem.',
+    requirements: [
+      ...euCoreReqs('ie'),
+      withTapeworm(
+        'ie',
+        'Pro psy povinné 1–5 dní před vstupem – záznam od veterináře v EU pasu.',
+      ),
+      withInsurance('ie', 'Doporučeno kvůli vyššímu riziku cestování přes kanál.'),
+    ],
+  },
+  {
+    id: 'mt',
+    country: 'Malta',
+    flagCode: 'mt',
+    emoji: '🇲🇹',
+    summary: 'EU ostrovní destinace – u psů povinné ošetření proti tasemnicím před vstupem.',
+    requirements: [
+      ...euCoreReqs('mt'),
+      withTapeworm(
+        'mt',
+        'Pro psy povinné 1–5 dní před vstupem – záznam veterináře v pasu.',
+      ),
+      withParasitePrevention(
+        'mt',
+        'Doporučena ochrana proti klíšťatům a blechám v teplém klimatu.',
+      ),
     ],
   },
   {
     id: 'gb',
     country: 'Velká Británie',
+    flagCode: 'gb',
     emoji: '🇬🇧',
-    summary: 'Po Brexitu platí přísnější pravidla – nutné ošetření proti tasemnicím.',
+    summary: 'Po Brexitu platí přísnější pravidla – nutné ošetření proti tasemnicím a zdravotní certifikát.',
     requirements: [
-      {
-        id: 'gb_passport',
-        category: 'passport',
-        label: 'Platný EU pas',
-        detail: 'Pas platný po celou dobu pobytu ve Velké Británii.',
-        check: 'eu_passport',
-      },
-      {
-        id: 'gb_rabies',
-        category: 'vaccination',
-        label: 'Očkování proti vzteklině',
-        detail: 'Min. 21 dní před vstupem, zapsáno v pasu.',
-        check: 'rabies',
-      },
-      {
-        id: 'gb_chip',
-        category: 'microchip',
-        label: 'Mikročip ISO',
-        detail: 'Povinný pro vstup do Velké Británie.',
-        check: 'microchip',
-      },
-      {
-        id: 'gb_tapeworm',
-        category: 'other',
-        label: 'Ošetření proti tasemnicím',
-        detail: 'Povinné 24–120 hodin před vstupem – záznam od veterináře v pasu.',
-        check: 'tapeworm',
-      },
+      ...euCoreReqs('gb'),
+      withTapeworm(
+        'gb',
+        'Povinné 24–120 hodin před vstupem – záznam od veterináře v pasu.',
+      ),
       {
         id: 'gb_health',
         category: 'document',
         label: 'Oficiální zdravotní certifikát',
-        detail: 'Vystavený oprávněným veterinářem před cestou.',
+        detail: 'Vystavený oprávněným veterinářem před cestou (AHC).',
         check: 'health_cert',
       },
     ],
@@ -959,6 +1096,7 @@ export const travelDestinations: TravelDestination[] = [
   {
     id: 'us',
     country: 'Spojené státy',
+    flagCode: 'us',
     emoji: '🇺🇸',
     summary: 'Mimo EU – nutný importní souhlas CDC a veterinární certifikát.',
     requirements: [
@@ -990,13 +1128,7 @@ export const travelDestinations: TravelDestination[] = [
         detail: 'Nutno vyřídit online před odletem dle pravidel daného státu.',
         check: 'import_permit',
       },
-      {
-        id: 'us_insurance',
-        category: 'document',
-        label: 'Cestovní pojištění mazlíčka',
-        detail: 'Doporučeno – veterinární péče v USA je nákladná.',
-        check: 'insurance',
-      },
+      withInsurance('us', 'Doporučeno – veterinární péče v USA je nákladná.'),
     ],
   },
 ]

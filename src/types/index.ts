@@ -357,6 +357,7 @@ export type TravelRequirementCheck =
   | 'health_cert'
   | 'insurance'
   | 'import_permit'
+  | 'parasite_prevention'
 
 export interface TravelDestinationRequirement {
   id: string
@@ -369,6 +370,9 @@ export interface TravelDestinationRequirement {
 export interface TravelDestination {
   id: string
   country: string
+  /** ISO 3166-1 alpha-2 (lowercase), used for flag images. */
+  flagCode: string
+  /** Fallback for plain-text contexts (PDF, share). */
   emoji: string
   summary: string
   requirements: TravelDestinationRequirement[]

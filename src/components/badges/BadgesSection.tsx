@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Award, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { BADGE_CATALOG, BADGE_CATEGORY_LABELS, getBadgeDefinition } from '../../lib/badges/catalog'
 import { romanLevel } from '../../lib/badges/evaluate'
-import { formatIsoDateToCzech } from '../../lib/petProfileUtils'
 import type { EarnedBadge } from '../../types/badges'
 import { Card } from '../ui/Card'
 import { AchievementMedal } from './AchievementMedal'
@@ -33,10 +32,15 @@ export function BadgesSection({
   scope,
   petId,
   earnedBadges,
-  previewCount = 6,
+  previewCount = 5,
 }: BadgesSectionProps) {
   const [open, setOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const catalogForScope = useMemo(
+    () => BADGE_CATALOG.filter((d) => d.scope === scope),
+    [scope],
+  )
 
   const relevant = useMemo(() => {
     return sortEarned(
@@ -50,43 +54,43 @@ export function BadgesSection({
   }, [earnedBadges, scope, petId])
 
   const preview = relevant.slice(0, previewCount)
-  const catalogForScope = BADGE_CATALOG.filter((d) => d.scope === scope)
+  const totalInCatalog = catalogForScope.length
 
   return (
     <>
       <Card
         variant="elevated"
-        className="cursor-pointer transition-colors hover:border-[#D1E0D8]"
+        className="cursor-pointer overflow-hidden transition-colors hover:border-[#E8D8B5]"
         onClick={() => setOpen(true)}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7D8B82]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9E7D3A]">
               {title}
             </p>
-            <p className="mt-1 text-sm font-semibold text-[#191E1B]">
-              {relevant.length === 0
-                ? 'Zatím žádné odznaky'
-                : `${relevant.length} ${
-                    relevant.length === 1
-                      ? 'získaný odznak'
-                      : relevant.length < 5
-                        ? 'získané odznaky'
-                        : 'získaných odznaků'
-                  }`}
+            <p className="mt-1.5 text-lg font-semibold tracking-tight text-[#191E1B]">
+              {relevant.length}{' '}
+              <span className="text-sm font-medium text-[#7D8B82]">
+                / {totalInCatalog} získáno
+              </span>
             </p>
           </div>
-          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] text-[#7D8B82]">
-            {relevant.length > 0 ? (
-              <ChevronRight size={16} />
-            ) : (
-              <Award size={16} className="text-[#B8934A]" />
-            )}
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E8D8B5] bg-[#FAF4E6] text-[#9E7D3A]">
+            <ChevronRight size={16} />
           </span>
         </div>
 
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-[#EFECE6]">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#2C4A3E] to-[#B8934A]"
+            style={{
+              width: `${totalInCatalog ? Math.round((relevant.length / totalInCatalog) * 100) : 0}%`,
+            }}
+          />
+        </div>
+
         {preview.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-1 sm:gap-2">
+          <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
             {preview.map((earned) => {
               const def = getBadgeDefinition(earned.badgeId)
               if (!def) return null
@@ -98,7 +102,7 @@ export function BadgesSection({
                   name={def.name}
                   level={earned.level}
                   maxLevel={def.maxLevel ?? 1}
-                  size="sm"
+                  size="md"
                   onClick={() => {
                     setSelectedId(earned.badgeId)
                     setOpen(true)
@@ -106,25 +110,30 @@ export function BadgesSection({
                 />
               )
             })}
+            {relevant.length > previewCount && (
+              <div className="flex w-[5.5rem] flex-col items-center justify-center p-1.5">
+                <span className="flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full border border-dashed border-[#E8D8B5] bg-[#FAF8F5] text-xs font-semibold text-[#9E7D3A]">
+                  +{relevant.length - previewCount}
+                </span>
+                <span className="mt-2.5 text-[11px] font-medium text-[#A3AEA7]">další</span>
+              </div>
+            )}
           </div>
         ) : (
-          <p className="mt-3 text-xs leading-relaxed text-[#7D8B82]">
-            Odznaky se odemykají pečlivou péčí, milníky a aktivitou v aplikaci — elegantní
-            ocenění, ne soutěž.
+          <p className="mt-4 text-xs leading-relaxed text-[#7D8B82]">
+            Sbírka pečetí se naplní milníky a péčí — elegantní ocenění, ne checklist.
           </p>
         )}
 
         {relevant[0] && (
-          <p className="mt-3 text-[11px] text-[#A3AEA7]">
-            Naposledy:{' '}
-            <span className="font-medium text-[#7D8B82]">
+          <p className="mt-4 border-t border-[#E8E4DC] pt-3 text-[11px] text-[#A3AEA7]">
+            Naposledy{' '}
+            <span className="font-medium text-[#5A6660]">
               {getBadgeDefinition(relevant[0].badgeId)?.name}
               {(getBadgeDefinition(relevant[0].badgeId)?.maxLevel ?? 1) > 1
                 ? ` ${romanLevel(relevant[0].level)}`
                 : ''}
             </span>
-            {' · '}
-            {formatIsoDateToCzech(relevant[0].earnedAt)}
           </p>
         )}
       </Card>

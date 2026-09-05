@@ -3,7 +3,6 @@ import {
   Check,
   Download,
   FileText,
-  Globe,
   Plane,
   ScanLine,
   Share2,
@@ -17,6 +16,8 @@ import { useApp } from '../../context/AppContext'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { CountryFlag } from '../ui/CountryFlag'
+import { OptionSelect } from '../ui/OptionSelect'
 import { BRAND_NAME } from '../../lib/brand'
 import {
   buildTravelPackShareText,
@@ -54,7 +55,9 @@ function getRequirementStatus(
         ? { status: 'ready', hint: pack.microchip }
         : { status: 'missing', hint: 'Čip není zapsán v systému' }
     case 'tapeworm':
-      return { status: 'attention', hint: 'Nutné 24–120 h před vstupem u veterináře' }
+      return { status: 'attention', hint: 'Nutné ošetření u veterináře před vstupem' }
+    case 'parasite_prevention':
+      return { status: 'attention', hint: 'Doporučeno zajistit před cestou u veterináře' }
     case 'health_cert':
       return healthDoc?.ready
         ? { status: 'ready', hint: 'Zdravotní souhrn je v balíčku' }
@@ -99,6 +102,11 @@ export function TravelPackageSection({ hideHeader = false }: { hideHeader?: bool
   const activeTravelPackage = petTravelPackages.find((p) => p.petId === activeTravelPetId)
   const activeTravelPet = pets.find((p) => p.id === activeTravelPetId)
   const activeDestination = travelDestinations.find((d) => d.id === selectedDestinationId)
+  const destinationOptions = travelDestinations.map((dest) => ({
+    value: dest.id,
+    label: dest.country,
+    leading: <CountryFlag code={dest.flagCode} country={dest.country} />,
+  }))
   const destinationReadiness =
     activeTravelPackage && activeDestination
       ? getDestinationReadiness(activeDestination, activeTravelPackage)
@@ -226,23 +234,16 @@ export function TravelPackageSection({ hideHeader = false }: { hideHeader?: bool
           >
             Destinace cesty
           </label>
-          <div className="relative mt-1.5">
-            <Globe
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7D8B82] pointer-events-none"
-            />
-            <select
+          <div className="mt-1.5">
+            <OptionSelect
               id="travel-destination"
               value={selectedDestinationId}
-              onChange={(e) => setSelectedDestinationId(e.target.value)}
-              className="w-full h-10 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] pl-9 pr-3 text-xs font-medium text-[#191E1B] outline-none focus:border-[#234B54] focus:bg-white"
-            >
-              {travelDestinations.map((dest) => (
-                <option key={dest.id} value={dest.id}>
-                  {dest.emoji} {dest.country}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedDestinationId}
+              options={destinationOptions}
+              placeholder="Vyberte zemi…"
+              maxListHeightClassName="max-h-72"
+              className="[&_button]:bg-[#FAF8F5] [&_button]:shadow-none [&_button]:text-xs"
+            />
           </div>
         </div>
       </div>
@@ -259,8 +260,13 @@ export function TravelPackageSection({ hideHeader = false }: { hideHeader?: bool
               <p className="text-sm font-bold text-[#191E1B]">
                 {activeTravelPet.name} · {activeTravelPet.breed}
               </p>
-              <p className="mt-0.5 text-[11px] text-[#7D8B82]">
-                Cíl: {activeDestination.emoji} {activeDestination.country}
+              <p className="mt-0.5 text-[11px] text-[#7D8B82] flex items-center gap-1.5">
+                <span>Cíl:</span>
+                <CountryFlag
+                  code={activeDestination.flagCode}
+                  country={activeDestination.country}
+                />
+                <span>{activeDestination.country}</span>
               </p>
             </div>
             <Badge
