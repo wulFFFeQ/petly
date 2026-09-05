@@ -190,6 +190,71 @@ export interface ActivityItem {
   category?: 'health' | 'photo' | 'routine' | 'appointment'
 }
 
+export interface DiscoverPublicPhoto {
+  id: string
+  url: string
+  caption?: string
+}
+
+export interface DiscoverPublicTimelineEvent {
+  id: string
+  title: string
+  date: string
+  category: 'milestone' | 'adoption' | 'birthday' | 'memory' | 'show' | 'award'
+  description?: string
+}
+
+export interface DiscoverActivityPreference {
+  /** Stable key for matching / recommendations later. */
+  key: string
+  label: string
+  /** 1 = nízký zájem, 5 = miluje. */
+  level: 1 | 2 | 3 | 4 | 5
+}
+
+export interface DiscoverPublicBadge {
+  badgeId: string
+  level: number
+  earnedAt: string
+  /** Optional public story shown on click (activity-based). */
+  story?: string
+}
+
+export interface DiscoverBreedingShow {
+  name: string
+  year: string
+  result?: string
+}
+
+export interface DiscoverBreedingLitter {
+  date: string
+  count: number
+  note?: string
+}
+
+/** Public breeding info — only when breedingProfile is enabled. */
+export interface DiscoverBreedingPublic {
+  status?: string
+  titles?: string[]
+  shows?: DiscoverBreedingShow[]
+  pedigreeSummary?: string
+  litters?: DiscoverBreedingLitter[]
+}
+
+export interface DiscoverOwner {
+  id: string
+  name: string
+  avatar: string
+  location?: string
+  bio?: string
+  /** Number of pets shown on public owner profile. */
+  petsCount?: number
+}
+
+/**
+ * Public Discover profile. Never includes private health, chip, documents, or weight
+ * unless the owner later marks specific fields public via dedicated public* fields.
+ */
 export interface DiscoverPet {
   id: string
   name: string
@@ -202,7 +267,22 @@ export interface DiscoverPet {
   distance?: string
   verified?: boolean
   ownerName?: string
+  ownerId?: string
   bio?: string
+  gender?: string
+  /** Temperament / character summary. */
+  personality?: string
+  likes?: string[]
+  dislikes?: string[]
+  /** What they are looking for (walk buddy, playdates…). */
+  lookingFor?: string
+  activities?: DiscoverActivityPreference[]
+  publicBadges?: DiscoverPublicBadge[]
+  gallery?: DiscoverPublicPhoto[]
+  publicTimeline?: DiscoverPublicTimelineEvent[]
+  /** When true, public breeding section may be shown. */
+  breedingProfile?: boolean
+  breeding?: DiscoverBreedingPublic
 }
 
 export interface PostComment {

@@ -1,17 +1,26 @@
-import { ArrowLeft, MapPin, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowLeft, MessageCircle } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Badge } from '../components/ui/Badge'
+import { DiscoverAboutSection } from '../components/discover/profile/DiscoverAboutSection'
+import { DiscoverActivitiesSection } from '../components/discover/profile/DiscoverActivitiesSection'
+import { DiscoverBadgesSection } from '../components/discover/profile/DiscoverBadgesSection'
+import { DiscoverBreedingSection } from '../components/discover/profile/DiscoverBreedingSection'
+import { DiscoverGallerySection } from '../components/discover/profile/DiscoverGallerySection'
+import { DiscoverOwnerSection } from '../components/discover/profile/DiscoverOwnerSection'
+import { DiscoverProfileHero } from '../components/discover/profile/DiscoverProfileHero'
+import { DiscoverTimelineSection } from '../components/discover/profile/DiscoverTimelineSection'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { useApp } from '../context/AppContext'
-import { discoverPets } from '../data/mockData'
-import { petTypeLabel } from '../lib/petTypes'
+import { discoverOwners, discoverPets } from '../data/mockData'
 
 export function DiscoverPetPage() {
   const { petId } = useParams()
   const navigate = useNavigate()
   const { showToast } = useApp()
   const pet = discoverPets.find((item) => item.id === petId)
+  const owner = pet?.ownerId
+    ? discoverOwners.find((item) => item.id === pet.ownerId)
+    : undefined
 
   const handleConnect = () => {
     if (!pet) return
@@ -43,7 +52,7 @@ export function DiscoverPetPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-5 pb-8">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -53,71 +62,56 @@ export function DiscoverPetPage() {
         Zpět
       </button>
 
-      <Card variant="elevated" padding="none" className="overflow-hidden">
-        <div className="relative aspect-[16/10] bg-stone-100">
-          <img src={pet.image} alt={pet.name} className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 text-white">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">{pet.name}</h1>
-              {pet.verified && (
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-[#2C4A3E]">
-                  <ShieldCheck size={14} />
-                </span>
-              )}
-              {pet.popular && (
-                <Badge variant="gold" size="sm" className="bg-white/95 text-[#191E1B]">
-                  <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-                  Oblíbenec
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-white/90">
-              {pet.breed} · {petTypeLabel[pet.type]} · {pet.age} let
-            </p>
-          </div>
-        </div>
+      <DiscoverProfileHero pet={pet} />
 
-        <div className="space-y-4 p-5">
-          <div className="flex flex-wrap items-center gap-3 text-xs text-[#5A6660]">
-            <span className="inline-flex items-center gap-1 font-medium">
-              <MapPin size={13} className="text-[#B8934A]" />
-              {pet.location}
-              {pet.distance ? ` · ${pet.distance}` : ''}
-            </span>
-          </div>
+      <Card variant="elevated" padding="md" className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
+          <MessageCircle size={15} />
+          Oslovit a propojit se
+        </Button>
+        <Link
+          to="/discover"
+          className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-4 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
+        >
+          Zpět na Objevovat
+        </Link>
+      </Card>
 
-          {pet.ownerName && (
-            <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                Majitel
-              </p>
-              <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{pet.ownerName}</p>
-            </div>
-          )}
+      <DiscoverAboutSection pet={pet} />
 
-          {pet.bio && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                O mazlíčkovi
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-[#4A564F]">{pet.bio}</p>
-            </div>
-          )}
+      {pet.publicBadges && pet.publicBadges.length > 0 && (
+        <DiscoverBadgesSection badges={pet.publicBadges} />
+      )}
 
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button variant="primary" size="sm" className="gap-1.5" onClick={handleConnect}>
-              <MessageCircle size={14} />
-              Oslovit a propojit se
-            </Button>
-            <Link
-              to="/discover"
-              className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-3 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
-            >
-              Zpět na Objevovat
-            </Link>
-          </div>
-        </div>
+      {pet.gallery && pet.gallery.length > 0 && (
+        <DiscoverGallerySection photos={pet.gallery} petName={pet.name} />
+      )}
+
+      {pet.activities && pet.activities.length > 0 && (
+        <DiscoverActivitiesSection activities={pet.activities} />
+      )}
+
+      {pet.publicTimeline && pet.publicTimeline.length > 0 && (
+        <DiscoverTimelineSection events={pet.publicTimeline} />
+      )}
+
+      {pet.breedingProfile && pet.breeding && (
+        <DiscoverBreedingSection breeding={pet.breeding} />
+      )}
+
+      {owner && <DiscoverOwnerSection owner={owner} />}
+
+      <Card variant="elevated" padding="md" className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
+          <MessageCircle size={15} />
+          Oslovit a propojit se
+        </Button>
+        <Link
+          to="/discover"
+          className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-4 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
+        >
+          Zpět na Objevovat
+        </Link>
       </Card>
     </div>
   )

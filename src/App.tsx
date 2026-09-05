@@ -12,6 +12,7 @@ import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
 import { MessagesPage } from './pages/MessagesPage'
 import { MyPetsPage } from './pages/MyPetsPage'
+import { OwnerPublicPage } from './pages/OwnerPublicPage'
 import { PetProfilePage } from './pages/PetProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
@@ -29,6 +30,7 @@ function App() {
             <Route path="pets/:petId" element={<PetProfilePage />} />
             <Route path="discover" element={<DiscoverPage />} />
             <Route path="discover/:petId" element={<DiscoverPetPage />} />
+            <Route path="owners/:ownerId" element={<OwnerPublicPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="health" element={<HealthPage />} />
             <Route path="calendar" element={<CalendarPage />} />
