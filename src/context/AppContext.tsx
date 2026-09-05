@@ -28,6 +28,10 @@ import {
   normalizeReminderDays,
   petNameForRecord,
 } from '../lib/medicationReminders'
+import {
+  DEFAULT_DISCOVER_CRITERIA,
+  type DiscoverCriteria,
+} from '../lib/discoverCriteria'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -44,6 +48,9 @@ import type {
   ToastMessage,
 } from '../types'
 
+export type { DiscoverCriteria, DiscoverSpecies } from '../lib/discoverCriteria'
+
+/** @deprecated Prefer discoverCriteria.species / nearby / popular */
 export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'nearby' | 'popular'
 
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
@@ -217,7 +224,7 @@ interface AppContextValue {
   activeModal: ModalType
   modalPetId: string | null
   discoverSearch: string
-  discoverFilter: DiscoverFilter
+  discoverCriteria: DiscoverCriteria
   toasts: ToastMessage[]
   notificationsOpen: boolean
   /** ISO date (YYYY-MM-DD) to focus in the calendar after adding an event. */
@@ -233,7 +240,10 @@ interface AppContextValue {
   openNewHealthRecord: (options?: { petId?: string; type?: HealthRecordType }) => void
   setActiveModal: (modal: ModalType, petId?: string) => void
   setDiscoverSearch: (query: string) => void
-  setDiscoverFilter: (filter: DiscoverFilter) => void
+  setDiscoverCriteria: (
+    update: DiscoverCriteria | ((prev: DiscoverCriteria) => DiscoverCriteria),
+  ) => void
+  resetDiscoverCriteria: () => void
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
   deletePet: (petId: string) => void
@@ -333,7 +343,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
   const [modalPetId, setModalPetId] = useState<string | null>(null)
   const [discoverSearch, setDiscoverSearch] = useState('')
-  const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>('all')
+  const [discoverCriteria, setDiscoverCriteria] = useState<DiscoverCriteria>(
+    DEFAULT_DISCOVER_CRITERIA,
+  )
+  const resetDiscoverCriteria = useCallback(() => {
+    setDiscoverCriteria(DEFAULT_DISCOVER_CRITERIA)
+  }, [])
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)
@@ -1255,7 +1270,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         activeModal,
         modalPetId,
         discoverSearch,
-        discoverFilter,
+        discoverCriteria,
         toasts,
         notificationsOpen,
         calendarFocusDate,
@@ -1268,7 +1283,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         openNewHealthRecord,
         setActiveModal,
         setDiscoverSearch,
-        setDiscoverFilter,
+        setDiscoverCriteria,
+        resetDiscoverCriteria,
         setNotificationsOpen,
         addPet,
         deletePet,

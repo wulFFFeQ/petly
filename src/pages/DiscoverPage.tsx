@@ -6,30 +6,16 @@ import { discoverPets } from '../data/mockData'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
+import { petMatchesDiscoverCriteria } from '../lib/discoverCriteria'
 
 export function DiscoverPage() {
-  const { discoverSearch, discoverFilter } = useApp()
+  const { discoverSearch, discoverCriteria } = useApp()
 
   const filtered = useMemo(() => {
-    return discoverPets.filter((pet) => {
-      const matchesSearch =
-        !discoverSearch ||
-        pet.name.toLowerCase().includes(discoverSearch.toLowerCase()) ||
-        pet.breed.toLowerCase().includes(discoverSearch.toLowerCase()) ||
-        pet.location.toLowerCase().includes(discoverSearch.toLowerCase()) ||
-        (pet.ownerName && pet.ownerName.toLowerCase().includes(discoverSearch.toLowerCase()))
-
-      const matchesFilter =
-        discoverFilter === 'all' ||
-        (discoverFilter === 'dog' && pet.type === 'dog') ||
-        (discoverFilter === 'cat' && pet.type === 'cat') ||
-        (discoverFilter === 'nearby' &&
-          ['Kolín', 'Kutná Hora'].includes(pet.location)) ||
-        (discoverFilter === 'popular' && pet.popular)
-
-      return matchesSearch && matchesFilter
-    })
-  }, [discoverSearch, discoverFilter])
+    return discoverPets.filter((pet) =>
+      petMatchesDiscoverCriteria(pet, discoverCriteria, discoverSearch),
+    )
+  }, [discoverSearch, discoverCriteria])
 
   return (
     <div className="space-y-8">
@@ -40,14 +26,22 @@ export function DiscoverPage() {
         description="Poznávejte mazlíčky, lidi a místa ve vašem okolí."
       />
 
-      <DiscoverFilters />
+      <DiscoverFilters resultCount={filtered.length} />
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium text-[#7D8B82]">
+          {filtered.length === 0
+            ? 'Žádné výsledky'
+            : `Zobrazeno ${filtered.length} z ${discoverPets.length} profilů`}
+        </p>
+      </div>
 
       <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.length === 0 ? (
           <EmptyState
             icon={Compass}
             title="Nenašli jsme mazlíčky odpovídající vašim kritériím"
-            description="Zkuste zvolit jiný filtr nebo vymazat hledané výrazy."
+            description="Zkuste upravit kritéria, zvolit méně filtrů nebo vymazat hledané výrazy."
             cardClassName="col-span-full"
           />
         ) : (
