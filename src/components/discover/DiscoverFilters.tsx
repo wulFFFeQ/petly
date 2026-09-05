@@ -1,5 +1,6 @@
-import { Search, X, Sparkles, MapPin } from 'lucide-react'
+import { Sparkles, MapPin } from 'lucide-react'
 import { useApp, type DiscoverFilter } from '../../context/AppContext'
+import { SearchInput } from '../ui/SearchInput'
 import { cn } from '../../lib/utils'
 
 const filters: { id: DiscoverFilter; label: string; icon?: typeof Sparkles }[] = [
@@ -15,31 +16,15 @@ export function DiscoverFilters() {
 
   return (
     <div className="space-y-4">
-      {/* Search Input */}
-      <div className="relative">
-        <Search
-          size={18}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A3AEA7]"
-        />
-        <input
-          type="text"
-          placeholder="Hledat mazlíčky, plemena, lokality nebo majitele..."
-          value={discoverSearch}
-          onChange={(e) => setDiscoverSearch(e.target.value)}
-          className="w-full h-11 rounded-2xl border border-[#E8E4DC] bg-white pl-10 pr-10 text-sm text-[#191E1B] placeholder:text-[#A3AEA7] outline-none transition-all focus:border-[#2C4A3E] focus:ring-4 focus:ring-[#2C4A3E]/10 shadow-[0_1px_3px_rgba(0,0,0,0.02)]"
-        />
-        {discoverSearch && (
-          <button
-            onClick={() => setDiscoverSearch('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A3AEA7] hover:text-[#191E1B] p-1 rounded-md"
-            aria-label="Vymazat vyhledávání"
-          >
-            <X size={15} />
-          </button>
-        )}
-      </div>
+      <SearchInput
+        size="lg"
+        placeholder="Hledat mazlíčky, plemena, lokality nebo majitele..."
+        value={discoverSearch}
+        onChange={(e) => setDiscoverSearch(e.target.value)}
+        clearable
+        onClear={() => setDiscoverSearch('')}
+      />
 
-      {/* Filter Chips */}
       <div className="flex flex-wrap gap-2 pt-1">
         {filters.map(({ id, label, icon: Icon }) => {
           const isActive = discoverFilter === id
