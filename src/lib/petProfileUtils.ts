@@ -1,4 +1,5 @@
 import type { HealthRecord, TimelineEvent } from '../types'
+import { APP_TODAY } from './dashboardDates'
 
 export function parseCzechDate(dateStr: string): number {
   const match = dateStr.match(/(\d+)\.\s*(\d+)\.\s*(\d+)/)
@@ -26,11 +27,11 @@ export function formatCzechDateToIso(czechDate: string): string {
   return `${year}-${month}-${day}`
 }
 
+/** App „today“ as YYYY-MM-DD — must match APP_TODAY used by daily care / dashboard. */
 export function todayIsoDate(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
+  const y = APP_TODAY.getFullYear()
+  const m = String(APP_TODAY.getMonth() + 1).padStart(2, '0')
+  const d = String(APP_TODAY.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
 

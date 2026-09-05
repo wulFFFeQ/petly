@@ -349,12 +349,10 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 />
               </div>
               <div className="pb-1">
-                {/* NAME ROW */}
+                {/* NAME ROW — name + badges share one flex line, centered to the name */}
                 <div className="flex items-center gap-2.5">
-                  <h1 className="contents">
-                    <span className="text-2xl sm:text-3xl font-bold leading-none tracking-tight text-[#191E1B]">
-                      {pet.name}
-                    </span>
+                  <h1 className="m-0 text-2xl sm:text-3xl font-bold leading-none tracking-tight text-[#191E1B]">
+                    {pet.name}
                   </h1>
                   {pet.healthStatus && (
                     <Badge
@@ -362,7 +360,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                       size="sm"
                       withDot
                       pulseDot
-                      className="shrink-0 self-center"
+                      className="shrink-0"
                     >
                       {formatHealthStatus(pet.healthStatus)}
                     </Badge>
@@ -371,7 +369,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                     <Badge
                       variant="primary"
                       size="sm"
-                      className="shrink-0 self-center translate-y-[4px]"
+                      className="shrink-0"
                     >
                       Chovný profil
                     </Badge>

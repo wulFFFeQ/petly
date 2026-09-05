@@ -81,7 +81,6 @@ import { cn } from '../../lib/utils'
 import {
   EMPTY_PROFILE_LABEL,
   formatHealthStatus,
-  formatHealthStatusHeadline,
   formatOptionalText,
   formatOptionalWeight,
 } from '../../lib/petProfileDisplay'
@@ -277,6 +276,76 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     : 'Zatím bez záznamu v kalendáři'
 
   const idealWeightHint = formatIdealWeightHint(pet.type, pet.breed, pet.gender)
+
+  const healthActionItems = useMemo(() => {
+    const items: Array<{
+      id: string
+      record: HealthRecord
+      kind: 'medication' | 'vaccination' | 'vet' | 'examination'
+      label: string
+      detail: string
+      meta: string
+    }> = []
+
+    for (const record of activeMedications) {
+      items.push({
+        id: `med-${record.id}`,
+        record,
+        kind: 'medication',
+        label: record.subtitle || record.title,
+        detail: [record.dosage || 'dle předpisu', record.scheduleTime]
+          .filter(Boolean)
+          .join(' · '),
+        meta: formatMedicationRemainingLabel(record),
+      })
+    }
+
+    const seen = new Set(items.map((item) => item.record.id))
+
+    for (const record of vaccinations) {
+      if (seen.has(record.id)) continue
+      const due = record.nextDueDate
+      const dueTs = due ? parseCzechDate(due) : 0
+      const daysToDue = dueTs
+        ? Math.round((dueTs - APP_TODAY.getTime()) / (1000 * 60 * 60 * 24))
+        : null
+      const upcomingDue = daysToDue != null && daysToDue >= 0 && daysToDue <= 45
+      if (record.status === 'scheduled' || upcomingDue) {
+        seen.add(record.id)
+        items.push({
+          id: `vax-${record.id}`,
+          record,
+          kind: 'vaccination',
+          label: record.subtitle || record.title,
+          detail: due ? `Termín: ${due}` : 'Naplánované očkování',
+          meta:
+            daysToDue == null
+              ? 'Ke kontrole'
+              : daysToDue === 0
+                ? 'Dnes'
+                : daysToDue === 1
+                  ? 'Zítra'
+                  : `Za ${daysToDue} dní`,
+        })
+      }
+    }
+
+    for (const record of [...vetVisits, ...examinations]) {
+      if (seen.has(record.id)) continue
+      if (record.status !== 'scheduled') continue
+      seen.add(record.id)
+      items.push({
+        id: `sched-${record.id}`,
+        record,
+        kind: record.type === 'examination' ? 'examination' : 'vet',
+        label: record.subtitle || record.title,
+        detail: record.doctor || record.clinic || 'Naplánovaná kontrola',
+        meta: record.date,
+      })
+    }
+
+    return items
+  }, [activeMedications, vaccinations, vetVisits, examinations])
 
   const healthSummaryCards = [
     {
@@ -612,11 +681,39 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 </span>
                 <ShieldCheck size={16} className="text-[#234B54]" />
               </div>
-              <p className="mt-2 text-xl font-bold text-[#191E1B]">
-                {pet.healthStatus
-                  ? formatHealthStatusHeadline(pet.healthStatus)
-                  : formatHealthStatus(pet.healthStatus)}
-              </p>
+              <div className="mt-2 flex min-h-[1.75rem] items-center gap-2">
+                {pet.healthStatus && (
+                  <span
+                    className={cn(
+                      'h-2.5 w-2.5 shrink-0 rounded-full shadow-sm',
+                      pet.healthStatus === 'excellent' || pet.healthStatus === 'good'
+                        ? 'bg-emerald-500 ring-2 ring-emerald-500/25'
+                        : pet.healthStatus === 'attention'
+                          ? 'bg-amber-400 ring-2 ring-amber-400/25'
+                          : pet.healthStatus === 'vet_check'
+                            ? 'bg-orange-500 ring-2 ring-orange-500/25'
+                            : 'bg-red-500 ring-2 ring-red-500/25',
+                    )}
+                    aria-hidden
+                  />
+                )}
+                <p
+                  className={cn(
+                    'text-[22px] font-semibold leading-snug tracking-normal',
+                    pet.healthStatus === 'excellent' || pet.healthStatus === 'good'
+                      ? 'text-[#2C4A3E]'
+                      : pet.healthStatus === 'attention'
+                        ? 'text-amber-900'
+                        : pet.healthStatus === 'vet_check'
+                          ? 'text-orange-900'
+                          : pet.healthStatus === 'urgent'
+                            ? 'text-red-900'
+                            : 'text-[#191E1B]',
+                  )}
+                >
+                  {formatHealthStatus(pet.healthStatus)}
+                </p>
+              </div>
               <p className="text-xs text-[#234B54] font-medium mt-1">
                 {pet.healthAssessment
                   ? `Aktualizováno ${formatIsoDateToCzech(pet.healthAssessment.assessedAt)}`
@@ -918,201 +1015,263 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
           </Card>
 
           <Card variant="elevated">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#F0EDE6]">
-              <div>
-                <h3 className="text-lg font-bold text-[#191E1B]">Zdravotní záznamy a historie</h3>
-                <p className="text-xs text-[#7D8B82] mt-0.5">
-                  Přehled nahoře · jeden chronologický seznam níže
-                </p>
-              </div>
-              <Button size="sm" variant="primary" onClick={() => setActiveModal('addHealthRecord', pet.id)}>
-                <Plus size={15} />
-                <span>Přidat záznam</span>
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-              {healthSummaryCards.map(({ key, label, value, subtext, icon: Icon, color, accent }) => {
-                const isActive = healthFilter === key
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setHealthFilter(isActive ? 'all' : key)}
-                    className={cn(
-                      'rounded-2xl border p-3.5 text-left transition-all cursor-pointer',
-                      isActive
-                        ? 'border-[#234B54]/40 bg-white shadow-sm ring-1 ring-[#234B54]/15'
-                        : 'border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8]',
-                    )}
+            <div className="space-y-8">
+              {/* 1. Rychlý zdravotní přehled */}
+              <section>
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                      1 · Rychlý stav
+                    </p>
+                    <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">
+                      Rychlý zdravotní přehled
+                    </h3>
+                    <p className="mt-0.5 text-xs text-[#7D8B82]">
+                      Souhrn kategorií — klepnutím filtrujete historii níže
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => setActiveModal('addHealthRecord', pet.id)}
+                    className="shrink-0"
                   >
-                    <div className={cn('mb-2.5 h-0.5 w-8 rounded-full', accent)} aria-hidden />
-                    <div className="flex items-start gap-2.5">
-                      <div
+                    <Plus size={15} />
+                    <span>Přidat záznam</span>
+                  </Button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {healthSummaryCards.map(({ key, label, value, subtext, icon: Icon, color, accent }) => {
+                    const isActive = healthFilter === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setHealthFilter(isActive ? 'all' : key)}
                         className={cn(
-                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
-                          color,
+                          'rounded-2xl border p-3.5 text-left transition-all cursor-pointer',
+                          isActive
+                            ? 'border-[#234B54]/40 bg-white shadow-sm ring-1 ring-[#234B54]/15'
+                            : 'border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8]',
                         )}
                       >
-                        <Icon size={16} strokeWidth={1.75} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]/80">
-                          {label}
-                        </p>
-                        <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{value}</p>
-                        <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">{subtext}</p>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {activeMedications.length > 0 && (
-              <div className="mb-6 rounded-2xl border border-amber-200/70 bg-amber-50/40 p-3.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80 mb-2.5">
-                  Aktivní léky
-                </p>
-                <ul className="space-y-2">
-                  {activeMedications.map((record) => (
-                    <li
-                      key={record.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/80 border border-amber-100 px-3 py-2"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openRecordDetail(record)}
-                        className="min-w-0 flex-1 text-left cursor-pointer"
-                      >
-                        <p className="text-sm font-bold text-[#191E1B] truncate">{record.subtitle}</p>
-                        <p className="text-[11px] text-[#5A6660] mt-0.5">
-                          {record.dosage || 'dle předpisu'}
-                          {record.scheduleTime ? ` · ${record.scheduleTime}` : ''}
-                        </p>
-                        <p className="text-[11px] font-semibold text-amber-900/80 mt-0.5">
-                          {formatMedicationRemainingLabel(record)}
-                        </p>
+                        <div className={cn('mb-2.5 h-0.5 w-8 rounded-full', accent)} aria-hidden />
+                        <div className="flex items-start gap-2.5">
+                          <div
+                            className={cn(
+                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+                              color,
+                            )}
+                          >
+                            <Icon size={16} strokeWidth={1.75} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]/80">
+                              {label}
+                            </p>
+                            <p className="mt-0.5 text-sm font-bold text-[#191E1B]">{value}</p>
+                            <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">{subtext}</p>
+                          </div>
+                        </div>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleMedicationReminder(record.id)}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer shrink-0',
-                          record.reminderEnabled
-                            ? 'bg-[#E0EAEC] text-[#234B54]'
-                            : 'bg-[#FAF8F5] text-[#7D8B82] border border-[#E8E4DC]',
-                        )}
-                      >
-                        {record.reminderEnabled ? <Bell size={12} /> : <BellOff size={12} />}
-                        {record.reminderEnabled ? 'Zapnuto' : 'Připomínka'}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              </section>
 
-            <div className="pt-2 border-t border-[#F0EDE6]">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 mt-4">
-                <div>
-                  <h4 className="text-sm font-bold text-[#191E1B]">Zdravotní historie</h4>
-                  <p className="text-[11px] text-[#7D8B82] mt-0.5">
-                    {filteredPetRecords.length}{' '}
-                    {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'}
+              {/* 2. Co je potřeba řešit */}
+              <section className="border-t border-[#F0EDE6] pt-8">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                    2 · Aktuální úkoly
+                  </p>
+                  <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">Co je potřeba řešit</h3>
+                  <p className="mt-0.5 text-xs text-[#7D8B82]">
+                    Aktivní léčba, blížící se očkování a naplánované kontroly
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {healthFilters.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setHealthFilter(key)}
-                      className={cn(
-                        'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer',
-                        healthFilter === key
-                          ? 'bg-[#234B54] text-white'
-                          : 'bg-[#FAF8F5] text-[#5A6660] border border-[#E8E4DC] hover:border-[#234B54]/30',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              <ul className="divide-y divide-[#F0EDE6]">
-                {filteredPetRecords.length === 0 ? (
-                  <li className="py-8 text-center text-sm text-[#7D8B82]">
-                    {petRecords.length === 0
-                      ? 'Pro tohoto mazlíčka zatím nejsou žádné záznamy.'
-                      : 'Pro zvolený filtr nejsou žádné záznamy.'}
-                  </li>
+                {healthActionItems.length === 0 ? (
+                  <div className="flex items-start gap-3 rounded-2xl border border-[#D1E0D8] bg-[#EBF2EE]/50 px-4 py-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#2C4A3E] border border-[#D1E0D8]">
+                      <Check size={18} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[#2C4A3E]">
+                        Vše je aktuálně v pořádku
+                      </p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
+                        Nemáte žádné blížící se zdravotní úkoly.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
-                  filteredPetRecords.map((record) => {
-                    const meta = recordTypeMeta(record.type)
-                    const Icon = meta.icon
-                    return (
-                      <li key={record.id}>
+                  <ul className="space-y-2">
+                    {healthActionItems.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5"
+                      >
                         <button
                           type="button"
-                          onClick={() => openRecordDetail(record)}
-                          className="w-full py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-4 px-4 sm:-mx-6 sm:px-6 rounded-xl transition-colors cursor-pointer text-left"
+                          onClick={() => openRecordDetail(item.record)}
+                          className="min-w-0 flex-1 cursor-pointer text-left"
                         >
-                          <div className="flex items-start gap-3.5 min-w-0">
-                            <div
-                              className={cn(
-                                'h-10 w-10 shrink-0 rounded-xl flex items-center justify-center',
-                                meta.className,
-                              )}
-                            >
-                              <Icon size={18} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
-                                <Badge
-                                  variant={
-                                    record.status === 'completed'
-                                      ? 'success'
-                                      : record.status === 'active'
-                                        ? 'primary'
-                                        : 'default'
-                                  }
-                                  size="sm"
-                                >
-                                  {record.status === 'completed'
-                                    ? 'Dokončeno'
-                                    : record.status === 'active'
-                                      ? 'Aktivní'
-                                      : 'Naplánováno'}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-[#4A564F] font-medium mt-0.5 truncate">
-                                {record.subtitle}
-                              </p>
-                              {(record.doctor || record.nextDueDate) && (
-                                <p className="text-[11px] text-[#7D8B82] mt-0.5">
-                                  {[record.doctor, record.nextDueDate && `Další: ${record.nextDueDate}`]
-                                    .filter(Boolean)
-                                    .join(' · ')}
-                                </p>
-                              )}
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                              {item.kind === 'medication'
+                                ? 'Lék'
+                                : item.kind === 'vaccination'
+                                  ? 'Očkování'
+                                  : item.kind === 'examination'
+                                    ? 'Vyšetření'
+                                    : 'Kontrola'}
+                            </span>
+                            <p className="text-sm font-bold text-[#191E1B] truncate">
+                              {item.label}
+                            </p>
                           </div>
-                          <Badge
-                            variant="outline"
-                            size="sm"
-                            className="font-mono self-end sm:self-center shrink-0"
-                          >
-                            {record.date}
-                          </Badge>
+                          <p className="mt-0.5 text-[11px] text-[#5A6660]">{item.detail}</p>
+                          <p className="mt-0.5 text-[11px] font-semibold text-[#2C4A3E]">
+                            {item.meta}
+                          </p>
                         </button>
+                        {item.kind === 'medication' && (
+                          <button
+                            type="button"
+                            onClick={() => toggleMedicationReminder(item.record.id)}
+                            className={cn(
+                              'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
+                              item.record.reminderEnabled
+                                ? 'border border-[#D1E0D8] bg-[#EBF2EE] text-[#2C4A3E]'
+                                : 'border border-[#E8D8B5] bg-[#FAF4E6] text-[#8A6B2E]',
+                            )}
+                          >
+                            {item.record.reminderEnabled ? (
+                              <Bell size={12} />
+                            ) : (
+                              <BellOff size={12} />
+                            )}
+                            {item.record.reminderEnabled ? 'Aktivní' : 'Připomínka'}
+                          </button>
+                        )}
                       </li>
-                    )
-                  })
+                    ))}
+                  </ul>
                 )}
-              </ul>
+              </section>
+
+              {/* 3. Zdravotní historie */}
+              <section className="border-t border-[#F0EDE6] pt-8">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                      3 · Kompletní záznamy
+                    </p>
+                    <h3 className="mt-0.5 text-lg font-bold text-[#191E1B]">
+                      Zdravotní historie
+                    </h3>
+                    <p className="mt-0.5 text-xs text-[#7D8B82]">
+                      {filteredPetRecords.length}{' '}
+                      {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'} · chronologicky
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {healthFilters.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setHealthFilter(key)}
+                        className={cn(
+                          'rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer',
+                          healthFilter === key
+                            ? 'bg-[#234B54] text-white'
+                            : 'bg-[#FAF8F5] text-[#5A6660] border border-[#E8E4DC] hover:border-[#234B54]/30',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <ul className="divide-y divide-[#F0EDE6]">
+                  {filteredPetRecords.length === 0 ? (
+                    <li className="py-8 text-center text-sm text-[#7D8B82]">
+                      {petRecords.length === 0
+                        ? 'Pro tohoto mazlíčka zatím nejsou žádné záznamy.'
+                        : 'Pro zvolený filtr nejsou žádné záznamy.'}
+                    </li>
+                  ) : (
+                    filteredPetRecords.map((record) => {
+                      const meta = recordTypeMeta(record.type)
+                      const Icon = meta.icon
+                      return (
+                        <li key={record.id}>
+                          <button
+                            type="button"
+                            onClick={() => openRecordDetail(record)}
+                            className="w-full py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-4 px-4 sm:-mx-6 sm:px-6 rounded-xl transition-colors cursor-pointer text-left"
+                          >
+                            <div className="flex items-start gap-3.5 min-w-0">
+                              <div
+                                className={cn(
+                                  'h-10 w-10 shrink-0 rounded-xl flex items-center justify-center',
+                                  meta.className,
+                                )}
+                              >
+                                <Icon size={18} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-bold text-[#191E1B]">{record.title}</p>
+                                  <Badge
+                                    variant={
+                                      record.status === 'completed'
+                                        ? 'success'
+                                        : record.status === 'active'
+                                          ? 'primary'
+                                          : 'default'
+                                    }
+                                    size="sm"
+                                  >
+                                    {record.status === 'completed'
+                                      ? 'Dokončeno'
+                                      : record.status === 'active'
+                                        ? 'Aktivní'
+                                        : 'Naplánováno'}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-[#4A564F] font-medium mt-0.5 truncate">
+                                  {record.subtitle}
+                                </p>
+                                {(record.doctor || record.nextDueDate) && (
+                                  <p className="text-[11px] text-[#7D8B82] mt-0.5">
+                                    {[
+                                      record.doctor,
+                                      record.nextDueDate && `Další: ${record.nextDueDate}`,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              size="sm"
+                              className="font-mono self-end sm:self-center shrink-0"
+                            >
+                              {record.date}
+                            </Badge>
+                          </button>
+                        </li>
+                      )
+                    })
+                  )}
+                </ul>
+              </section>
             </div>
           </Card>
         </div>

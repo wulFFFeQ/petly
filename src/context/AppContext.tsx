@@ -199,6 +199,7 @@ interface AppContextValue {
   markNotificationsRead: () => void
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
+  addCommunityPost: (input: { text: string; image?: string; petTag?: string }) => void
   deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
@@ -884,6 +885,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deletePost = (postId: string) => {
     setPosts((prev) => prev.filter((post) => post.id !== postId))
     showToast('Příspěvek smazán', 'Příspěvek byl odstraněn z komunitního feedu.', 'info')
+  }
+
+  const addCommunityPost = (input: { text: string; image?: string; petTag?: string }) => {
+    const text = input.text.trim()
+    if (!text && !input.image) return
+
+    const post: CommunityPost = {
+      id: `post_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      author: 'Tereza V.',
+      avatar:
+        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
+      time: 'Právě teď',
+      text: text || 'Sdílím fotografii z komunity.',
+      image: input.image,
+      likes: 0,
+      liked: false,
+      petTag: input.petTag,
+      commentsCount: 0,
+      comments: [],
+    }
+    setPosts((prev) => [post, ...prev])
+    showToast(
+      'Příspěvek publikován v komunitě',
+      'Váš příběh o mazlíčkovi je nyní viditelný v komunitě.',
+      'gold',
+    )
   }
 
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {

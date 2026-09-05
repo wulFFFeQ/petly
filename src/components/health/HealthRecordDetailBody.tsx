@@ -377,15 +377,19 @@ export function HealthRecordDetailBody({
               ))}
             </div>
 
-            <Button
-              size="sm"
-              variant="outline"
+            <button
+              type="button"
               onClick={() => onToggleReminder(record.id)}
-              className="gap-1.5"
+              className={cn(
+                'inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-bold transition-colors cursor-pointer sm:w-auto',
+                record.reminderEnabled
+                  ? 'border-[#D1E0D8] bg-[#EBF2EE] text-[#2C4A3E] shadow-[inset_0_0_0_1px_rgba(44,74,62,0.06)] hover:bg-[#E0EAEC]'
+                  : 'border-[#E8D8B5] bg-[#FAF4E6] text-[#8A6B2E] hover:bg-[#F5EDD8]',
+              )}
             >
-              {record.reminderEnabled ? <Bell size={14} /> : <BellOff size={14} />}
-              {record.reminderEnabled ? 'Připomínka aktivní' : 'Zapnout připomínku'}
-            </Button>
+              {record.reminderEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+              {record.reminderEnabled ? 'Připomínka aktivní' : 'Připomínka neaktivní — zapnout'}
+            </button>
             <p className="text-[11px] text-[#7D8B82] leading-relaxed">
               {record.status === 'active'
                 ? `${formatMedicationRemainingLabel(record)}. `
