@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   calendarEvents as initialCalendarEvents,
   communityPosts as initialPosts,
@@ -12,6 +12,14 @@ import { localizeBreedName } from '../lib/petBreeds'
 import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
+import { getBadgeDefinition } from '../lib/badges/catalog'
+import {
+  computeBadgeProgress,
+  isNightOwlHour,
+  mergeBadgeAwards,
+  romanLevel,
+  toIsoDay,
+} from '../lib/badges/evaluate'
 import {
   buildMedicationReminderEvents,
   buildMedicationReminderNotification,
@@ -19,6 +27,7 @@ import {
   normalizeReminderDays,
   petNameForRecord,
 } from '../lib/medicationReminders'
+import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
   CalendarEvent,
@@ -40,6 +49,8 @@ const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
 const DOCUMENTS_STORAGE_KEY = 'lovedandknown.petDocuments'
+const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
+const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
 
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') return initialPets
@@ -124,6 +135,34 @@ function loadDocuments(): PetDocument[] {
   }
 }
 
+function loadEarnedBadges(): EarnedBadge[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(BADGES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as EarnedBadge[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.badgeId === 'string' &&
+        typeof item.level === 'number' &&
+        typeof item.earnedAt === 'string',
+    )
+  } catch {
+    return []
+  }
+}
+
+function loadNightOwlEligible(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(NIGHT_OWL_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export type NewHealthRecordInput = {
   petId: string
   type: HealthRecordType
@@ -140,6 +179,7 @@ interface AppContextValue {
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
   notifications: AppNotification[]
+  earnedBadges: EarnedBadge[]
   activeModal: ModalType
   modalPetId: string | null
   discoverSearch: string
@@ -251,6 +291,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>(loadEarnedBadges)
+  const [nightOwlEligible, setNightOwlEligible] = useState(loadNightOwlEligible)
+  const badgesHydratedRef = useRef(false)
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
   const [modalPetId, setModalPetId] = useState<string | null>(null)
   const [discoverSearch, setDiscoverSearch] = useState('')
@@ -289,6 +332,82 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    window.localStorage.setItem(BADGES_STORAGE_KEY, JSON.stringify(earnedBadges))
+  }, [earnedBadges])
+
+  useEffect(() => {
+    if (!isNightOwlHour()) return
+    setNightOwlEligible((prev) => {
+      if (prev) return prev
+      try {
+        window.localStorage.setItem(NIGHT_OWL_STORAGE_KEY, '1')
+      } catch {
+        // ignore
+      }
+      return true
+    })
+  }, [pets, healthRecords, documents, posts, calendarEvents])
+
+  useEffect(() => {
+    const progress = computeBadgeProgress({
+      pets,
+      healthRecords,
+      documents,
+      posts,
+      calendarEvents,
+      nightOwlEligible,
+      todayIso: toIsoDay(),
+    })
+
+    setEarnedBadges((prev) => {
+      const { next, newlyAwarded } = mergeBadgeAwards(prev, progress, toIsoDay())
+
+      const unchanged =
+        next.length === prev.length &&
+        newlyAwarded.length === 0 &&
+        next.every((item) =>
+          prev.some(
+            (p) =>
+              p.badgeId === item.badgeId &&
+              p.petId === item.petId &&
+              p.level === item.level,
+          ),
+        )
+
+      if (unchanged) {
+        badgesHydratedRef.current = true
+        return prev
+      }
+
+      if (!badgesHydratedRef.current) {
+        badgesHydratedRef.current = true
+        return next
+      }
+
+      const toastBatch = newlyAwarded
+      queueMicrotask(() => {
+        for (const award of toastBatch) {
+          const def = getBadgeDefinition(award.badgeId)
+          if (!def) continue
+          const petName = award.petId
+            ? pets.find((p) => p.id === award.petId)?.name
+            : undefined
+          const levelSuffix =
+            (def.maxLevel ?? 1) > 1 ? ` · úroveň ${romanLevel(award.level)}` : ''
+          const title = def.secret ? 'Tajný odznak odhalen' : 'Nový odznak'
+          const description = petName
+            ? `${def.name}${levelSuffix} · ${petName}`
+            : `${def.name}${levelSuffix}`
+          showToast(title, description, 'gold')
+        }
+      })
+
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- evaluate on domain data; merge via functional update
+  }, [pets, healthRecords, documents, posts, calendarEvents, nightOwlEligible])
 
   // Migrate legacy Samice/Samec → Fena/Pes or Kočka/Kocour
   useEffect(() => {
@@ -1032,6 +1151,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         posts,
         calendarEvents,
         notifications,
+        earnedBadges,
         activeModal,
         modalPetId,
         discoverSearch,

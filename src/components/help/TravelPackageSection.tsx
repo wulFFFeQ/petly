@@ -18,6 +18,10 @@ import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { BRAND_NAME } from '../../lib/brand'
+import {
+  buildTravelPackShareText,
+  downloadTravelPackagePdf,
+} from '../../lib/travelPackagePdf'
 import { cn } from '../../lib/utils'
 import type {
   PetTravelPackage,
@@ -100,59 +104,50 @@ export function TravelPackageSection({ hideHeader = false }: { hideHeader?: bool
       ? getDestinationReadiness(activeDestination, activeTravelPackage)
       : null
 
-  const buildTravelPackText = () => {
-    if (!activeTravelPet || !activeTravelPackage || !activeDestination) return null
-
-    const docLines = activeTravelPackage.documents
-      .map((doc) => `${doc.ready ? '[x]' : '[ ]'} ${doc.label}`)
-      .join('\n')
-
-    return [
-      `${BRAND_NAME} — Balíček pro cestování`,
-      '',
-      `Mazlíček: ${activeTravelPet.name} (${activeTravelPet.breed})`,
-      `Destinace: ${activeDestination.country}`,
-      '',
-      `EU pas: ${activeTravelPackage.euPassport.number}`,
-      `Platnost do: ${activeTravelPackage.euPassport.validUntil}`,
-      `Očkování: ${activeTravelPackage.vaccinationSummary}`,
-      `Mikročip: ${activeTravelPackage.microchip}`,
-      `Zdravotní záznamy: ${activeTravelPackage.healthRecordCount}`,
-      `Poslední návštěva: ${activeTravelPet.lastVetVisit}`,
-      '',
-      'Dokumenty v balíčku:',
-      docLines,
-      '',
-      `Vygenerováno: ${new Date().toLocaleString('cs-CZ')}`,
-    ].join('\n')
+  const getTravelPackPdfInput = () => {
+    if (!activeTravelPet || !activeTravelPackage || !activeDestination || !destinationReadiness) {
+      return null
+    }
+    return {
+      pet: activeTravelPet,
+      pack: activeTravelPackage,
+      destination: activeDestination,
+      overall: destinationReadiness.overall,
+      evaluated: destinationReadiness.evaluated.map(({ req, status, hint }) => ({
+        label: req.label,
+        detail: req.detail,
+        hint,
+        status,
+      })),
+    }
   }
 
-  const handleDownloadTravelPack = () => {
+  const handleDownloadTravelPack = async () => {
     if (!activeTravelPet) return
-    const content = buildTravelPackText()
-    if (!content) return
+    const input = getTravelPackPdfInput()
+    if (!input) return
 
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `cestovni-balicek-${activeTravelPet.name.toLowerCase()}.txt`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-
-    showToast(
-      'Stahování zahájeno',
-      `Balíček pro ${activeTravelPet.name} se ukládá do stažených souborů.`,
-      'gold',
-    )
+    try {
+      await downloadTravelPackagePdf(input)
+      showToast(
+        'PDF staženo',
+        `Balíček pro ${activeTravelPet.name} je uložený jako PDF.`,
+        'gold',
+      )
+    } catch {
+      showToast(
+        'Stažení se nezdařilo',
+        'Zkuste to prosím znovu za chvíli.',
+        'info',
+      )
+    }
   }
 
   const handleShareTravelPack = async () => {
     if (!activeTravelPet) return
-    const content = buildTravelPackText()
-    if (!content) return
+    const input = getTravelPackPdfInput()
+    if (!input) return
+    const content = buildTravelPackShareText(input)
 
     const shareData = {
       title: `Cestovní balíček — ${activeTravelPet.name}`,

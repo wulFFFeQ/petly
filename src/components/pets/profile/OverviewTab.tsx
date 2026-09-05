@@ -8,6 +8,8 @@ import {
   Stethoscope,
   Utensils,
 } from 'lucide-react'
+import { BadgesSection } from '../../badges/BadgesSection'
+import { useApp } from '../../../context/AppContext'
 import { formatTodayHeader } from '../../../lib/dashboardDates'
 import {
   formatHealthStatus,
@@ -44,6 +46,8 @@ export function OverviewTab({
   setLifestyleEdit,
   setLifestyleValue,
 }: OverviewTabProps) {
+  const { earnedBadges } = useApp()
+
   return (
     <div className="space-y-6">
       <div
@@ -310,6 +314,8 @@ export function OverviewTab({
           )}
         </Card>
       </div>
+
+      <BadgesSection scope="pet" petId={pet.id} earnedBadges={earnedBadges} />
     </div>
   )
 }

@@ -151,10 +151,8 @@ export function Sidebar() {
               </NavLink>
             ))}
           </nav>
-        </div>
 
-        <div>
-          <div className="px-3 mb-2">
+          <div className="mt-5 px-3 mb-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A3AEA7]">
               Předvolby
             </span>
@@ -179,7 +177,9 @@ export function Sidebar() {
               </NavLink>
             ))}
           </nav>
+        </div>
 
+        <div>
           <div className="mt-4 pt-4 border-t border-[#F0EDE6]">
             <div className="flex items-center gap-3 rounded-xl p-2 bg-white/70 border border-[#E8E4DC]/80">
               <Avatar

@@ -10,6 +10,7 @@ import {
   Activity,
 } from 'lucide-react'
 import { useState } from 'react'
+import { BadgesSection } from '../components/badges/BadgesSection'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -64,7 +65,7 @@ const DEFAULT_VET_ACCESS: Record<VetAccessKey, boolean> = {
 }
 
 export function SettingsPage() {
-  const { showToast } = useApp()
+  const { showToast, earnedBadges } = useApp()
   const [vetAccess, setVetAccess] = useState(DEFAULT_VET_ACCESS)
   const [vetHasAccess, setVetHasAccess] = useState(true)
 
@@ -150,6 +151,13 @@ export function SettingsPage() {
             />
           </div>
         </Card>
+
+        <BadgesSection
+          title="Odznaky"
+          scope="user"
+          earnedBadges={earnedBadges}
+          previewCount={8}
+        />
 
         <Card variant="elevated">
           <h3 className="text-base font-bold text-[#191E1B] mb-4 flex items-center gap-2">

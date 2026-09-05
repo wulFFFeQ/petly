@@ -1,0 +1,321 @@
+import type { BadgeDefinition } from '../../types/badges'
+
+/** Catalog of pet + user badges. Evaluation lives in evaluate.ts. */
+export const BADGE_CATALOG: BadgeDefinition[] = [
+  // ——— Pet: Milníky ———
+  {
+    id: 'pet_first_birthday',
+    scope: 'pet',
+    category: 'milestone',
+    name: 'První narozeniny',
+    description: 'Zaznamenané první narozeniny — milník, který stojí za oslavu.',
+    icon: 'cake',
+  },
+  {
+    id: 'pet_adoption_anniversary',
+    scope: 'pet',
+    category: 'milestone',
+    name: 'Výročí adopce',
+    description: 'Připomínka dne, kdy se domov stal společným.',
+    icon: 'home',
+  },
+  {
+    id: 'pet_new_home',
+    scope: 'pet',
+    category: 'milestone',
+    name: 'Nový domov',
+    description: 'Profil mazlíčka byl založen — začátek společné cesty v aplikaci.',
+    icon: 'home',
+  },
+  {
+    id: 'pet_life_milestone',
+    scope: 'pet',
+    category: 'milestone',
+    name: 'Životní milník',
+    description: 'V kalendáři nebo časové ose je zaznamenáno významné výročí.',
+    icon: 'star',
+  },
+
+  // ——— Pet: Zdraví a péče (péče, ne „nejzdravější“) ———
+  {
+    id: 'pet_careful_profile',
+    scope: 'pet',
+    category: 'health',
+    name: 'Pečlivý profil',
+    description: 'Oceňuje pečlivé vedení profilu a zdravotní historie.',
+    icon: 'award',
+    maxLevel: 5,
+    levels: [
+      {
+        level: 1,
+        title: 'Profil vytvořen',
+        description: 'Základní profil mazlíčka je založen.',
+      },
+      {
+        level: 2,
+        title: 'Profil kompletní',
+        description: 'Vyplněny klíčové údaje: narození, pohlaví, hmotnost, čip a kastrace.',
+      },
+      {
+        level: 3,
+        title: 'Pravidelně aktualizován',
+        description: 'Profil doplňuje životní styl nebo zdravotní sebehodnocení.',
+      },
+      {
+        level: 4,
+        title: 'Kompletní profil + zdravotní historie',
+        description: 'Kompletní profil a alespoň tři zdravotní záznamy.',
+      },
+      {
+        level: 5,
+        title: 'Kompletní péče',
+        description: 'Profil, historie, očkování, dokument a událost v kalendáři.',
+      },
+    ],
+  },
+  {
+    id: 'pet_vaccination_log',
+    scope: 'pet',
+    category: 'health',
+    name: 'Aktuální očkování',
+    description: 'V zdravotní historii je zaznamenáno očkování.',
+    icon: 'syringe',
+  },
+  {
+    id: 'pet_vet_care',
+    scope: 'pet',
+    category: 'health',
+    name: 'Veterinární péče',
+    description: 'Pravidelná péče — zaznamenané návštěvy nebo prohlídky u veterináře.',
+    icon: 'stethoscope',
+  },
+  {
+    id: 'pet_weight_tracking',
+    scope: 'pet',
+    category: 'health',
+    name: 'Sledování hmotnosti',
+    description: 'Hmotnost je vyplněná v profilu — základ pro sledování vývoje.',
+    icon: 'scale',
+  },
+  {
+    id: 'pet_health_history',
+    scope: 'pet',
+    category: 'health',
+    name: 'Zdravotní historie',
+    description: 'Pravidelně vedená zdravotní historie — alespoň pět záznamů.',
+    icon: 'clipboard',
+  },
+
+  // ——— Pet: Aktivity ———
+  {
+    id: 'pet_first_training',
+    scope: 'pet',
+    category: 'activity',
+    name: 'První trénink',
+    description: 'První trénink, agility nebo kurz v kalendáři.',
+    icon: 'footprints',
+  },
+  {
+    id: 'pet_regular_activity',
+    scope: 'pet',
+    category: 'activity',
+    name: 'Pravidelná aktivita',
+    description: 'Alespoň tři aktivity (trénink, výlet, péče) v kalendáři.',
+    icon: 'compass',
+  },
+  {
+    id: 'pet_trip',
+    scope: 'pet',
+    category: 'activity',
+    name: 'Výlet',
+    description: 'Zaznamenaný výlet s mazlíčkem.',
+    icon: 'map',
+  },
+  {
+    id: 'pet_travel',
+    scope: 'pet',
+    category: 'activity',
+    name: 'Cestování',
+    description: 'Cesta se zvířetem — událost typu cestování v kalendáři.',
+    icon: 'plane',
+  },
+
+  // ——— Pet: Komunita ———
+  {
+    id: 'pet_first_community_post',
+    scope: 'pet',
+    category: 'community',
+    name: 'Komunitní debut',
+    description: 'První příspěvek v komunitě spojený s tímto mazlíčkem.',
+    icon: 'users',
+  },
+  {
+    id: 'pet_community_partner',
+    scope: 'pet',
+    category: 'community',
+    name: 'Komunitní parťák',
+    description: 'Příspěvek s mazlíčkem získal reakci od ostatních.',
+    icon: 'heart',
+  },
+
+  // ——— User ———
+  {
+    id: 'user_careful_guardian',
+    scope: 'user',
+    category: 'care',
+    name: 'Pečlivý páníček',
+    description: 'Oceňuje pečlivou péči o profily všech mazlíčků.',
+    icon: 'heart',
+    maxLevel: 3,
+    levels: [
+      {
+        level: 1,
+        title: 'První pečlivý profil',
+        description: 'Alespoň jeden mazlíček má kompletní profil.',
+      },
+      {
+        level: 2,
+        title: 'Domácnost v pořádku',
+        description: 'Všichni mazlíčci mají kompletní základní profil.',
+      },
+      {
+        level: 3,
+        title: 'Péče napříč domácností',
+        description: 'Kompletní profily a zdravotní historie u všech mazlíčků.',
+      },
+    ],
+  },
+  {
+    id: 'user_health_overview',
+    scope: 'user',
+    category: 'care',
+    name: 'Zdravotní přehled pod kontrolou',
+    description: 'Zdravotní záznamy jsou aktivně vedeny napříč mazlíčky.',
+    icon: 'shield',
+  },
+  {
+    id: 'user_calendar_ok',
+    scope: 'user',
+    category: 'care',
+    name: 'Kalendář v pořádku',
+    description: 'V kalendáři jsou naplánované události péče nebo aktivit.',
+    icon: 'calendar',
+  },
+  {
+    id: 'user_documenter',
+    scope: 'user',
+    category: 'care',
+    name: 'Dokumentátor',
+    description: 'Nahrané dokumenty — pasy, výsledky nebo pojištění.',
+    icon: 'file',
+  },
+  {
+    id: 'user_community_voice',
+    scope: 'user',
+    category: 'community',
+    name: 'Komunitní hlas',
+    description: 'Vlastní příspěvek v komunitě.',
+    icon: 'message',
+  },
+  {
+    id: 'user_helps_others',
+    scope: 'user',
+    category: 'community',
+    name: 'Pomáhá ostatním',
+    description: 'Komentáře, které podporují ostatní majitele.',
+    icon: 'users',
+  },
+  {
+    id: 'user_community_heart',
+    scope: 'user',
+    category: 'community',
+    name: 'Komunitní srdce',
+    description: 'Líbí se vám příspěvky ostatních — malá gesto, velké společenství.',
+    icon: 'heart',
+  },
+  {
+    id: 'user_adventurer',
+    scope: 'user',
+    category: 'activity',
+    name: 'Dobrodruh',
+    description: 'Aktivity a tréninky v kalendáři napříč mazlíčky.',
+    icon: 'compass',
+  },
+  {
+    id: 'user_traveler',
+    scope: 'user',
+    category: 'activity',
+    name: 'Cestovatel',
+    description: 'Cestování se zvířetem — naplánované v kalendáři.',
+    icon: 'plane',
+  },
+
+  // ——— Secret (user or pet) ———
+  {
+    id: 'secret_night_owl',
+    scope: 'user',
+    category: 'secret',
+    name: 'Noční strážce',
+    description: 'Aktivita v aplikaci mezi půlnocí a pátou hodinou ranní.',
+    secret: true,
+    icon: 'moon',
+  },
+  {
+    id: 'secret_health_archive',
+    scope: 'user',
+    category: 'secret',
+    name: 'Archiv péče',
+    description: 'Deset zdravotních záznamů napříč domácností.',
+    secret: true,
+    icon: 'clipboard',
+  },
+  {
+    id: 'secret_community_helper',
+    scope: 'user',
+    category: 'secret',
+    name: 'Tichý pomocník',
+    description: 'Pomoc více lidem v komunitě — alespoň tři komentáře.',
+    secret: true,
+    icon: 'sparkles',
+  },
+  {
+    id: 'secret_evergreen',
+    scope: 'pet',
+    category: 'secret',
+    name: 'Stálice péče',
+    description: 'Dlouhodobě kompletní profil s bohatou zdravotní historií.',
+    secret: true,
+    icon: 'award',
+  },
+  {
+    id: 'secret_pet_traveler',
+    scope: 'pet',
+    category: 'secret',
+    name: 'Cestovní pečeť',
+    description: 'Cestování s mazlíčkem — skryté ocenění za společnou cestu.',
+    secret: true,
+    icon: 'plane',
+  },
+  {
+    id: 'secret_adoption_day',
+    scope: 'pet',
+    category: 'secret',
+    name: 'Den, kdy jsme se našli',
+    description: 'Výročí adopce — skrytý milník společného života.',
+    secret: true,
+    icon: 'home',
+  },
+]
+
+export function getBadgeDefinition(id: string): BadgeDefinition | undefined {
+  return BADGE_CATALOG.find((b) => b.id === id)
+}
+
+export const BADGE_CATEGORY_LABELS: Record<BadgeDefinition['category'], string> = {
+  milestone: 'Milníky',
+  health: 'Zdraví a péče',
+  activity: 'Aktivity',
+  community: 'Komunita',
+  care: 'Péče',
+  secret: 'Tajné',
+}
