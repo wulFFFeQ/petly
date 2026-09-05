@@ -24,6 +24,7 @@ import { BRAND_NAME } from '../../lib/brand'
 import { markPetProfileShared } from '../../lib/badges/badgeData'
 import { copyTextToClipboard } from '../../lib/clipboard'
 import { APP_TODAY } from '../../lib/dashboardDates'
+import { maskMicrochip } from '../../lib/microchip'
 import {
   EMPTY_PROFILE_LABEL,
   formatHealthStatus,
@@ -45,6 +46,7 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { OptionSelect } from '../ui/OptionSelect'
+import { VerifyMicrochipModal } from './microchip/VerifyMicrochipModal'
 
 interface PetProfileHeaderProps {
   pet: Pet
@@ -101,6 +103,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [verifyChipOpen, setVerifyChipOpen] = useState(false)
   const [detailsForm, setDetailsForm] = useState<DetailsForm>(() => buildDetailsForm(pet))
   const photoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
@@ -123,6 +126,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             : 'warning'
 
   const microchipValue = pet.microchip?.trim() ?? ''
+  const chipVerification = pet.microchipVerification
+  const chipVerifiedFound = chipVerification?.status === 'found'
   const coverColor = getPetCoverColor(pet)
 
   const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
@@ -455,31 +460,87 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 {formatOptionalWeight(pet.weight)}
               </p>
             </div>
-            <div className="shrink-0">
+            <div className="min-w-0 shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                ID mikročipu
+                Mikročip
               </p>
               {hasMicrochip(microchipValue) ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void handleCopyChip()
-                  }}
-                  className="mt-1 flex cursor-pointer items-center gap-1.5 whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline"
-                  title="Klikněte pro zkopírování ID mikročipu"
-                >
-                  <span>{microchipValue}</span>
-                  {copied ? (
-                    <Check size={12} className="shrink-0 text-emerald-600" />
-                  ) : (
-                    <Copy size={12} className="shrink-0 text-[#A3AEA7]" />
+                <div className="mt-1 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setVerifyChipOpen(true)
+                      }}
+                      className="cursor-pointer whitespace-nowrap font-mono text-xs font-bold text-[#234B54] hover:underline text-left"
+                      title="Ověřit registraci mikročipu"
+                    >
+                      {microchipValue}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void handleCopyChip()
+                      }}
+                      className="rounded-md p-0.5 text-[#A3AEA7] hover:bg-[#EBF2EE] hover:text-[#2C4A3E] cursor-pointer"
+                      title="Zkopírovat číslo mikročipu"
+                      aria-label="Zkopírovat číslo mikročipu"
+                    >
+                      {copied ? (
+                        <Check size={12} className="text-emerald-600" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setVerifyChipOpen(true)
+                    }}
+                    className="block text-[11px] font-semibold text-[#2C4A3E] hover:underline cursor-pointer"
+                  >
+                    Ověřit registraci mikročipu
+                  </button>
+                  {chipVerifiedFound && chipVerification && (
+                    <p className="flex flex-wrap items-center gap-1 text-[10px] font-medium text-[#2C4A3E]">
+                      <Check size={11} className="text-emerald-600" />
+                      Ověřený mikročip
+                      <span className="text-[#7D8B82]">
+                        · Naposledy ověřeno:{' '}
+                        {formatIsoDateToCzech(chipVerification.verifiedAt.slice(0, 10))}
+                      </span>
+                    </p>
                   )}
-                </button>
+                  {chipVerification && !chipVerifiedFound && (
+                    <p className="text-[10px] text-[#7D8B82]">
+                      Poslední kontrola:{' '}
+                      {formatIsoDateToCzech(chipVerification.verifiedAt.slice(0, 10))}
+                      {chipVerification.status === 'unavailable'
+                        ? ' · registr nepřipojen'
+                        : ' · nenalezeno'}
+                    </p>
+                  )}
+                </div>
               ) : (
-                <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
-                  {EMPTY_PROFILE_LABEL}
-                </p>
+                <div className="mt-1 space-y-1">
+                  <p className="whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                    {EMPTY_PROFILE_LABEL}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setVerifyChipOpen(true)
+                    }}
+                    className="block text-[11px] font-semibold text-[#2C4A3E] hover:underline cursor-pointer"
+                  >
+                    Ověřit registraci mikročipu
+                  </button>
+                </div>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
@@ -726,7 +787,10 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             <div>
               <p className="text-sm font-bold text-[#191E1B]">{pet.name} · {pet.breed}</p>
               <p className="text-xs text-[#7D8B82] mt-0.5">
-                Čip: {hasMicrochip(microchipValue) ? microchipValue : EMPTY_PROFILE_LABEL}
+                Čip:{' '}
+                {hasMicrochip(microchipValue)
+                  ? maskMicrochip(microchipValue)
+                  : EMPTY_PROFILE_LABEL}
               </p>
               {hasMicrochip(microchipValue) && (
                 <Badge variant="gold" size="sm" className="mt-1.5">
@@ -878,6 +942,14 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           </div>
         </div>
       </Modal>
+
+      <VerifyMicrochipModal
+        open={verifyChipOpen}
+        onClose={() => setVerifyChipOpen(false)}
+        initialChip={microchipValue}
+        petId={pet.id}
+        mode="verify"
+      />
     </div>
   )
 }

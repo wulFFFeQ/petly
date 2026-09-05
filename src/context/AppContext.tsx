@@ -32,6 +32,7 @@ import {
   DEFAULT_DISCOVER_CRITERIA,
   type DiscoverCriteria,
 } from '../lib/discoverCriteria'
+import { normalizeMicrochipInput } from '../lib/microchip'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -638,8 +639,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if ('dateOfBirth' in updates && !updates.dateOfBirth?.trim()) {
           delete next.dateOfBirth
         }
-        if ('microchip' in updates && !updates.microchip?.trim()) {
-          delete next.microchip
+        if ('microchip' in updates) {
+          if (!updates.microchip?.trim()) {
+            delete next.microchip
+            delete next.microchipVerification
+          } else {
+            const nextChip = updates.microchip.trim()
+            next.microchip = nextChip
+            if (
+              next.microchipVerification &&
+              normalizeMicrochipInput(next.microchipVerification.chipNumber) !==
+                normalizeMicrochipInput(nextChip)
+            ) {
+              delete next.microchipVerification
+            }
+          }
+        }
+        if ('microchipVerification' in updates) {
+          if (updates.microchipVerification == null) {
+            delete next.microchipVerification
+          } else {
+            next.microchipVerification = updates.microchipVerification
+          }
         }
         if ('neutered' in updates && updates.neutered === undefined) {
           delete next.neutered

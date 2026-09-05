@@ -223,6 +223,42 @@ export async function searchPlaces(
   return suggestions
 }
 
+/** Prefer city / town / village names for Discover location filters. */
+export async function searchCities(
+  query: string,
+  signal?: AbortSignal,
+): Promise<PlaceSuggestion[]> {
+  const places = await searchPlaces(query, signal)
+  const seen = new Set<string>()
+  const cities: PlaceSuggestion[] = []
+
+  for (const place of places) {
+    const city = cityNameFromPlaceLabel(place.label)
+    if (!city) continue
+    const key = city.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    cities.push({
+      ...place,
+      id: `city:${key}`,
+      label: city,
+    })
+  }
+
+  return cities
+}
+
+/** Extract a short city name from a Photon place label. */
+export function cityNameFromPlaceLabel(label: string): string {
+  const parts = label
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length === 0) return ''
+  // Prefer the first segment (usually the place / city name).
+  return parts[0]
+}
+
 export function mapsUrlForPlace(
   label: string,
   latitude?: number,

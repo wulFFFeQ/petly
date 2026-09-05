@@ -19,6 +19,7 @@ import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 import { BRAND_NAME } from '../lib/brand'
+import { getUserHomeCity, setUserHomeCity } from '../lib/userProfile'
 import { cn } from '../lib/utils'
 
 const VET_DATA_ACCESS = [
@@ -68,8 +69,12 @@ export function SettingsPage() {
   const { showToast, earnedBadges } = useApp()
   const [vetAccess, setVetAccess] = useState(DEFAULT_VET_ACCESS)
   const [vetHasAccess, setVetHasAccess] = useState(true)
+  const [accountCity, setAccountCity] = useState(
+    () => `${getUserHomeCity()}, Česká republika`,
+  )
 
   const handleSave = () => {
+    setUserHomeCity(accountCity)
     showToast('Nastavení uloženo', 'Vaše nastavení účtu bylo uloženo.', 'gold')
   }
 
@@ -138,7 +143,8 @@ export function SettingsPage() {
             <Input
               id="settings-city"
               label="Město / region"
-              defaultValue="Kolín, Česká republika"
+              value={accountCity}
+              onChange={(e) => setAccountCity(e.target.value)}
               labelClassName="normal-case tracking-normal"
               className="text-xs shadow-none focus:ring-0"
             />

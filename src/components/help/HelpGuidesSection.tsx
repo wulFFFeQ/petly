@@ -132,6 +132,10 @@ const HELP_TOPICS: {
     icon: Lock,
     items: [
       {
+        q: 'Kdo vidí číslo mikročipu mého mazlíčka?',
+        a: 'Celé číslo vidíte jen vy v privátním profilu. Veřejné sdílení a Objevovat číslo nezobrazují, nebo jen v maskované podobě. Ověření v registru nikdy neukáže osobní údaje majitele.',
+      },
+      {
         q: 'Jsou zdravotní data šifrovaná?',
         a: `${BRAND_NAME} uchovává zdravotní a klinické záznamy v šifrované podobě. Přístup ověřených veterinářů řídíte vy.`,
       },

@@ -91,6 +91,14 @@ export interface Pet {
   gender?: string
   weight?: number
   microchip?: string
+  /** Last safe microchip registry check (owner-private). */
+  microchipVerification?: {
+    status: 'found' | 'not_found' | 'unavailable'
+    verifiedAt: string
+    registryLabel?: string
+    mode: 'live' | 'dev_mock' | 'unconfigured'
+    chipNumber: string
+  }
   neutered?: boolean
   /** When true, breeding calendar events (Chov) are available for this pet. */
   breedingProfile?: boolean
