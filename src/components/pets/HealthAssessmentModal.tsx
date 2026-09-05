@@ -61,7 +61,13 @@ export function HealthAssessmentModal({
     const prevention = buildPreventionDefaults(pet, healthRecords)
     const previous = pet.healthAssessment?.answers ?? {}
 
-    setAnswers({ ...base, ...prevention, ...previous })
+    setAnswers({
+      ...base,
+      ...prevention,
+      ...Object.fromEntries(
+        Object.entries(previous).filter((entry): entry is [string, string] => entry[1] != null),
+      ),
+    })
 
     if (startOnResult && pet.healthAssessment) {
       setResult({

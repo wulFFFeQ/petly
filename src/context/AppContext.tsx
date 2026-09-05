@@ -200,7 +200,12 @@ interface AppContextValue {
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
-  addCommunityPost: (input: { text: string; image?: string; petTag?: string }) => void
+  addCommunityPost: (input: {
+    text: string
+    image?: string
+    petTag?: string
+    location?: string
+  }) => void
   deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
@@ -908,7 +913,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     showToast('Příspěvek smazán', 'Příspěvek byl odstraněn z komunitního feedu.', 'info')
   }
 
-  const addCommunityPost = (input: { text: string; image?: string; petTag?: string }) => {
+  const addCommunityPost = (input: {
+    text: string
+    image?: string
+    petTag?: string
+    location?: string
+  }) => {
     const text = input.text.trim()
     if (!text && !input.image) return
 
@@ -923,6 +933,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       likes: 0,
       liked: false,
       petTag: input.petTag,
+      location: input.location,
       commentsCount: 0,
       comments: [],
     }

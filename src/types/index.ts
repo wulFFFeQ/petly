@@ -222,6 +222,7 @@ export interface CommunityPost {
   likes: number
   liked: boolean
   petTag?: string
+  location?: string
   commentsCount: number
   comments?: PostComment[]
   /** When set, post was created from a gallery photo upload. */

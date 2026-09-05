@@ -93,10 +93,10 @@ function pickStatus(
   if (
     maxSeverity === 'urgent' ||
     flags.has('gi_bleed') ||
+    flags.has('post_op') ||
     (flags.has('breathing') && SEVERITY_RANK[maxSeverity] >= SEVERITY_RANK.concern) ||
     (flags.has('vomiting') && flags.has('dehydration_risk')) ||
-    (flags.has('anorexia') && flags.has('lethargy')) ||
-    (flags.has('post_op') && maxSeverity === 'urgent')
+    (flags.has('anorexia') && flags.has('lethargy'))
   ) {
     return 'vet_check'
   }
@@ -200,8 +200,8 @@ export function evaluateHealthAssessment(ctx: EvaluationContext): EvaluationResu
 export function buildPreventionDefaults(
   pet: Pet,
   healthRecords: HealthRecord[],
-): Partial<Record<string, string>> {
-  const defaults: Partial<Record<string, string>> = {}
+): Record<string, string> {
+  const defaults: Record<string, string> = {}
   const petRecords = healthRecords.filter((r) => r.petId === pet.id)
 
   const vaccinations = petRecords.filter((r) => r.type === 'vaccination')

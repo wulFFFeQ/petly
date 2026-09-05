@@ -10,7 +10,10 @@ import type { PetProfileTabState } from './usePetProfileTabState'
 
 type PetProfileModalsProps = PetProfileTabState['modals']
 
-const TIMELINE_CATEGORY_OPTIONS: { value: TimelineEvent['category']; label: string }[] = [
+const TIMELINE_CATEGORY_OPTIONS: {
+  value: NonNullable<TimelineEvent['category']>
+  label: string
+}[] = [
   { value: 'memory', label: 'Vzpomínka' },
   { value: 'milestone', label: 'Milník' },
   { value: 'adoption', label: 'Adopce' },

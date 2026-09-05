@@ -12,7 +12,7 @@ Piš profi kód — bez duplicit. UI patří do `src/components/`, ne inline do 
 
 | Vrstva | Složka | Příklad |
 |--------|--------|---------|
-| Primitiva | `src/components/ui/` | `Button`, `Card`, `Badge`, `Input`, `Modal`, `Tabs` |
+| Primitiva | `src/components/ui/` | `Button`, `Card`, `Badge`, `Input`, `Modal`, `Tabs`, `PageHeader`, `SearchInput`, `EmptyState`, `PetPhotoCard`, `IconBox` |
 | Layout | `src/components/layout/` | `Header`, `Sidebar`, `AppLayout` |
 | Feature | `src/components/<domain>/` | `DiscoverCard`, `PostCard`, `HealthSummary` |
 | Stránky | `src/pages/` | Jen orchestrace — import komponent, žádné velké bloky JSX |
@@ -42,6 +42,14 @@ Piš profi kód — bez duplicit. UI patří do `src/components/`, ne inline do 
 
 // ✅ Správně — sdílená komponenta (PageHeader)
 <PageHeader badge="Objevovat" title="Objevovat" description="..." />
+```
+
+```tsx
+// ❌ Špatně — vlastní search input
+<div className="relative"><Search /><input ... /></div>
+
+// ✅ Správně
+<SearchInput size="lg" value={q} onChange={...} clearable onClear={...} />
 ```
 
 ## Před commitem

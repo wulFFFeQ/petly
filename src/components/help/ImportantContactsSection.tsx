@@ -1,6 +1,7 @@
 import { AlertCircle, PawPrint, Phone, Shield, Stethoscope } from 'lucide-react'
 import { importantContacts } from '../../data/mockData'
 import { Card } from '../ui/Card'
+import { IconBox } from '../ui/IconBox'
 import type { ImportantContactType } from '../../types'
 
 const CONTACT_ICONS: Record<ImportantContactType, typeof Phone> = {
@@ -29,9 +30,7 @@ export function ImportantContactsSection() {
               key={contact.id}
               className="flex items-start gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E0EAEC] text-[#234B54]">
-                <Icon size={16} />
-              </div>
+              <IconBox icon={Icon} size="md" tone="teal" className="h-9 w-9" />
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
                   {contact.label}

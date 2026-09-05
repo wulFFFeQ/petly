@@ -1,6 +1,5 @@
 import {
   Bell,
-  Search,
   CheckCheck,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -8,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { petCountLabel } from '../../lib/dashboardDates'
 import { Avatar } from '../ui/Avatar'
+import { SearchInput } from '../ui/SearchInput'
 
 function getGreetingData(): { greeting: string; emoji: string } {
   const hour = new Date().getHours()
@@ -56,18 +56,13 @@ export function Header() {
         <div className="flex items-center gap-2.5 shrink-0">
           <form
             onSubmit={handleSearchSubmit}
-            className="relative hidden xl:block w-52"
+            className="hidden xl:block w-52"
           >
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A3AEA7]"
-            />
-            <input
-              type="text"
+            <SearchInput
+              size="sm"
               placeholder="Hledat..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full h-9 rounded-xl border border-[#E8E4DC] bg-white pl-9 pr-3 text-xs text-[#191E1B] placeholder:text-[#A3AEA7] outline-none focus:border-[#2C4A3E] focus:ring-2 focus:ring-[#2C4A3E]/10"
             />
           </form>
 

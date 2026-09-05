@@ -2,6 +2,7 @@ import {
   Flag,
   Heart,
   Link2,
+  MapPin,
   MessageCircle,
   Share2,
   Send,
@@ -113,6 +114,15 @@ export function PostCard({ post }: PostCardProps) {
                 <>
                   <span>·</span>
                   <span className="text-[#234B54] font-medium">{post.petTag}</span>
+                </>
+              )}
+              {post.location && (
+                <>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-0.5 font-medium text-[#B8934A]">
+                    <MapPin size={11} className="shrink-0" />
+                    {post.location}
+                  </span>
                 </>
               )}
             </div>
