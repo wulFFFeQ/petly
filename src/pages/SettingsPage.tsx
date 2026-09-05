@@ -2,7 +2,6 @@ import {
   Bell,
   Shield,
   User,
-  Sparkles,
   ShieldCheck,
   Syringe,
   Pill,
@@ -14,6 +13,9 @@ import { useState } from 'react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { IconBox } from '../components/ui/IconBox'
+import { Input } from '../components/ui/Input'
+import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 import { BRAND_NAME } from '../lib/brand'
 import { cn } from '../lib/utils'
@@ -102,66 +104,53 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-4xl">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Badge variant="gold" size="sm">
-            <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-            Předvolby
-          </Badge>
-          <span className="text-xs text-[#7D8B82] font-medium">Účet a upozornění</span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
-          Nastavení
-        </h1>
-        <p className="mt-1 text-sm text-[#4A564F]">
-          Spravujte profil účtu, upozornění a nastavení soukromí veterinárních dat.
-        </p>
-      </div>
+      <PageHeader
+        badge="Předvolby"
+        meta="Účet a upozornění"
+        title="Nastavení"
+        description="Spravujte profil účtu, upozornění a nastavení soukromí veterinárních dat."
+        className="pb-0"
+      />
 
       <div className="space-y-6">
-        {/* Profile Card */}
         <Card variant="elevated">
           <h3 className="text-base font-bold text-[#191E1B] mb-4 flex items-center gap-2">
             <User size={18} className="text-[#2C4A3E]" />
             <span>Profil a domácnost</span>
           </h3>
           <div className="grid gap-4 sm:grid-cols-2 text-sm">
-            <div>
-              <label className="text-xs font-semibold text-[#4A564F]">Jméno účtu</label>
-              <input
-                type="text"
-                defaultValue="Tereza V."
-                className="mt-1 w-full h-10 rounded-xl border border-[#E8E4DC] px-3 text-xs text-[#191E1B] outline-none focus:border-[#2C4A3E]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[#4A564F]">Kontaktní e-mail</label>
-              <input
-                type="email"
-                defaultValue="tereza@example.cz"
-                className="mt-1 w-full h-10 rounded-xl border border-[#E8E4DC] px-3 text-xs text-[#191E1B] outline-none focus:border-[#2C4A3E]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[#4A564F]">Město / region</label>
-              <input
-                type="text"
-                defaultValue="Kolín, Česká republika"
-                className="mt-1 w-full h-10 rounded-xl border border-[#E8E4DC] px-3 text-xs text-[#191E1B] outline-none focus:border-[#2C4A3E]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[#4A564F]">Hlavní veterinární klinika</label>
-              <input
-                type="text"
-                defaultValue="PetCare Central Praha (MUDr. Novák)"
-                className="mt-1 w-full h-10 rounded-xl border border-[#E8E4DC] px-3 text-xs text-[#191E1B] outline-none focus:border-[#2C4A3E]"
-              />
-            </div>
+            <Input
+              id="settings-account-name"
+              label="Jméno účtu"
+              defaultValue="Tereza V."
+              labelClassName="normal-case tracking-normal"
+              className="text-xs shadow-none focus:ring-0"
+            />
+            <Input
+              id="settings-email"
+              type="email"
+              label="Kontaktní e-mail"
+              defaultValue="tereza@example.cz"
+              labelClassName="normal-case tracking-normal"
+              className="text-xs shadow-none focus:ring-0"
+            />
+            <Input
+              id="settings-city"
+              label="Město / region"
+              defaultValue="Kolín, Česká republika"
+              labelClassName="normal-case tracking-normal"
+              className="text-xs shadow-none focus:ring-0"
+            />
+            <Input
+              id="settings-clinic"
+              label="Hlavní veterinární klinika"
+              defaultValue="PetCare Central Praha (MUDr. Novák)"
+              labelClassName="normal-case tracking-normal"
+              className="text-xs shadow-none focus:ring-0"
+            />
           </div>
         </Card>
 
-        {/* Notifications & Reminders */}
         <Card variant="elevated">
           <h3 className="text-base font-bold text-[#191E1B] mb-4 flex items-center gap-2">
             <Bell size={18} className="text-[#B8934A]" />
@@ -193,7 +182,6 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        {/* Privacy & Vet Data Access */}
         <Card variant="elevated">
           <h3 className="text-base font-bold text-[#191E1B] mb-4 flex items-center gap-2">
             <Shield size={18} className="text-[#2C4A3E]" />
@@ -234,7 +222,6 @@ export function SettingsPage() {
                 Sdílené zdravotní údaje
               </p>
               {VET_DATA_ACCESS.map((item) => {
-                const Icon = item.icon
                 const enabled = vetHasAccess && vetAccess[item.id]
                 return (
                   <div
@@ -247,9 +234,7 @@ export function SettingsPage() {
                     )}
                   >
                     <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E0EAEC] text-[#234B54]">
-                        <Icon size={15} />
-                      </div>
+                      <IconBox icon={item.icon} size="md" tone="teal" />
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-[#191E1B]">{item.label}</p>
                         <p className="mt-0.5 text-[11px] text-[#7D8B82]">{item.desc}</p>

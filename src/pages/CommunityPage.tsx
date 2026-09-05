@@ -1,7 +1,6 @@
-import { Sparkles } from 'lucide-react'
 import { CreatePostInput } from '../components/community/CreatePostInput'
 import { PostCard } from '../components/community/PostCard'
-import { Badge } from '../components/ui/Badge'
+import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 
 export function CommunityPage() {
@@ -9,26 +8,13 @@ export function CommunityPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <Badge variant="gold" size="sm">
-              <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-              Společenský kruh
-            </Badge>
-            <span className="text-xs text-[#7D8B82] font-medium">
-              Ověřená komunita chovatelů
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
-            Komunita
-          </h1>
-          <p className="mt-0.5 text-sm text-[#4A564F]">
-            Spojte se s majiteli mazlíčků ve vašem okolí, sdílejte ověřené tipy a slavte milníky.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        badge="Společenský kruh"
+        meta="Ověřená komunita chovatelů"
+        title="Komunita"
+        description="Spojte se s majiteli mazlíčků ve vašem okolí, sdílejte ověřené tipy a slavte milníky."
+        className="gap-2 pb-0"
+      />
 
       <div className="mx-auto max-w-2xl space-y-4">
         <CreatePostInput />
