@@ -263,8 +263,6 @@ export interface Message {
   sender: 'me' | 'them'
   text: string
   time: string
-  /** Hidden from the active chat stream when true. */
-  archived?: boolean
   attachment?: {
     kind: 'health_record'
     recordId: string
@@ -281,13 +279,18 @@ export interface Conversation {
   avatar: string
   role?: string
   petContext: string
+  /** Own pet in this thread (e.g. for sharing health records with a vet). */
   petId?: string
+  /** Discover pet belonging to the contact (their animal's public profile). */
+  contactPetId?: string
   contactType: 'vet' | 'trainer' | 'community'
   online?: boolean
   lastMessage: string
   time: string
   unread: number
   messages: Message[]
+  /** Entire thread hidden from the active conversation list when true. */
+  archived?: boolean
 }
 
 export interface WeightDataPoint {

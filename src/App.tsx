@@ -5,6 +5,7 @@ import { CalendarPage } from './pages/CalendarPage'
 import { CommunityPage } from './pages/CommunityPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiscoverPage } from './pages/DiscoverPage'
+import { DiscoverPetPage } from './pages/DiscoverPetPage'
 import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
 import { MessagesPage } from './pages/MessagesPage'
@@ -24,6 +25,7 @@ function App() {
             <Route path="pets" element={<MyPetsPage />} />
             <Route path="pets/:petId" element={<PetProfilePage />} />
             <Route path="discover" element={<DiscoverPage />} />
+            <Route path="discover/:petId" element={<DiscoverPetPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="health" element={<HealthPage />} />
             <Route path="calendar" element={<CalendarPage />} />

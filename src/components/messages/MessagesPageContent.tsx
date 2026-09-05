@@ -18,12 +18,18 @@ import {
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { conversations as initialConversations, healthRecords } from '../../data/mockData'
+import { conversations as initialConversations, discoverPets, healthRecords } from '../../data/mockData'
+import {
+  loadArchivedConversationIds,
+  saveArchivedConversationIds,
+} from '../../lib/archivedConversations'
 import { useApp } from '../../context/AppContext'
 import type { Conversation, HealthRecord } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
+import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { Modal } from '../ui/Modal'
 import { cn } from '../../lib/utils'
 
 type ShareCategory = 'vaccination' | 'medication' | 'visit' | 'results'
@@ -67,23 +73,49 @@ function buildHealthShareMessage(record: HealthRecord, index: number) {
   }
 }
 
+function buildInitialConversations(): Conversation[] {
+  const archivedIds = new Set(loadArchivedConversationIds())
+  return initialConversations.map((conversation) => ({
+    ...conversation,
+    archived: archivedIds.has(conversation.id),
+  }))
+}
+
 export function MessagesPageContent() {
   const { showToast } = useApp()
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
-  const [activeId, setActiveId] = useState(conversations[0]?.id ?? '')
+  const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
+  const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
+  const [activeId, setActiveId] = useState(() => {
+    const initial = buildInitialConversations()
+    return initial.find((c) => !c.archived)?.id ?? initial[0]?.id ?? ''
+  })
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [mobileShowChat, setMobileShowChat] = useState(false)
   const [shareMenuOpen, setShareMenuOpen] = useState(false)
   const [selectedShareIds, setSelectedShareIds] = useState<string[]>([])
+  const [contactProfileOpen, setContactProfileOpen] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
   const active = conversations.find((c) => c.id === activeId)
+  const contactPet = active?.contactPetId
+    ? discoverPets.find((pet) => pet.id === active.contactPetId)
+    : undefined
+  const archivedCount = conversations.filter((c) => c.archived).length
+
+  useEffect(() => {
+    const archivedIds = conversations.filter((c) => c.archived).map((c) => c.id)
+    saveArchivedConversationIds(archivedIds)
+  }, [conversations])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [active?.messages])
+
+  useEffect(() => {
+    setContactProfileOpen(false)
+  }, [activeId])
 
   useEffect(() => {
     setShareMenuOpen(false)
@@ -228,43 +260,58 @@ export function MessagesPageContent() {
     }
   }
 
-  const messagePreview = (msg: Conversation['messages'][number]) => {
-    if (msg.attachment?.kind === 'health_record') {
-      return `Sdílen zdravotní záznam: ${msg.attachment.title}`
-    }
-    return msg.text
-  }
-
-  const handleArchiveMessage = (messageId: string) => {
-    if (!activeId) return
+  const handleArchiveConversation = (conversationId: string) => {
+    const target = conversations.find((c) => c.id === conversationId)
     setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== activeId) return c
-        const messages = c.messages.map((msg) =>
-          msg.id === messageId ? { ...msg, archived: true } : msg,
-        )
-        const visible = messages.filter((msg) => !msg.archived)
-        const lastVisible = visible[visible.length - 1]
-        return {
-          ...c,
-          messages,
-          lastMessage: lastVisible
-            ? messagePreview(lastVisible)
-            : 'Žádné aktivní zprávy',
-        }
-      }),
+      prev.map((c) => (c.id === conversationId ? { ...c, archived: true, unread: 0 } : c)),
     )
-    showToast('Zpráva archivována', 'Zpráva byla skryta z aktivní konverzace.', 'info')
+
+    if (activeId === conversationId) {
+      const next = conversations.find((c) => c.id !== conversationId && !c.archived)
+      setActiveId(next?.id ?? '')
+      setMobileShowChat(false)
+    }
+
+    showToast(
+      'Konverzace archivována',
+      target
+        ? `Vlákno s ${target.name} bylo přesunuto do archivu.`
+        : 'Vlákno bylo přesunuto do archivu.',
+      'info',
+    )
   }
 
-  const filteredConversations = conversations.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.lastMessage.toLowerCase().includes(search.toLowerCase()) ||
-      c.petContext.toLowerCase().includes(search.toLowerCase()),
-  )
+  const handleRestoreConversation = (conversationId: string) => {
+    const target = conversations.find((c) => c.id === conversationId)
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, archived: false } : c)),
+    )
+    setListMode('inbox')
+    setActiveId(conversationId)
+    setMobileShowChat(true)
+    showToast(
+      'Konverzace obnovena',
+      target
+        ? `Vlákno s ${target.name} je znovu v aktivních zprávách.`
+        : 'Vlákno je znovu v aktivních zprávách.',
+      'gold',
+    )
+  }
+
+  const filteredConversations = conversations.filter((c) => {
+    const inCurrentList = listMode === 'archive' ? Boolean(c.archived) : !c.archived
+    if (!inCurrentList) return false
+    const q = search.toLowerCase()
+    if (!q) return true
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.lastMessage.toLowerCase().includes(q) ||
+      c.petContext.toLowerCase().includes(q)
+    )
+  })
 
   return (
+    <>
     <Card
       variant="elevated"
       padding="none"
@@ -279,12 +326,72 @@ export function MessagesPageContent() {
       >
         {/* Search header */}
         <div className="p-4 border-b border-[#F0EDE6] space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[#191E1B]">Konverzace</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-[#191E1B]">Zprávy</h2>
             <Badge variant="gold" size="sm">
               Ověřeno
             </Badge>
           </div>
+
+          <div
+            role="tablist"
+            aria-label="Přepínač konverzací"
+            className="grid grid-cols-2 gap-1 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={listMode === 'inbox'}
+              onClick={() => setListMode('inbox')}
+              className={cn(
+                'rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
+                listMode === 'inbox'
+                  ? 'bg-white text-[#2C4A3E] shadow-xs'
+                  : 'text-[#5A6660] hover:text-[#234B54]',
+              )}
+            >
+              Aktivní
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={listMode === 'archive'}
+              onClick={() => setListMode('archive')}
+              className={cn(
+                'inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer',
+                listMode === 'archive'
+                  ? 'bg-white text-[#2C4A3E] shadow-xs'
+                  : 'text-[#5A6660] hover:text-[#234B54]',
+              )}
+            >
+              <Archive size={12} />
+              Archiv
+              {archivedCount > 0 && (
+                <span
+                  className={cn(
+                    'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold',
+                    listMode === 'archive'
+                      ? 'bg-[#E0EAEC] text-[#234B54]'
+                      : 'bg-[#E8E4DC] text-[#5A6660]',
+                  )}
+                >
+                  {archivedCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {listMode === 'archive' && (
+            <button
+              type="button"
+              onClick={() => setListMode('inbox')}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#234B54] hover:text-[#B8934A] cursor-pointer"
+            >
+              <ArrowLeft size={13} />
+              Zpět na aktivní chaty
+            </button>
+          )}
+
           <div className="relative">
             <Search
               size={15}
@@ -292,7 +399,11 @@ export function MessagesPageContent() {
             />
             <input
               type="text"
-              placeholder="Hledat konverzace..."
+              placeholder={
+                listMode === 'archive'
+                  ? 'Hledat v archivu...'
+                  : 'Hledat konverzace...'
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-8.5 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] pl-8.5 pr-3 text-xs text-[#191E1B] placeholder:text-[#A3AEA7] outline-none focus:border-[#2C4A3E] focus:bg-white focus:ring-2 focus:ring-[#2C4A3E]/10"
@@ -302,70 +413,122 @@ export function MessagesPageContent() {
 
         {/* List items */}
         <div className="flex-1 overflow-y-auto divide-y divide-[#F0EDE6]">
-          {filteredConversations.map((conv) => {
+          {filteredConversations.length === 0 ? (
+            <div className="px-4 py-10 text-center">
+              <Archive size={22} className="mx-auto text-[#C5D0CB]" />
+              <p className="mt-2 text-sm font-semibold text-[#191E1B]">
+                {listMode === 'archive'
+                  ? 'Archiv je prázdný'
+                  : 'Žádné aktivní konverzace'}
+              </p>
+              <p className="mt-1 text-[11px] text-[#7D8B82]">
+                {listMode === 'archive'
+                  ? 'Archivované chaty se zobrazí tady.'
+                  : 'Zkuste jiný filtr nebo obnovte chat z archivu.'}
+              </p>
+              {listMode === 'archive' && (
+                <button
+                  type="button"
+                  onClick={() => setListMode('inbox')}
+                  className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#234B54] hover:text-[#B8934A] cursor-pointer"
+                >
+                  <ArrowLeft size={13} />
+                  Zpět na aktivní chaty
+                </button>
+              )}
+            </div>
+          ) : (
+          filteredConversations.map((conv) => {
             const isSelected = activeId === conv.id
             return (
-              <button
+              <div
                 key={conv.id}
-                onClick={() => selectConversation(conv.id)}
                 className={cn(
-                  'flex w-full items-start gap-3.5 p-4 text-left transition-all duration-200 cursor-pointer',
-                  isSelected
-                    ? 'bg-[#EBF2EE]'
-                    : 'hover:bg-[#FAF8F5]',
+                  'group relative flex w-full items-start gap-3.5 p-4 text-left transition-all duration-200',
+                  isSelected ? 'bg-[#EBF2EE]' : 'hover:bg-[#FAF8F5]',
                 )}
               >
-                <Avatar
-                  src={conv.avatar}
-                  alt={conv.name}
-                  size="md"
-                  status={conv.online ? 'online' : 'offline'}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span
+                <button
+                  type="button"
+                  onClick={() => selectConversation(conv.id)}
+                  className="flex min-w-0 flex-1 items-start gap-3.5 text-left cursor-pointer"
+                >
+                  <Avatar
+                    src={conv.avatar}
+                    alt={conv.name}
+                    size="md"
+                    status={conv.online ? 'online' : 'offline'}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span
+                        className={cn(
+                          'text-sm font-bold truncate',
+                          isSelected ? 'text-[#2C4A3E]' : 'text-[#191E1B]',
+                        )}
+                      >
+                        {conv.name}
+                      </span>
+                      <span className="text-[10px] font-medium text-[#7D8B82] shrink-0">
+                        {conv.time}
+                      </span>
+                    </div>
+
+                    {conv.role && (
+                      <p className="text-[11px] text-[#7D8B82] font-medium truncate">
+                        {conv.role}
+                      </p>
+                    )}
+
+                    <p className="mt-0.5 text-[10px] font-semibold text-[#234B54] truncate">
+                      {conv.petContext}
+                    </p>
+
+                    <p
                       className={cn(
-                        'text-sm font-bold truncate',
-                        isSelected ? 'text-[#2C4A3E]' : 'text-[#191E1B]',
+                        'text-xs truncate mt-1',
+                        conv.unread > 0
+                          ? 'font-bold text-[#191E1B]'
+                          : 'text-[#4A564F]',
                       )}
                     >
-                      {conv.name}
-                    </span>
-                    <span className="text-[10px] font-medium text-[#7D8B82] shrink-0">
-                      {conv.time}
-                    </span>
-                  </div>
-
-                  {conv.role && (
-                    <p className="text-[11px] text-[#7D8B82] font-medium truncate">
-                      {conv.role}
+                      {conv.lastMessage}
                     </p>
+                  </div>
+                </button>
+
+                <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
+                  {conv.unread > 0 && listMode === 'inbox' && (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2C4A3E] text-[10px] font-bold text-white shadow-xs">
+                      {conv.unread}
+                    </span>
                   )}
-
-                  <p className="mt-0.5 text-[10px] font-semibold text-[#234B54] truncate">
-                    {conv.petContext}
-                  </p>
-
-                  <p
-                    className={cn(
-                      'text-xs truncate mt-1',
-                      conv.unread > 0
-                        ? 'font-bold text-[#191E1B]'
-                        : 'text-[#4A564F]',
-                    )}
-                  >
-                    {conv.lastMessage}
-                  </p>
+                  {listMode === 'archive' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreConversation(conv.id)}
+                      title="Obnovit konverzaci"
+                      aria-label={`Obnovit konverzaci s ${conv.name}`}
+                      className="inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold text-[#234B54] hover:bg-white cursor-pointer"
+                    >
+                      Obnovit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleArchiveConversation(conv.id)}
+                      title="Archivovat konverzaci"
+                      aria-label={`Archivovat konverzaci s ${conv.name}`}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#A3AEA7] opacity-0 transition-all hover:bg-white hover:text-[#234B54] group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                    >
+                      <Archive size={14} />
+                    </button>
+                  )}
                 </div>
-
-                {conv.unread > 0 && (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#2C4A3E] text-[10px] font-bold text-white shadow-xs">
-                    {conv.unread}
-                  </span>
-                )}
-              </button>
+              </div>
             )
-          })}
+          })
+          )}
         </div>
       </div>
 
@@ -388,17 +551,28 @@ export function MessagesPageContent() {
                 >
                   <ArrowLeft size={18} />
                 </button>
-                <Avatar
-                  src={active.avatar}
-                  alt={active.name}
-                  size="sm"
-                  status={active.online ? 'online' : 'offline'}
-                />
+                <button
+                  type="button"
+                  onClick={() => setContactProfileOpen(true)}
+                  className="rounded-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2C4A3E]/30"
+                  aria-label={`Otevřít profil ${active.name}`}
+                >
+                  <Avatar
+                    src={active.avatar}
+                    alt={active.name}
+                    size="sm"
+                    status={active.online ? 'online' : 'offline'}
+                  />
+                </button>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-[#191E1B]">
+                    <button
+                      type="button"
+                      onClick={() => setContactProfileOpen(true)}
+                      className="text-sm font-bold text-[#191E1B] hover:text-[#234B54] hover:underline underline-offset-2 transition-colors cursor-pointer text-left"
+                    >
                       {active.name}
-                    </span>
+                    </button>
                     {active.role?.includes('veterinář') && (
                       <ShieldCheck size={14} className="text-[#2C4A3E]" />
                     )}
@@ -410,9 +584,18 @@ export function MessagesPageContent() {
                   <p className="mt-0.5 text-[10px] font-semibold text-[#234B54]">
                     {active.petContext}
                   </p>
-                  {(active.petId || active.contactType === 'vet') && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      {active.petId && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    {contactPet && (
+                      <Link
+                        to={`/discover/${contactPet.id}`}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#234B54] hover:text-[#B8934A] transition-colors"
+                      >
+                        <ExternalLink size={10} />
+                        Profil {contactPet.name}
+                      </Link>
+                    )}
+                    {active.petId && active.contactType === 'vet' && (
+                      <>
                         <Link
                           to={`/pets/${active.petId}`}
                           className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#234B54] hover:text-[#B8934A] transition-colors"
@@ -420,8 +603,6 @@ export function MessagesPageContent() {
                           <ExternalLink size={10} />
                           Profil mazlíčka
                         </Link>
-                      )}
-                      {active.contactType === 'vet' && active.petId && (
                         <Link
                           to="/health"
                           className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#234B54] hover:text-[#B8934A] transition-colors"
@@ -429,13 +610,34 @@ export function MessagesPageContent() {
                           <FileText size={10} />
                           Zdravotní záznamy
                         </Link>
-                      )}
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5">
+                {active.archived ? (
+                  <button
+                    type="button"
+                    onClick={() => handleRestoreConversation(active.id)}
+                    className="rounded-xl px-2.5 py-2 text-[11px] font-semibold text-[#234B54] hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                    aria-label="Obnovit konverzaci"
+                    title="Obnovit konverzaci"
+                  >
+                    Obnovit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleArchiveConversation(active.id)}
+                    className="rounded-xl p-2 text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+                    aria-label="Archivovat konverzaci"
+                    title="Archivovat konverzaci"
+                  >
+                    <Archive size={17} />
+                  </button>
+                )}
                 <button
                   onClick={() => showToast('Hlasový hovor zahájen', `Připojování k ${active.name}...`, 'info')}
                   className="rounded-xl p-2 text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
@@ -461,29 +663,18 @@ export function MessagesPageContent() {
                 </span>
               </div>
 
-              {active.messages.filter((msg) => !msg.archived).map((msg) => {
+              {active.messages.map((msg) => {
                 const isMe = msg.sender === 'me'
                 return (
                   <div
                     key={msg.id}
                     className={cn(
-                      'group flex items-end gap-1.5',
+                      'flex items-end gap-2',
                       isMe ? 'justify-end' : 'justify-start',
                     )}
                   >
                     {!isMe && (
                       <Avatar src={active.avatar} alt={active.name} size="xs" />
-                    )}
-                    {isMe && (
-                      <button
-                        type="button"
-                        onClick={() => handleArchiveMessage(msg.id)}
-                        title="Archivovat zprávu"
-                        aria-label="Archivovat zprávu"
-                        className="mb-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#A3AEA7] opacity-0 transition-all hover:bg-[#FAF8F5] hover:text-[#234B54] group-hover:opacity-100 focus:opacity-100 cursor-pointer"
-                      >
-                        <Archive size={14} />
-                      </button>
                     )}
                     <div
                       className={cn(
@@ -562,17 +753,6 @@ export function MessagesPageContent() {
                         {isMe && <CheckCheck size={12} className="text-white/80" />}
                       </div>
                     </div>
-                    {!isMe && (
-                      <button
-                        type="button"
-                        onClick={() => handleArchiveMessage(msg.id)}
-                        title="Archivovat zprávu"
-                        aria-label="Archivovat zprávu"
-                        className="mb-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#A3AEA7] opacity-0 transition-all hover:bg-[#FAF8F5] hover:text-[#234B54] group-hover:opacity-100 focus:opacity-100 cursor-pointer"
-                      >
-                        <Archive size={14} />
-                      </button>
-                    )}
                   </div>
                 )
               })}
@@ -738,5 +918,116 @@ export function MessagesPageContent() {
         )}
       </div>
     </Card>
+
+    {active && (
+      <Modal
+        open={contactProfileOpen}
+        onClose={() => setContactProfileOpen(false)}
+        title={active.name}
+        subtitle="Profil uživatele"
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3.5">
+            <Avatar
+              src={active.avatar}
+              alt={active.name}
+              size="lg"
+              status={active.online ? 'online' : 'offline'}
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h3 className="text-base font-bold text-[#191E1B]">{active.name}</h3>
+                {active.role?.includes('veterinář') && (
+                  <ShieldCheck size={15} className="text-[#2C4A3E]" />
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-[#7D8B82]">
+                {active.online ? 'Právě online' : 'Naposledy aktivní před 2 h'}
+              </p>
+              <Badge variant="outline" size="sm" className="mt-2">
+                {active.contactType === 'vet'
+                  ? 'Veterinář'
+                  : active.contactType === 'trainer'
+                    ? 'Trenér'
+                    : 'Komunita'}
+              </Badge>
+            </div>
+          </div>
+
+          {contactPet ? (
+            <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5 space-y-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Mazlíček tohoto uživatele
+                </p>
+                {active.role && (
+                  <Link
+                    to={`/discover/${contactPet.id}`}
+                    onClick={() => setContactProfileOpen(false)}
+                    className="mt-1 inline-flex text-sm font-semibold text-[#234B54] hover:text-[#B8934A] hover:underline underline-offset-2 transition-colors"
+                  >
+                    {active.role}
+                  </Link>
+                )}
+              </div>
+
+              <Link
+                to={`/discover/${contactPet.id}`}
+                onClick={() => setContactProfileOpen(false)}
+                className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-white p-2.5 transition-colors hover:border-[#234B54]/30 hover:bg-white"
+              >
+                <img
+                  src={contactPet.image}
+                  alt={contactPet.name}
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-[#191E1B]">{contactPet.name}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-[#5A6660]">
+                    {contactPet.breed}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[#234B54]">
+                    Otevřít profil mazlíčka →
+                  </p>
+                </div>
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Kontext
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-[#234B54]">{active.petContext}</p>
+              {active.role && (
+                <p className="mt-2 text-xs text-[#5A6660]">{active.role}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 pt-1">
+            {contactPet && (
+              <Link
+                to={`/discover/${contactPet.id}`}
+                onClick={() => setContactProfileOpen(false)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#E8E4DC] bg-white px-3 py-2.5 text-xs font-semibold text-[#234B54] hover:border-[#234B54]/30 hover:bg-[#FAF8F5] transition-colors"
+              >
+                <ExternalLink size={13} />
+                Otevřít profil {contactPet.name}
+              </Link>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              fullWidth
+              onClick={() => setContactProfileOpen(false)}
+            >
+              Zpět ke konverzaci
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   )
 }
