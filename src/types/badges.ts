@@ -2,14 +2,15 @@ export type BadgeScope = 'pet' | 'user'
 
 export type BadgeCategory =
   | 'milestone'
-  | 'health'
-  | 'activity'
-  | 'community'
-  | 'care'
+  | 'companion'
+  | 'breeding'
+  | 'challenge'
   | 'secret'
 
-/** Display / collection rarity — secrets are always `secret`. */
 export type BadgeRarity = 'common' | 'uncommon' | 'rare' | 'secret'
+
+/** Which pets can earn this badge. */
+export type BadgeSpecies = 'all' | 'dog' | 'cat'
 
 export interface BadgeLevelDef {
   level: number
@@ -23,19 +24,19 @@ export interface BadgeDefinition {
   category: BadgeCategory
   rarity: BadgeRarity
   name: string
-  /** Short flavor — what this milestone means. */
   description: string
-  /** Shown when earned: why / for what it was awarded. */
   earnedFor: string
-  /** Guidance for “Další na cestě” (never shown for secrets). */
+  /** Hint for path / challenge (never for secrets). */
   hint: string
-  /** Hidden until earned. */
   secret?: boolean
-  /** Max level; omit or 1 = single-level badge. */
   maxLevel?: number
   levels?: BadgeLevelDef[]
-  /** Lucide icon key used by the medal UI. */
   icon: BadgeIconKey
+  species?: BadgeSpecies
+  /** Only when Chovný profil is on. */
+  requiresBreeding?: boolean
+  /** Linked challenge id (optional). */
+  challengeId?: string
 }
 
 export type BadgeIconKey =
@@ -61,15 +62,27 @@ export type BadgeIconKey =
   | 'compass'
   | 'camera'
   | 'check'
+  | 'trophy'
+  | 'waves'
+  | 'car'
+  | 'globe'
+  | 'paw'
 
-/** Persisted unlock record. */
 export interface EarnedBadge {
   badgeId: string
-  /** Present for pet-scoped badges. */
   petId?: string
   level: number
-  /** ISO date YYYY-MM-DD */
   earnedAt: string
-  /** For secret badges: false until first award toast shown. */
   revealed: boolean
+}
+
+export interface ChallengeDefinition {
+  id: string
+  name: string
+  description: string
+  /** What to do — concrete experience, not a form field. */
+  instruction: string
+  badgeId: string
+  species?: BadgeSpecies
+  requiresBreeding?: boolean
 }

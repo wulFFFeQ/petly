@@ -435,6 +435,24 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<{
   return { canvas: cropped, filename: L.filename }
 }
 
+function downloadPdfToBrowserShelf(bytes: ArrayBuffer, filename: string) {
+  // octet-stream + download attribute → Chrome/Edge put the file into
+  // “Recent download history” instead of opening the inline PDF viewer.
+  const blob = new Blob([bytes], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  window.setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(url)
+  }, 2000)
+}
+
 export async function downloadTravelPackagePdf(input: TravelPackPdfInput) {
   const { canvas, filename } = await renderTravelPackCanvas(input)
   const imgData = canvas.toDataURL('image/jpeg', 0.95)
@@ -454,20 +472,7 @@ export async function downloadTravelPackagePdf(input: TravelPackPdfInput) {
   const y = margin + (maxH - imgH) / 2
   pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH)
 
-  // Force a real download (Chrome/Edge often open PDF blobs in a viewer instead).
-  const pdfBytes = pdf.output('arraybuffer')
-  const blob = new Blob([pdfBytes], { type: 'application/octet-stream' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.rel = 'noopener'
-  link.style.display = 'none'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(url), 1500)
-
+  downloadPdfToBrowserShelf(pdf.output('arraybuffer'), filename)
   return filename
 }
 

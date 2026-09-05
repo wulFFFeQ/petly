@@ -3,16 +3,19 @@ import {
   Cake,
   Calendar,
   Camera,
+  Car,
   Check,
   ClipboardList,
   Compass,
   FileText,
   Footprints,
+  Globe,
   Heart,
   Home,
   Map,
   MessageCircle,
   Moon,
+  PawPrint,
   Plane,
   Scale,
   Shield,
@@ -20,7 +23,9 @@ import {
   Star,
   Stethoscope,
   Syringe,
+  Trophy,
   Users,
+  Waves,
   type LucideIcon,
 } from 'lucide-react'
 import type { BadgeCategory, BadgeIconKey } from '../../types/badges'
@@ -48,6 +53,11 @@ export const BADGE_ICONS: Record<BadgeIconKey, LucideIcon> = {
   compass: Compass,
   camera: Camera,
   check: Check,
+  trophy: Trophy,
+  waves: Waves,
+  car: Car,
+  globe: Globe,
+  paw: PawPrint,
 }
 
 /** Seal palette — earned medallions feel warm and intentional. */
@@ -68,28 +78,21 @@ export const SEAL_PALETTE: Record<
     ink: 'text-[#E8D8B5]',
     glow: 'shadow-[0_6px_20px_rgba(184,147,74,0.28)]',
   },
-  health: {
-    outer: 'from-[#3D5C4E] via-[#8FA99A] to-[#2C4A3E]',
-    mid: 'bg-[#EBF2EE]',
-    disc: 'from-[#2C4A3E] to-[#1E352C]',
-    ink: 'text-[#D4E5DB]',
-    glow: 'shadow-[0_6px_20px_rgba(44,74,62,0.28)]',
-  },
-  activity: {
+  companion: {
     outer: 'from-[#3A5A63] via-[#8AA3AA] to-[#234B54]',
     mid: 'bg-[#EEF3F4]',
     disc: 'from-[#234B54] to-[#1A3A42]',
     ink: 'text-[#D5E4E8]',
     glow: 'shadow-[0_6px_20px_rgba(35,75,84,0.28)]',
   },
-  community: {
+  breeding: {
     outer: 'from-[#8B7355] via-[#D4C4A8] to-[#6B5A45]',
     mid: 'bg-[#F7F2EB]',
     disc: 'from-[#5C4A38] to-[#3E3228]',
     ink: 'text-[#E8D8B5]',
     glow: 'shadow-[0_6px_20px_rgba(107,90,69,0.25)]',
   },
-  care: {
+  challenge: {
     outer: 'from-[#B8934A] via-[#E8D8B5] to-[#2C4A3E]',
     mid: 'bg-[#FAF8F5]',
     disc: 'from-[#2C4A3E] to-[#234B54]',

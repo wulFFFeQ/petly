@@ -1,40 +1,15 @@
-import { importantContacts, petTravelPackages } from '../../data/mockData'
 import type {
   CalendarEvent,
   CommunityPost,
-  HealthRecord,
   Pet,
   PetDocument,
   PetPhoto,
+  HealthRecord,
 } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
-import { APP_TODAY, parseEventDate, parseCzechDate } from '../dashboardDates'
-import {
-  ensurePetFirstSeenDays,
-  getWeightMeasurementsForPet,
-  isPetProfileShared,
-} from './badgeData'
-import { BADGE_CATALOG } from './catalog'
-import {
-  computeActiveCareStreak,
-  computeFullCareStreak,
-  countHealthEventCompliance,
-} from './careStreak'
-
-const USER_AUTHOR = 'Tereza V.'
-
-const TRAINING_TYPES = new Set(['training', 'agility', 'socialization', 'course'])
-const ACTIVITY_TYPES = new Set([
-  ...TRAINING_TYPES,
-  'trip',
-  'travel',
-  'grooming',
-  'bathing',
-  'doggy_daycare',
-  'community_meetup',
-  'exhibition',
-  'competition',
-])
+import { APP_TODAY, parseEventDate } from '../dashboardDates'
+import { ensurePetFirstSeenDays } from './badgeData'
+import { BADGE_CATALOG, isBadgeApplicableToPet } from './catalog'
 
 export interface BadgeEvalContext {
   pets: Pet[]
@@ -52,257 +27,378 @@ export interface BadgeProgress {
   level: number
 }
 
+export interface ChallengeProgress {
+  challengeId: string
+  petId: string
+  complete: boolean
+  /** 0–1 progress hint for UI */
+  ratio: number
+  detail: string
+}
+
+const EXPERIENCE_TYPES = new Set([
+  'trip',
+  'travel',
+  'swimming',
+  'roadtrip',
+  'foreign_travel',
+  'training',
+  'agility',
+  'socialization',
+  'course',
+  'doggy_daycare',
+  'community_meetup',
+  'pet_friend',
+  'exhibition',
+  'competition',
+  'exam',
+  'seminar',
+])
+
+const HOME_LIKE = new Set(['doma', 'home', ''])
+
 function hasText(value: string | undefined | null): boolean {
   return Boolean(value && value.trim())
 }
 
-function isBasicProfileComplete(pet: Pet): boolean {
-  return (
-    hasText(pet.dateOfBirth) &&
-    hasText(pet.gender) &&
-    pet.weight != null &&
-    pet.weight > 0 &&
-    hasText(pet.microchip) &&
-    pet.neutered != null
-  )
+function normalizePlace(location: string | undefined): string {
+  return (location ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function petHealth(records: HealthRecord[], petId: string): HealthRecord[] {
-  return records.filter((r) => r.petId === petId)
-}
-
-function petDocs(documents: PetDocument[], petId: string): PetDocument[] {
-  return documents.filter((d) => d.petId === petId)
+function isPastOrToday(event: CalendarEvent): boolean {
+  const d = parseEventDate(event.date)
+  if (Number.isNaN(d.getTime())) return false
+  d.setHours(23, 59, 59, 0)
+  return d.getTime() <= APP_TODAY.getTime() + 24 * 60 * 60 * 1000
 }
 
 function petEvents(events: CalendarEvent[], petName: string): CalendarEvent[] {
-  return events.filter((e) => e.petName === petName)
+  return events.filter((e) => e.petName === petName && isPastOrToday(e))
 }
 
-function petPosts(posts: CommunityPost[], petId: string): CommunityPost[] {
-  return posts.filter((p) => p.petId === petId)
-}
-
-function isVaccinationCurrent(records: HealthRecord[]): boolean {
-  const vaccines = records.filter((r) => r.type === 'vaccination')
-  if (vaccines.length === 0) return false
-  return vaccines.some((r) => {
-    if (r.status === 'scheduled') return false
-    if (r.nextDueDate) {
-      const due = parseCzechDate(r.nextDueDate) ?? parseEventDate(r.nextDueDate)
-      if (!Number.isNaN(due.getTime()) && due.getTime() < APP_TODAY.getTime()) return false
-    }
-    return r.status === 'completed' || r.status === 'active' || !r.status
+function withPlace(events: CalendarEvent[]): CalendarEvent[] {
+  return events.filter((e) => {
+    const place = normalizePlace(e.location)
+    return place.length > 0 && !HOME_LIKE.has(place)
   })
 }
 
-function countVetVisits(health: HealthRecord[], events: CalendarEvent[]): number {
-  const fromHealth = health.filter(
-    (r) => r.type === 'vet' || r.type === 'examination',
-  ).length
-  const fromCal = events.filter(
-    (e) =>
-      (e.type === 'vet' || e.type === 'examination' || e.type === 'dental') &&
-      !e.sourceRecordId,
-  ).length
-  return fromHealth + fromCal
+function uniquePlaces(events: CalendarEvent[]): string[] {
+  const set = new Set<string>()
+  for (const e of withPlace(events)) {
+    set.add(normalizePlace(e.location))
+  }
+  return Array.from(set)
 }
 
-function activitySpanDays(events: CalendarEvent[]): { count: number; spanDays: number } {
-  const activity = events.filter((e) => ACTIVITY_TYPES.has(e.type))
-  if (activity.length === 0) return { count: 0, spanDays: 0 }
-  const times = activity
+function ofType(events: CalendarEvent[], ...types: string[]): CalendarEvent[] {
+  const set = new Set(types)
+  return events.filter((e) => set.has(e.type))
+}
+
+function seasonIndex(date: Date): number {
+  const m = date.getMonth()
+  if (m >= 2 && m <= 4) return 0 // spring
+  if (m >= 5 && m <= 7) return 1 // summer
+  if (m >= 8 && m <= 10) return 2 // autumn
+  return 3 // winter
+}
+
+function hasResultNote(notes: string | undefined): boolean {
+  if (!notes?.trim()) return false
+  return /(vítěz|výhra|cacib|cac\b|šampion|champion|1\.\s*místo|umístěn|titul|výborný|výsledek)/i.test(
+    notes,
+  )
+}
+
+function maxActivitiesInAnyWeek(events: CalendarEvent[]): number {
+  const activity = events
+    .filter((e) => EXPERIENCE_TYPES.has(e.type))
     .map((e) => parseEventDate(e.date).getTime())
     .filter((t) => !Number.isNaN(t))
     .sort((a, b) => a - b)
-  if (times.length === 0) return { count: activity.length, spanDays: 0 }
-  const spanDays = Math.floor((times[times.length - 1]! - times[0]!) / (24 * 60 * 60 * 1000))
-  return { count: activity.length, spanDays }
-}
 
-function meaningfulCommunityScore(
-  posts: CommunityPost[],
-  petId: string,
-): number {
-  let score = 0
-  const own = petPosts(posts, petId)
-  for (const post of own) {
-    score += Math.min(3, post.likes)
-    score += Math.min(3, post.commentsCount)
-  }
-  for (const post of posts) {
-    if (post.author === USER_AUTHOR) continue
-    for (const c of post.comments ?? []) {
-      if (c.author === USER_AUTHOR) score += 2
+  let best = 0
+  for (let i = 0; i < activity.length; i += 1) {
+    const start = activity[i]!
+    const end = start + 7 * 24 * 60 * 60 * 1000
+    let count = 0
+    for (let j = i; j < activity.length; j += 1) {
+      if (activity[j]! <= end) count += 1
+      else break
     }
-    if (post.liked) score += 1
+    if (count > best) best = count
   }
-  return score
+  return best
 }
 
-function isTravelPackReady(petId: string): boolean {
-  const pack = petTravelPackages.find((p) => p.petId === petId)
-  if (!pack) return false
-  return (
-    pack.euPassport.status === 'valid' &&
-    pack.documents.length > 0 &&
-    pack.documents.every((d) => d.ready)
-  )
+function push(progress: BadgeProgress[], badgeId: string, petId: string, ok: boolean) {
+  if (ok) progress.push({ badgeId, petId, level: 1 })
 }
 
-function hasQuietHeroSetup(pet: Pet, health: HealthRecord[]): boolean {
-  const hasVet = importantContacts.some((c) => c.type === 'vet' && hasText(c.phone))
-  const hasEmergency = importantContacts.some(
-    (c) => c.type === 'emergency' && hasText(c.phone),
-  )
-  const hasEmergencyPerson = importantContacts.some(
-    (c) => c.type === 'emergency_person' && hasText(c.phone),
-  )
-  const hasHealthProfile =
-    isBasicProfileComplete(pet) &&
-    (health.length >= 2 || health.some((r) => r.type === 'vaccination'))
-  return hasVet && hasEmergency && hasEmergencyPerson && hasHealthProfile
-}
-
-function usesMultipleCareAreas(
-  health: HealthRecord[],
-  docs: PetDocument[],
-  events: CalendarEvent[],
-  photos: number,
-  posts: number,
-): boolean {
-  let areas = 0
-  if (health.length >= 1) areas += 1
-  if (docs.length >= 1) areas += 1
-  if (events.some((e) => ACTIVITY_TYPES.has(e.type) || e.type === 'vet')) areas += 1
-  if (photos >= 1) areas += 1
-  if (posts >= 1) areas += 1
-  return areas >= 3
-}
-
-function push(
-  progress: BadgeProgress[],
-  badgeId: string,
-  petId: string,
-  level: number,
-) {
-  if (level < 1) return
-  progress.push({ badgeId, petId, level })
-}
-
-/** Compute current progress for all pet badges. */
 export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
   const progress: BadgeProgress[] = []
 
   for (const pet of ctx.pets) {
-    const health = petHealth(ctx.healthRecords, pet.id)
-    const docs = petDocs(ctx.documents, pet.id)
     const events = petEvents(ctx.calendarEvents, pet.name)
-    const posts = petPosts(ctx.posts, pet.id)
-    const photoCount = ctx.photos.filter((p) => p.petId === pet.id).length
-    const weights = getWeightMeasurementsForPet(pet.id)
-    const birthdays = events.filter((e) => e.type === 'birthday')
-    const adoptions = events.filter((e) => e.type === 'adoption_anniversary')
-    const trips = events.filter((e) => e.type === 'trip')
-    const travels = events.filter((e) => e.type === 'travel')
-    const trainings = events.filter((e) => TRAINING_TYPES.has(e.type))
-    const activeStreak = computeActiveCareStreak(pet, ctx.healthRecords, ctx.calendarEvents)
-    const fullStreak = computeFullCareStreak(pet, ctx.healthRecords, ctx.calendarEvents)
-    const compliance = countHealthEventCompliance(
-      pet.id,
-      pet.name,
-      ctx.calendarEvents,
-    )
-    const activity = activitySpanDays(events)
+    const places = uniquePlaces(events)
+    const trips = ofType(events, 'trip').filter((e) => hasText(e.location))
+    const trainings = ofType(events, 'training', 'course')
+    const birthdays = ofType(events, 'birthday')
+    const adoptions = ofType(events, 'adoption_anniversary')
+    const shows = ofType(events, 'exhibition').filter((e) => hasText(e.location))
+    const competitions = ofType(events, 'competition', 'exam')
     const daysActive = ensurePetFirstSeenDays(pet.id, ctx.todayIso)
+    const experienceCount = events.filter((e) => EXPERIENCE_TYPES.has(e.type)).length
+
+    const applicable = (id: string) => {
+      const def = BADGE_CATALOG.find((b) => b.id === id)
+      return def ? isBadgeApplicableToPet(def, pet) : false
+    }
 
     // Milníky
-    if (birthdays.length >= 1) {
-      push(progress, 'pet_first_birthday', pet.id, 1)
+    if (applicable('life_first_birthday')) {
+      push(progress, 'life_first_birthday', pet.id, birthdays.length >= 1)
     }
-    if (adoptions.length >= 1) {
-      push(progress, 'pet_found_home', pet.id, 1)
+    if (applicable('life_found_home')) {
+      push(progress, 'life_found_home', pet.id, adoptions.length >= 1)
     }
-    if (
-      birthdays.length >= 2 ||
-      (birthdays.length >= 1 && adoptions.length >= 1) ||
-      (birthdays.length >= 1 && (pet.age ?? 0) >= 2)
-    ) {
-      push(progress, 'pet_another_year', pet.id, 1)
-    }
-
-    // Péče
-    if (isBasicProfileComplete(pet)) {
-      push(progress, 'pet_seal_of_care', pet.id, 1)
-    }
-    if (isVaccinationCurrent(health)) {
-      push(progress, 'pet_vaccination', pet.id, 1)
-    }
-    if (countVetVisits(health, events) >= 3) {
-      push(progress, 'pet_under_watch', pet.id, 1)
-    }
-    if (health.length >= 5) {
-      push(progress, 'pet_health_chronicler', pet.id, 1)
-    }
-    if (weights.length >= 5) {
-      push(progress, 'pet_keeping_fit', pet.id, 1)
-    }
-    if (compliance.completed >= 5 && compliance.missed === 0) {
-      push(progress, 'pet_never_miss', pet.id, 1)
+    if (applicable('life_another_year')) {
+      push(
+        progress,
+        'life_another_year',
+        pet.id,
+        birthdays.length >= 2 || (birthdays.length >= 1 && adoptions.length >= 1),
+      )
     }
 
-    // Společný život
-    if (trainings.length >= 1) {
-      push(progress, 'pet_first_steps', pet.id, 1)
+    // Společné zážitky
+    if (applicable('exp_first_trip')) {
+      push(progress, 'exp_first_trip', pet.id, trips.length >= 1)
     }
-    if (trips.length >= 5) {
-      push(progress, 'pet_adventurer', pet.id, 1)
+    if (applicable('exp_new_place')) {
+      push(progress, 'exp_new_place', pet.id, places.length >= 2)
     }
-    if (travels.length >= 1) {
-      push(progress, 'pet_world_traveler', pet.id, 1)
+    if (applicable('exp_little_traveler')) {
+      push(progress, 'exp_little_traveler', pet.id, places.length >= 3)
     }
-    if (activeStreak >= 7) {
-      push(progress, 'pet_day_partners', pet.id, 1)
+    if (applicable('exp_first_training')) {
+      push(progress, 'exp_first_training', pet.id, trainings.length >= 1)
     }
-    if (activeStreak >= 30) {
-      push(progress, 'pet_steady_partner', pet.id, 1)
+    if (applicable('exp_first_roadtrip')) {
+      push(
+        progress,
+        'exp_first_roadtrip',
+        pet.id,
+        ofType(events, 'roadtrip').some((e) => hasText(e.location)),
+      )
     }
-    if (activity.count >= 8 && activity.spanDays >= 21) {
-      push(progress, 'pet_in_shape_together', pet.id, 1)
+    if (applicable('exp_first_abroad')) {
+      push(progress, 'exp_first_abroad', pet.id, ofType(events, 'foreign_travel').length >= 1)
     }
-    if (photoCount >= 10) {
-      push(progress, 'pet_photographer', pet.id, 1)
+    if (applicable('exp_community_meetup')) {
+      push(progress, 'exp_community_meetup', pet.id, ofType(events, 'community_meetup').length >= 1)
     }
-    if (posts.length >= 1) {
-      push(progress, 'pet_community_debut', pet.id, 1)
+    if (applicable('exp_new_friend')) {
+      push(progress, 'exp_new_friend', pet.id, ofType(events, 'pet_friend').length >= 1)
     }
-    if (meaningfulCommunityScore(ctx.posts, pet.id) >= 5) {
-      push(progress, 'pet_good_partner', pet.id, 1)
+    if (applicable('exp_week_five')) {
+      push(progress, 'exp_week_five', pet.id, maxActivitiesInAnyWeek(events) >= 5)
+    }
+
+    // Pes
+    if (applicable('dog_first_swim')) {
+      push(progress, 'dog_first_swim', pet.id, ofType(events, 'swimming').length >= 1)
+    }
+    if (applicable('dog_first_agility')) {
+      push(progress, 'dog_first_agility', pet.id, ofType(events, 'agility').length >= 1)
+    }
+    if (applicable('dog_skills')) {
+      const skillCount = ofType(events, 'training', 'course', 'exam').length
+      push(progress, 'dog_skills', pet.id, skillCount >= 3 || ofType(events, 'exam').length >= 1)
+    }
+    if (applicable('dog_social')) {
+      push(
+        progress,
+        'dog_social',
+        pet.id,
+        ofType(events, 'socialization', 'doggy_daycare').length >= 2,
+      )
+    }
+
+    // Kočka
+    if (applicable('cat_first_adventure')) {
+      push(
+        progress,
+        'cat_first_adventure',
+        pet.id,
+        ofType(events, 'trip', 'travel', 'roadtrip').some((e) => hasText(e.location)),
+      )
+    }
+    if (applicable('cat_harness_world')) {
+      push(
+        progress,
+        'cat_harness_world',
+        pet.id,
+        ofType(events, 'socialization', 'course').length >= 1,
+      )
+    }
+    if (applicable('cat_friend')) {
+      push(progress, 'cat_friend', pet.id, ofType(events, 'pet_friend').length >= 1)
+    }
+    if (applicable('cat_calm_explorer')) {
+      push(progress, 'cat_calm_explorer', pet.id, places.length >= 3)
+    }
+
+    // Chov
+    if (applicable('breed_first_show')) {
+      push(progress, 'breed_first_show', pet.id, shows.length >= 1)
+    }
+    if (applicable('breed_show_debut')) {
+      push(
+        progress,
+        'breed_show_debut',
+        pet.id,
+        shows.some((e) => hasResultNote(e.notes)),
+      )
+    }
+    if (applicable('breed_show_regular')) {
+      push(progress, 'breed_show_regular', pet.id, shows.length >= 5)
+    }
+    if (applicable('breed_champion')) {
+      const win =
+        [...shows, ...competitions].some((e) => hasResultNote(e.notes)) ||
+        competitions.length >= 3
+      push(progress, 'breed_champion', pet.id, win)
+    }
+    if (applicable('breed_first_mating')) {
+      push(progress, 'breed_first_mating', pet.id, ofType(events, 'mating').length >= 1)
+    }
+    if (applicable('breed_first_litter')) {
+      push(progress, 'breed_first_litter', pet.id, ofType(events, 'birth').length >= 1)
+    }
+    if (applicable('breed_line')) {
+      push(
+        progress,
+        'breed_line',
+        pet.id,
+        ofType(events, 'mating').length >= 1 &&
+          ofType(events, 'birth').length >= 1 &&
+          ofType(events, 'litter_check').length >= 1,
+      )
     }
 
     // Tajné
-    if (fullStreak >= 7) {
-      push(progress, 'secret_steady_care', pet.id, 1)
+    if (applicable('secret_explorer')) {
+      push(progress, 'secret_explorer', pet.id, places.length >= 5)
     }
-    if (
-      isPetProfileShared(pet.id) &&
-      (posts.some((p) => (p.comments ?? []).some((c) => c.author !== USER_AUTHOR)) ||
-        meaningfulCommunityScore(ctx.posts, pet.id) >= 3)
-    ) {
-      push(progress, 'secret_second_home', pet.id, 1)
+    if (applicable('secret_four_seasons')) {
+      const seasons = new Set<number>()
+      for (const e of events.filter((ev) => EXPERIENCE_TYPES.has(ev.type))) {
+        const d = parseEventDate(e.date)
+        if (!Number.isNaN(d.getTime())) seasons.add(seasonIndex(d))
+      }
+      push(progress, 'secret_four_seasons', pet.id, seasons.size >= 4)
     }
-    if (isTravelPackReady(pet.id) && travels.length >= 1) {
-      push(progress, 'secret_travel_way', pet.id, 1)
+    if (applicable('secret_everywhere')) {
+      push(
+        progress,
+        'secret_everywhere',
+        pet.id,
+        trips.length >= 1 &&
+          trainings.length >= 1 &&
+          ofType(events, 'community_meetup').length >= 1 &&
+          ofType(events, 'travel', 'foreign_travel', 'roadtrip').length >= 1,
+      )
     }
-    if (hasQuietHeroSetup(pet, health)) {
-      push(progress, 'secret_quiet_hero', pet.id, 1)
+    if (applicable('secret_still_together')) {
+      push(
+        progress,
+        'secret_still_together',
+        pet.id,
+        daysActive >= 90 && experienceCount >= 5,
+      )
     }
-    if (daysActive >= 90 && usesMultipleCareAreas(health, docs, events, photoCount, posts.length)) {
-      push(progress, 'secret_my_partner', pet.id, 1)
+    if (applicable('secret_unexpected_friend')) {
+      push(
+        progress,
+        'secret_unexpected_friend',
+        pet.id,
+        ofType(events, 'community_meetup').length >= 1 &&
+          ofType(events, 'pet_friend').length >= 1,
+      )
+    }
+    if (applicable('secret_show_heart')) {
+      push(
+        progress,
+        'secret_show_heart',
+        pet.id,
+        shows.length >= 1 && ofType(events, 'birth').length >= 1,
+      )
     }
   }
 
   return progress
+}
+
+/** Progress for active challenges (for UI). */
+export function computeChallengeProgress(
+  ctx: BadgeEvalContext,
+  pet: Pet,
+): ChallengeProgress[] {
+  const events = petEvents(ctx.calendarEvents, pet.name)
+  const places = uniquePlaces(events)
+  const trips = ofType(events, 'trip').filter((e) => hasText(e.location))
+  const trainings = ofType(events, 'training', 'course')
+  const weekMax = maxActivitiesInAnyWeek(events)
+  const friends = ofType(events, 'pet_friend', 'socialization')
+
+  const items: ChallengeProgress[] = [
+    {
+      challengeId: 'challenge_first_trip',
+      petId: pet.id,
+      complete: trips.length >= 1,
+      ratio: trips.length >= 1 ? 1 : 0,
+      detail: trips.length >= 1 ? 'Výlet zaznamenán' : 'Chybí výlet s destinací',
+    },
+    {
+      challengeId: 'challenge_new_place',
+      petId: pet.id,
+      complete: places.length >= 2,
+      ratio: Math.min(1, places.length / 2),
+      detail: `${places.length}/2 různých míst`,
+    },
+    {
+      challengeId: 'challenge_first_training',
+      petId: pet.id,
+      complete: trainings.length >= 1,
+      ratio: trainings.length >= 1 ? 1 : 0,
+      detail: trainings.length >= 1 ? 'Trénink zaznamenán' : 'Zaznamenejte trénink nebo kurz',
+    },
+    {
+      challengeId: 'challenge_five_in_week',
+      petId: pet.id,
+      complete: weekMax >= 5,
+      ratio: Math.min(1, weekMax / 5),
+      detail: `Nejlepší týden: ${weekMax}/5 aktivit`,
+    },
+    {
+      challengeId: 'challenge_new_environment',
+      petId: pet.id,
+      complete: ofType(events, 'pet_friend').length >= 1,
+      ratio: friends.length >= 1 ? 1 : 0,
+      detail:
+        ofType(events, 'pet_friend').length >= 1
+          ? 'Nový kamarád zaznamenán'
+          : 'Seznamte se s novým prostředím / kamarádem',
+    },
+  ]
+
+  return items.filter((item) => {
+    const def = BADGE_CATALOG.find((b) => b.challengeId === item.challengeId)
+    if (!def) return true
+    return isBadgeApplicableToPet(def, pet)
+  })
 }
 
 function awardKey(badgeId: string, petId?: string): string {

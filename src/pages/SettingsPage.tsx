@@ -154,7 +154,8 @@ export function SettingsPage() {
 
         <BadgesSection
           title="Odznaky"
-          scope="user"
+          scope="pet"
+          household
           earnedBadges={earnedBadges}
           previewCount={8}
         />

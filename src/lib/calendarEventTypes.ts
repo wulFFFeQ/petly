@@ -55,6 +55,10 @@ export const EVENT_TYPES_BY_CATEGORY: Record<
     { value: 'pet_sitting', label: 'Pet-sitting / hlídání' },
     { value: 'trip', label: 'Výlet' },
     { value: 'travel', label: 'Cestování' },
+    { value: 'swimming', label: 'Plavání' },
+    { value: 'roadtrip', label: 'Roadtrip / výlet autem' },
+    { value: 'foreign_travel', label: 'Zahraniční cesta' },
+    { value: 'pet_friend', label: 'Nový zvířecí kamarád' },
   ],
   show: [
     { value: 'exhibition', label: 'Výstava' },
@@ -102,6 +106,10 @@ const EVENT_TYPE_TO_CATEGORY: Record<EventType, CalendarEventCategory> = {
   pet_sitting: 'activity',
   trip: 'activity',
   travel: 'activity',
+  swimming: 'activity',
+  roadtrip: 'activity',
+  foreign_travel: 'activity',
+  pet_friend: 'activity',
   exhibition: 'show',
   competition: 'show',
   exam: 'show',
@@ -143,6 +151,10 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   pet_sitting: 'Pet-sitting / hlídání',
   trip: 'Výlet',
   travel: 'Cestování',
+  swimming: 'Plavání',
+  roadtrip: 'Roadtrip / výlet autem',
+  foreign_travel: 'Zahraniční cesta',
+  pet_friend: 'Nový zvířecí kamarád',
   exhibition: 'Výstava',
   competition: 'Soutěž / závod',
   exam: 'Zkouška / zkoušky',
@@ -192,7 +204,11 @@ export function getLocationFieldLabel(type: EventType): string {
   if (type === 'vet' || type === 'vaccination' || type === 'surgery' || type === 'lab') {
     return 'Místo (klinika)'
   }
-  if (type === 'trip' || type === 'travel') return 'Destinace'
+  if (type === 'trip' || type === 'travel' || type === 'roadtrip' || type === 'foreign_travel') {
+    return 'Destinace'
+  }
+  if (type === 'swimming') return 'Místo (voda)'
+  if (type === 'pet_friend') return 'Kde jste se potkali'
   return 'Místo'
 }
 

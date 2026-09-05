@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { BADGE_CATALOG, BADGE_CATEGORY_LABELS, getBadgeDefinition } from '../../lib/badges/catalog'
+import {
+  BADGE_CATEGORY_LABELS,
+  catalogForPet,
+  getBadgeDefinition,
+} from '../../lib/badges/catalog'
 import { romanLevel } from '../../lib/badges/evaluate'
+import { useApp } from '../../context/AppContext'
 import type { EarnedBadge } from '../../types/badges'
 import { Card } from '../ui/Card'
 import { AchievementMedal } from './AchievementMedal'
@@ -12,12 +17,7 @@ interface BadgesSectionProps {
   scope: 'pet' | 'user'
   petId?: string
   earnedBadges: EarnedBadge[]
-  /** How many medals to preview before "see all". */
   previewCount?: number
-  /**
-   * Household view: all pet badges across pets (for Settings).
-   * Earned if any pet has the badge; catalog is pet-scoped.
-   */
   household?: boolean
 }
 
@@ -40,21 +40,39 @@ export function BadgesSection({
   previewCount = 5,
   household = false,
 }: BadgesSectionProps) {
+  const { pets } = useApp()
   const [open, setOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  const pet = useMemo(
+    () => (petId ? pets.find((p) => p.id === petId) : undefined),
+    [pets, petId],
+  )
+
   const catalogForScope = useMemo(() => {
-    if (household) return BADGE_CATALOG.filter((d) => d.scope === 'pet')
-    return BADGE_CATALOG.filter((d) => d.scope === scope)
-  }, [scope, household])
+    if (household) {
+      const seen = new Set<string>()
+      const list = []
+      for (const p of pets) {
+        for (const b of catalogForPet(p)) {
+          if (!seen.has(b.id)) {
+            seen.add(b.id)
+            list.push(b)
+          }
+        }
+      }
+      return list
+    }
+    if (pet) return catalogForPet(pet)
+    return []
+  }, [household, pets, pet])
 
   const relevant = useMemo(() => {
+    const catalogIds = new Set(catalogForScope.map((c) => c.id))
     if (household) {
-      // Unique badge ids earned on any pet
       const byBadge = new Map<string, EarnedBadge>()
       for (const b of earnedBadges) {
-        const def = getBadgeDefinition(b.badgeId)
-        if (!def || def.scope !== 'pet') continue
+        if (!catalogIds.has(b.badgeId)) continue
         const prev = byBadge.get(b.badgeId)
         if (!prev || b.level > prev.level || b.earnedAt > prev.earnedAt) {
           byBadge.set(b.badgeId, { ...b, petId: undefined })
@@ -64,16 +82,15 @@ export function BadgesSection({
     }
     return sortEarned(
       earnedBadges.filter((b) => {
-        const def = getBadgeDefinition(b.badgeId)
-        if (!def || def.scope !== scope) return false
+        if (!catalogIds.has(b.badgeId)) return false
         if (scope === 'pet') return b.petId === petId
         return !b.petId
       }),
     )
-  }, [earnedBadges, scope, petId, household])
+  }, [earnedBadges, scope, petId, household, catalogForScope])
 
   const preview = relevant.slice(0, previewCount)
-  const totalInCatalog = catalogForScope.length
+  const totalDisplay = catalogForScope.length
 
   return (
     <>
@@ -90,7 +107,7 @@ export function BadgesSection({
             <p className="mt-1.5 text-lg font-semibold tracking-tight text-[#191E1B]">
               {relevant.length}{' '}
               <span className="text-sm font-medium text-[#7D8B82]">
-                / {totalInCatalog} získáno
+                / {totalDisplay} získáno
               </span>
             </p>
           </div>
@@ -103,7 +120,7 @@ export function BadgesSection({
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#2C4A3E] to-[#B8934A]"
             style={{
-              width: `${totalInCatalog ? Math.round((relevant.length / totalInCatalog) * 100) : 0}%`,
+              width: `${totalDisplay ? Math.round((relevant.length / totalDisplay) * 100) : 0}%`,
             }}
           />
         </div>
@@ -140,7 +157,7 @@ export function BadgesSection({
           </div>
         ) : (
           <p className="mt-4 text-xs leading-relaxed text-[#7D8B82]">
-            Sbírka pečetí se naplní milníky a péčí — elegantní ocenění, ne checklist.
+            Sbírka pečetí vypráví, co jste spolu zažili — výlety, tréninky, milníky.
           </p>
         )}
 

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BADGE_CATEGORY_LABELS, BADGE_RARITY_LABELS, getBadgeDefinition } from '../../lib/badges/catalog'
-import { romanLevel } from '../../lib/badges/evaluate'
+import {
+  BADGE_CATEGORY_LABELS,
+  BADGE_RARITY_LABELS,
+  CHALLENGE_CATALOG,
+  getBadgeDefinition,
+  getChallengeDefinition,
+} from '../../lib/badges/catalog'
+import { computeChallengeProgress, romanLevel } from '../../lib/badges/evaluate'
+import { useApp } from '../../context/AppContext'
 import { formatIsoDateToCzech } from '../../lib/petProfileUtils'
 import { cn } from '../../lib/utils'
 import type { BadgeDefinition, EarnedBadge } from '../../types/badges'
@@ -29,23 +36,37 @@ export function BadgeCollectionModal({
   onClose,
   scope,
   petId,
+  household = false,
   earnedBadges,
   catalog,
   initialSelectedId,
 }: BadgeCollectionModalProps) {
-  const scopePetId = scope === 'pet' ? petId : undefined
+  const { pets, calendarEvents, healthRecords, documents, photos, posts } = useApp()
+  const scopePetId = scope === 'pet' && !household ? petId : undefined
+  const focusPet = useMemo(
+    () => (scopePetId ? pets.find((p) => p.id === scopePetId) : pets[0]),
+    [pets, scopePetId],
+  )
 
   const earnedMap = useMemo(() => {
     const map = new Map<string, EarnedBadge>()
     for (const e of earnedBadges) {
       const def = getBadgeDefinition(e.badgeId)
       if (!def || def.scope !== scope) continue
+      if (household) {
+        const key = e.badgeId
+        const prev = map.get(key)
+        if (!prev || e.level > prev.level) {
+          map.set(key, { ...e, petId: undefined })
+        }
+        continue
+      }
       if (scope === 'pet' && e.petId !== petId) continue
       if (scope === 'user' && e.petId) continue
       map.set(earnedKey(e.badgeId, e.petId), e)
     }
     return map
-  }, [earnedBadges, scope, petId])
+  }, [earnedBadges, scope, petId, household])
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -93,6 +114,47 @@ export function BadgeCollectionModal({
     }
   }, [catalog, earnedMap, scopePetId])
 
+  const challengeRows = useMemo(() => {
+    if (!focusPet || household) return []
+    const progress = computeChallengeProgress(
+      {
+        pets,
+        healthRecords,
+        documents,
+        photos,
+        posts,
+        calendarEvents,
+        todayIso: new Date().toISOString().slice(0, 10),
+      },
+      focusPet,
+    )
+    return progress
+      .map((p) => {
+        const challenge = getChallengeDefinition(p.challengeId)
+        if (!challenge) return null
+        const badge = getBadgeDefinition(challenge.badgeId)
+        const earned = earnedMap.get(earnedKey(challenge.badgeId, scopePetId))
+        if (earned) return null
+        return { challenge, badge, progress: p }
+      })
+      .filter(Boolean) as Array<{
+      challenge: (typeof CHALLENGE_CATALOG)[number]
+      badge: BadgeDefinition | undefined
+      progress: ReturnType<typeof computeChallengeProgress>[number]
+    }>
+  }, [
+    focusPet,
+    household,
+    pets,
+    healthRecords,
+    documents,
+    photos,
+    posts,
+    calendarEvents,
+    earnedMap,
+    scopePetId,
+  ])
+
   const selectedDef = selectedId ? getBadgeDefinition(selectedId) : undefined
   const selectedEarned = selectedId
     ? earnedMap.get(earnedKey(selectedId, scopePetId))
@@ -115,8 +177,8 @@ export function BadgeCollectionModal({
       title="Sbírka odznaků"
       subtitle={
         scope === 'pet'
-          ? 'Milníky a pečetě péče — sbírka, ne soutěž.'
-          : 'Vaše ocenění za péči, milníky a přítomnost v komunitě.'
+          ? 'Co jste spolu zažili — milníky, výzvy a pečetě zážitků.'
+          : 'Sbírka zážitků napříč domácností.'
       }
       maxWidth="xl"
     >
@@ -151,7 +213,7 @@ export function BadgeCollectionModal({
 
               {earnedList.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-[#E8E4DC] bg-[#FAF8F5] px-4 py-8 text-center text-xs leading-relaxed text-[#7D8B82]">
-                  Pečetě se objeví, až zaznamenáte péči, milníky nebo společné chvíle.
+                  Pečetě se objeví ze skutečných zážitků — výletů, tréninků, výstav a milníků.
                 </p>
               ) : (
                 <div className="flex flex-wrap justify-start gap-3 sm:gap-4">
@@ -172,13 +234,61 @@ export function BadgeCollectionModal({
               )}
             </section>
 
+            {/* Active challenges */}
+            {challengeRows.length > 0 && (
+              <section>
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold text-[#191E1B]">Aktivní výzvy</h3>
+                  <p className="mt-0.5 text-[11px] text-[#7D8B82]">
+                    Splňte skutečnou aktivitu — pečeť přijde sama.
+                  </p>
+                </div>
+                <ul className="space-y-2.5">
+                  {challengeRows.map(({ challenge, badge, progress }) => (
+                    <li
+                      key={challenge.id}
+                      className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5]/80 px-3.5 py-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        {badge && (
+                          <AchievementMedal
+                            icon={badge.icon}
+                            category={badge.category}
+                            name={badge.name}
+                            locked
+                            size="sm"
+                            showLabel={false}
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-[#191E1B]">{challenge.name}</p>
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-[#7D8B82]">
+                            {challenge.instruction}
+                          </p>
+                          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[#EFECE6]">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#2C4A3E] to-[#B8934A]"
+                              style={{ width: `${Math.round(progress.ratio * 100)}%` }}
+                            />
+                          </div>
+                          <p className="mt-1 text-[10px] font-medium text-[#9E7D3A]">
+                            {progress.detail}
+                          </p>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             {/* Next on the path */}
             {nextOnPath.length > 0 && (
               <section>
                 <div className="mb-4">
                   <h3 className="text-sm font-bold text-[#191E1B]">Další na cestě</h3>
                   <p className="mt-0.5 text-[11px] text-[#7D8B82]">
-                    Jemné kroky péče, které odemknou další pečeť.
+                    Zážitky, které ještě čekají na pečeť.
                   </p>
                 </div>
                 <ul className="space-y-2.5">
