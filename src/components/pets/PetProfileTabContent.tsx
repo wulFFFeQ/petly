@@ -2,6 +2,7 @@ import {
   Activity,
   Bell,
   BellOff,
+  Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -25,7 +26,7 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -42,6 +43,13 @@ import {
 import { useApp } from '../../context/AppContext'
 import { getHeatPeriodEndDate } from '../../lib/calendarEventTypes'
 import { formatIdealWeightHint } from '../../lib/breedIdealWeight'
+import {
+  buildDailyCareTasks,
+  dailyCareCompletionPercent,
+  loadDailyCareCompleted,
+  saveDailyCareCompleted,
+} from '../../lib/dailyCareChecklist'
+import { APP_TODAY, formatTodayHeader } from '../../lib/dashboardDates'
 import { isDogType, isFemalePetGender } from '../../lib/petTypes'
 import type {
   HealthRecord,
@@ -66,6 +74,8 @@ import { HealthAssessmentModal } from './HealthAssessmentModal'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { FoodSelect } from '../ui/FoodSelect'
+import { Input, Textarea } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { cn } from '../../lib/utils'
 import {
@@ -112,6 +122,7 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
     setMedicationReminderTime,
     setMedicationReminderDays,
     calendarEvents,
+    updatePet,
   } = useApp()
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
   const documentFileInputRef = useRef<HTMLInputElement>(null)
@@ -144,6 +155,55 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
   })
   const [healthFilter, setHealthFilter] = useState<'all' | HealthRecordType>('all')
   const [assessmentOpen, setAssessmentOpen] = useState(false)
+  type LifestyleField = 'diet' | 'supplements' | 'favoriteToy'
+  const [lifestyleEdit, setLifestyleEdit] = useState<LifestyleField | null>(null)
+  const [lifestyleValue, setLifestyleValue] = useState('')
+  const [dailyCareDone, setDailyCareDone] = useState<string[]>(() =>
+    loadDailyCareCompleted(pet.id),
+  )
+
+  useEffect(() => {
+    setDailyCareDone(loadDailyCareCompleted(pet.id))
+  }, [pet.id])
+
+  const dailyCareTasks = useMemo(
+    () => buildDailyCareTasks(pet, allRecords, calendarEvents, APP_TODAY),
+    [pet, allRecords, calendarEvents],
+  )
+
+  const dailyCareDoneSet = useMemo(() => new Set(dailyCareDone), [dailyCareDone])
+  const dailyCareCompletedCount = dailyCareTasks.filter((task) =>
+    dailyCareDoneSet.has(task.id),
+  ).length
+  const dailyCarePercent = dailyCareCompletionPercent(
+    dailyCareTasks.length,
+    dailyCareCompletedCount,
+  )
+
+  const toggleDailyCareTask = (taskId: string) => {
+    setDailyCareDone((prev) => {
+      const next = prev.includes(taskId)
+        ? prev.filter((id) => id !== taskId)
+        : [...prev, taskId]
+      saveDailyCareCompleted(pet.id, next)
+      return next
+    })
+  }
+
+  const openDailyCareTaskDetail = (taskId: string, kind: 'medication' | 'calendar') => {
+    if (kind === 'medication') {
+      const recordId = taskId.replace(/^med:/, '')
+      const record = allRecords.find((item) => item.id === recordId)
+      if (record) {
+        // Keep current tab (overview) — only open the detail modal.
+        setSelectedRecord(record)
+      }
+      return
+    }
+    const eventId = taskId.replace(/^event:/, '')
+    const event = calendarEvents.find((item) => item.id === eventId)
+    if (event) openEditCalendarEvent(event.id)
+  }
 
   const petRecords = allRecords.filter((r) => r.petId === pet.id)
   const vaccinations = petRecords.filter((r) => r.type === 'vaccination')
@@ -576,9 +636,15 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   ? formatOptionalWeight(weightData[weightData.length - 1]?.weight)
                   : formatOptionalWeight(pet.weight)}
               </p>
-              <p className="text-xs text-[#7D8B82] font-medium mt-1">
-                {idealWeightHint ?? 'Sledujte vývoj a přidávejte měření'}
-              </p>
+                <p className="text-xs text-[#7D8B82] font-medium mt-1">
+                  {idealWeightHint ? (
+                    <span className="inline-flex rounded-full border border-[#D1E0D8] bg-[#EBF2EE] px-2 py-0.5 text-[11px] font-semibold text-[#2C4A3E]">
+                      {idealWeightHint}
+                    </span>
+                  ) : (
+                    'Sledujte vývoj a přidávejte měření'
+                  )}
+                </p>
             </Card>
 
             <Card
@@ -638,30 +704,48 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                 </div>
               </div>
               <div className="space-y-3 text-sm">
-                <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                    Hlavní výživa
-                  </span>
-                  <p className="font-semibold text-[#191E1B] mt-0.5">
-                    {formatOptionalText(pet.diet)}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                    Denní doplňky stravy
-                  </span>
-                  <p className="font-semibold text-[#191E1B] mt-0.5">
-                    {formatOptionalText(pet.supplements)}
-                  </p>
-                </div>
-                <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                    Oblíbené hračky a stimulace
-                  </span>
-                  <p className="font-semibold text-[#191E1B] mt-0.5">
-                    {formatOptionalText(pet.favoriteToy)}
-                  </p>
-                </div>
+                {(
+                  [
+                    {
+                      key: 'diet' as const,
+                      label: 'Hlavní výživa',
+                      value: pet.diet,
+                      placeholder: 'např. Royal Canin Adult, BARF…',
+                    },
+                    {
+                      key: 'supplements' as const,
+                      label: 'Denní doplňky stravy',
+                      value: pet.supplements,
+                      placeholder: 'např. omega-3, kloubní výživa…',
+                    },
+                    {
+                      key: 'favoriteToy' as const,
+                      label: 'Oblíbené hračky a stimulace',
+                      value: pet.favoriteToy,
+                      placeholder: 'např. míček, peříčko, čichací kobereček…',
+                    },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setLifestyleEdit(item.key)
+                      setLifestyleValue(item.value ?? '')
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 text-left transition-colors hover:border-[#D1E0D8] hover:bg-white cursor-pointer"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                        {item.label}
+                      </span>
+                      <p className="mt-0.5 font-semibold text-[#191E1B]">
+                        {formatOptionalText(item.value)}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="shrink-0 text-[#A3AEA7]" />
+                  </button>
+                ))}
               </div>
             </Card>
 
@@ -673,44 +757,86 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#191E1B]">Denní péče – kontrolní seznam</h3>
-                    <p className="text-xs text-[#7D8B82]">Propojeno s léky a připomínkami</p>
+                    <p className="text-xs text-[#7D8B82]">
+                      Dnes · {formatTodayHeader().toLowerCase()} · léky a naplánované události
+                    </p>
                   </div>
                 </div>
-                {activeMedications.length > 0 && (
-                  <Badge variant="success" size="sm">100 % splněno</Badge>
+                {dailyCareTasks.length > 0 && (
+                  <Badge
+                    variant={
+                      dailyCarePercent === 100
+                        ? 'success'
+                        : dailyCarePercent >= 50
+                          ? 'primary'
+                          : 'warning'
+                    }
+                    size="sm"
+                  >
+                    {dailyCarePercent} % splněno
+                  </Badge>
                 )}
               </div>
-              {activeMedications.length === 0 ? (
+              {dailyCareTasks.length === 0 ? (
                 <p className="text-sm text-[#7D8B82] py-6 text-center">
-                  {EMPTY_PROFILE_LABEL}. Přidejte léky nebo péči ve zdravotní sekci.
+                  Dnes nemáte žádné úkoly péče. Přidejte léky nebo událost v kalendáři.
                 </p>
               ) : (
-              <div className="space-y-2.5">
-                {activeMedications.map((med) => (
-                  <button
-                    key={med.id}
-                    type="button"
-                    onClick={() => {
-                      onTabChange('health')
-                      openRecordDetail(med)
-                    }}
-                    className="flex w-full items-center justify-between p-3 rounded-xl border border-[#E8E4DC] hover:bg-[#FAF8F5] transition-colors cursor-pointer text-left"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-5 w-5 rounded-md flex items-center justify-center bg-[#234B54] text-white shrink-0">
-                        <Heart size={12} />
+                <div className="space-y-2.5">
+                  {dailyCareTasks.map((task) => {
+                    const done = dailyCareDoneSet.has(task.id)
+                    return (
+                      <div
+                        key={task.id}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-xl border p-3 transition-colors',
+                          done
+                            ? 'border-[#D1E0D8] bg-[#EBF2EE]/60'
+                            : 'border-[#E8E4DC] bg-white',
+                        )}
+                      >
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={done}
+                          aria-label={done ? `Odškrtnout: ${task.title}` : `Splnit: ${task.title}`}
+                          onClick={() => toggleDailyCareTask(task.id)}
+                          className={cn(
+                            'flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors',
+                            done
+                              ? 'border-[#2C4A3E] bg-[#2C4A3E] text-white'
+                              : 'border-[#D1D9D4] bg-white text-transparent hover:border-[#2C4A3E]',
+                          )}
+                        >
+                          <Check size={12} strokeWidth={3} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDailyCareTaskDetail(task.id, task.kind)}
+                          className="min-w-0 flex-1 cursor-pointer text-left"
+                        >
+                          <p
+                            className={cn(
+                              'text-xs font-semibold truncate',
+                              done ? 'text-[#5A6660] line-through' : 'text-[#191E1B]',
+                            )}
+                          >
+                            {task.title}
+                            {task.time ? ` · ${task.time}` : ''}
+                          </p>
+                          {task.detail && (
+                            <p className="mt-0.5 text-[11px] text-[#7D8B82] truncate">
+                              {task.detail}
+                            </p>
+                          )}
+                        </button>
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+                          {task.kind === 'medication' ? 'Lék' : 'Událost'}
+                        </span>
                       </div>
-                      <span className="text-xs font-semibold text-[#191E1B] truncate">
-                        {med.subtitle}
-                        {med.scheduleTime ? ` · ${med.scheduleTime}` : ''}
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-medium text-[#7D8B82] shrink-0 ml-2">
-                      {formatMedicationRemainingLabel(med)}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    )
+                  })}
+                </div>
               )}
             </Card>
           </div>
@@ -726,10 +852,16 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
                   <TrendingUp size={18} className="text-[#234B54]" />
                   Vývoj hmotnosti
                 </h3>
-                <p className="text-xs text-[#7D8B82] mt-0.5">
-                  Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight ?? '—'} kg
-                  {idealWeightHint ? ` · ${idealWeightHint}` : ''}
-                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-[#7D8B82]">
+                    Aktuálně {weightData[weightData.length - 1]?.weight ?? pet.weight ?? '—'} kg
+                  </p>
+                  {idealWeightHint && (
+                    <span className="inline-flex items-center rounded-full border border-[#D1E0D8] bg-[#EBF2EE] px-2.5 py-0.5 text-[11px] font-semibold tracking-tight text-[#2C4A3E]">
+                      {idealWeightHint}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             {chartData.length > 0 && (
@@ -1631,6 +1763,74 @@ export function PetProfileTabContent({ pet, activeTab, onTabChange }: PetProfile
         pet={pet}
         startOnResult={Boolean(pet.healthAssessment)}
       />
+
+      <Modal
+        open={lifestyleEdit != null}
+        onClose={() => setLifestyleEdit(null)}
+        title={
+          lifestyleEdit === 'diet'
+            ? 'Hlavní výživa'
+            : lifestyleEdit === 'supplements'
+              ? 'Denní doplňky stravy'
+              : 'Oblíbené hračky a stimulace'
+        }
+        subtitle={`Údaje pro ${pet.name}`}
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!lifestyleEdit) return
+            const trimmed = lifestyleValue.trim()
+            updatePet(pet.id, {
+              [lifestyleEdit]: trimmed || undefined,
+            })
+            showToast('Údaj uložen', undefined, 'gold')
+            setLifestyleEdit(null)
+          }}
+        >
+          {lifestyleEdit === 'diet' ? (
+            <FoodSelect
+              id="lifestyle-diet"
+              label="Hlavní výživa"
+              petType={pet.type}
+              value={lifestyleValue}
+              onChange={setLifestyleValue}
+              placeholder={
+                pet.type === 'cat'
+                  ? 'Hledejte krmivo pro kočky…'
+                  : 'Hledejte krmivo pro psy…'
+              }
+            />
+          ) : lifestyleEdit === 'favoriteToy' ? (
+            <Input
+              id="lifestyle-field"
+              label="Oblíbené hračky a stimulace"
+              value={lifestyleValue}
+              onChange={(e) => setLifestyleValue(e.target.value)}
+              placeholder="např. míček, peříčko, čichací kobereček…"
+              autoFocus
+            />
+          ) : (
+            <Textarea
+              id="lifestyle-field"
+              label="Denní doplňky stravy"
+              value={lifestyleValue}
+              onChange={(e) => setLifestyleValue(e.target.value)}
+              placeholder="např. omega-3, kloubní výživa…"
+              rows={3}
+            />
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setLifestyleEdit(null)}>
+              Zrušit
+            </Button>
+            <Button type="submit" variant="primary">
+              Uložit
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }

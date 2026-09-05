@@ -432,6 +432,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if ('neutered' in updates && updates.neutered === undefined) {
           delete next.neutered
         }
+        if ('diet' in updates && !updates.diet?.trim()) {
+          delete next.diet
+        }
+        if ('supplements' in updates && !updates.supplements?.trim()) {
+          delete next.supplements
+        }
+        if ('favoriteToy' in updates && !updates.favoriteToy?.trim()) {
+          delete next.favoriteToy
+        }
 
         return next
       }),

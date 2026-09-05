@@ -349,22 +349,36 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 />
               </div>
               <div className="pb-1">
-                <div className="flex flex-row flex-wrap items-center gap-2.5">
-                  <h1 className="text-2xl sm:text-3xl font-bold leading-none tracking-tight text-[#191E1B]">
-                    {pet.name}
+                {/* NAME ROW */}
+                <div className="flex items-center gap-2.5">
+                  <h1 className="contents">
+                    <span className="text-2xl sm:text-3xl font-bold leading-none tracking-tight text-[#191E1B]">
+                      {pet.name}
+                    </span>
                   </h1>
                   {pet.healthStatus && (
-                    <Badge variant={statusVariant} size="sm" withDot pulseDot className="shrink-0">
+                    <Badge
+                      variant={statusVariant}
+                      size="sm"
+                      withDot
+                      pulseDot
+                      className="shrink-0 self-center"
+                    >
                       {formatHealthStatus(pet.healthStatus)}
                     </Badge>
                   )}
                   {pet.breedingProfile && (
-                    <Badge variant="primary" size="sm" className="shrink-0">
+                    <Badge
+                      variant="primary"
+                      size="sm"
+                      className="shrink-0 self-center translate-y-[4px]"
+                    >
                       Chovný profil
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm font-medium text-[#4A564F] mt-1.5">
+                {/* BREED ROW */}
+                <p className="mt-1.5 text-sm font-medium leading-normal text-[#4A564F]">
                   {pet.breed} · {petTypeLabel[pet.type]}
                 </p>
               </div>
