@@ -13,13 +13,15 @@ import {
   Stethoscope,
   HeartHandshake,
   Pencil,
+  Trash2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
+import { markPetProfileShared } from '../../lib/badges/badgeData'
 import { copyTextToClipboard } from '../../lib/clipboard'
 import { APP_TODAY } from '../../lib/dashboardDates'
 import {
@@ -90,9 +92,11 @@ function buildDetailsForm(pet: Pet): DetailsForm {
 }
 
 export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
+  const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
@@ -100,7 +104,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [detailsForm, setDetailsForm] = useState<DetailsForm>(() => buildDetailsForm(pet))
   const photoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
-  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet } = useApp()
+  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet, deletePet, refreshBadges } =
+    useApp()
 
   useEffect(() => {
     if (!detailsOpen) setDetailsForm(buildDetailsForm(pet))
@@ -203,8 +208,16 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       return
     }
     setLinkCopied(true)
+    markPetProfileShared(pet.id)
+    refreshBadges()
     showToast('Odkaz zkopírován', 'Profil mazlíčka je připraven ke sdílení.', 'gold')
     setTimeout(() => setLinkCopied(false), 2500)
+  }
+
+  const handleConfirmDelete = () => {
+    deletePet(pet.id)
+    setDeleteOpen(false)
+    navigate('/pets', { replace: true })
   }
 
   const handleImageUpload = async (
@@ -555,6 +568,26 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               </span>
             </button>
           </div>
+
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-rose-200/70 bg-rose-50/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[#191E1B]">Smazat profil</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
+                Trvale odstraní {pet.name} včetně fotek, dokumentů, zdravotních záznamů a událostí
+                v kalendáři.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              className="shrink-0 self-stretch sm:self-auto"
+            >
+              <Trash2 size={14} />
+              Smazat profil
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -818,6 +851,31 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           >
             Sdílet nouzovou kartu
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Smazat profil mazlíčka"
+        subtitle={`Tato akce je nevratná`}
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-[#4A564F]">
+            Opravdu chcete smazat profil <span className="font-bold text-[#191E1B]">{pet.name}</span>?
+            Spolu s ním zmizí fotografie, dokumenty, zdravotní záznamy a související události
+            v kalendáři.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+              Zrušit
+            </Button>
+            <Button type="button" variant="danger" onClick={handleConfirmDelete}>
+              <Trash2 size={14} />
+              Ano, smazat profil
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

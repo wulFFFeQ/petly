@@ -2,6 +2,8 @@ import {
   Award,
   Cake,
   Calendar,
+  Camera,
+  Check,
   ClipboardList,
   Compass,
   FileText,
@@ -44,6 +46,8 @@ export const BADGE_ICONS: Record<BadgeIconKey, LucideIcon> = {
   cake: Cake,
   star: Star,
   compass: Compass,
+  camera: Camera,
+  check: Check,
 }
 
 /** Seal palette — earned medallions feel warm and intentional. */

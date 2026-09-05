@@ -14,6 +14,11 @@ interface BadgesSectionProps {
   earnedBadges: EarnedBadge[]
   /** How many medals to preview before "see all". */
   previewCount?: number
+  /**
+   * Household view: all pet badges across pets (for Settings).
+   * Earned if any pet has the badge; catalog is pet-scoped.
+   */
+  household?: boolean
 }
 
 function sortEarned(earned: EarnedBadge[]): EarnedBadge[] {
@@ -33,16 +38,30 @@ export function BadgesSection({
   petId,
   earnedBadges,
   previewCount = 5,
+  household = false,
 }: BadgesSectionProps) {
   const [open, setOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const catalogForScope = useMemo(
-    () => BADGE_CATALOG.filter((d) => d.scope === scope),
-    [scope],
-  )
+  const catalogForScope = useMemo(() => {
+    if (household) return BADGE_CATALOG.filter((d) => d.scope === 'pet')
+    return BADGE_CATALOG.filter((d) => d.scope === scope)
+  }, [scope, household])
 
   const relevant = useMemo(() => {
+    if (household) {
+      // Unique badge ids earned on any pet
+      const byBadge = new Map<string, EarnedBadge>()
+      for (const b of earnedBadges) {
+        const def = getBadgeDefinition(b.badgeId)
+        if (!def || def.scope !== 'pet') continue
+        const prev = byBadge.get(b.badgeId)
+        if (!prev || b.level > prev.level || b.earnedAt > prev.earnedAt) {
+          byBadge.set(b.badgeId, { ...b, petId: undefined })
+        }
+      }
+      return sortEarned(Array.from(byBadge.values()))
+    }
     return sortEarned(
       earnedBadges.filter((b) => {
         const def = getBadgeDefinition(b.badgeId)
@@ -51,7 +70,7 @@ export function BadgesSection({
         return !b.petId
       }),
     )
-  }, [earnedBadges, scope, petId])
+  }, [earnedBadges, scope, petId, household])
 
   const preview = relevant.slice(0, previewCount)
   const totalInCatalog = catalogForScope.length
@@ -144,8 +163,9 @@ export function BadgesSection({
           setOpen(false)
           setSelectedId(null)
         }}
-        scope={scope}
-        petId={petId}
+        scope={household ? 'pet' : scope}
+        petId={household ? undefined : petId}
+        household={household}
         earnedBadges={earnedBadges}
         catalog={catalogForScope}
         categoryLabels={BADGE_CATEGORY_LABELS}

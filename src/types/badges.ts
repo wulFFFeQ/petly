@@ -8,6 +8,9 @@ export type BadgeCategory =
   | 'care'
   | 'secret'
 
+/** Display / collection rarity — secrets are always `secret`. */
+export type BadgeRarity = 'common' | 'uncommon' | 'rare' | 'secret'
+
 export interface BadgeLevelDef {
   level: number
   title: string
@@ -18,6 +21,7 @@ export interface BadgeDefinition {
   id: string
   scope: BadgeScope
   category: BadgeCategory
+  rarity: BadgeRarity
   name: string
   /** Short flavor — what this milestone means. */
   description: string
@@ -55,6 +59,8 @@ export type BadgeIconKey =
   | 'cake'
   | 'star'
   | 'compass'
+  | 'camera'
+  | 'check'
 
 /** Persisted unlock record. */
 export interface EarnedBadge {

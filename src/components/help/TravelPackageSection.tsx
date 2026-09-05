@@ -121,10 +121,9 @@ export function TravelPackageSection({ hideHeader = false }: { hideHeader?: bool
       pack: activeTravelPackage,
       destination: activeDestination,
       overall: destinationReadiness.overall,
-      evaluated: destinationReadiness.evaluated.map(({ req, status, hint }) => ({
-        label: req.label,
-        detail: req.detail,
-        hint,
+      evaluated: destinationReadiness.evaluated.map(({ req, status }) => ({
+        id: req.id,
+        check: req.check,
         status,
       })),
     }

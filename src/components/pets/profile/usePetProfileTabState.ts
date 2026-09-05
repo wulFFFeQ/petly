@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   timelineEvents as staticTimelineEvents,
-  weightMeasurements as initialWeightMeasurements,
 } from '../../../data/mockData'
 import { useApp } from '../../../context/AppContext'
 import { getHeatPeriodEndDate } from '../../../lib/calendarEventTypes'
@@ -12,6 +11,7 @@ import {
   loadDailyCareCompleted,
   saveDailyCareCompleted,
 } from '../../../lib/dailyCareChecklist'
+import { persistWeightMeasurement, getWeightMeasurementsForPet } from '../../../lib/badges/badgeData'
 import { APP_TODAY } from '../../../lib/dashboardDates'
 import { isDogType, isFemalePetGender } from '../../../lib/petTypes'
 import type {
@@ -57,6 +57,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     photos: allPhotos,
     documents: allDocuments,
     healthRecords: allRecords,
+    refreshBadges,
     addPetPhotos,
     updatePetPhoto,
     deletePetPhoto,
@@ -81,7 +82,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   const [documentUploading, setDocumentUploading] = useState(false)
   const [replacingDocumentId, setReplacingDocumentId] = useState<string | null>(null)
   const [weightData, setWeightData] = useState<WeightMeasurement[]>(() =>
-    initialWeightMeasurements.filter((w) => w.petId === pet.id),
+    getWeightMeasurementsForPet(pet.id),
   )
   const [customTimeline, setCustomTimeline] = useState<TimelineEvent[]>([])
   const [hiddenTimelineIds, setHiddenTimelineIds] = useState<string[]>([])
@@ -141,6 +142,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
         ? prev.filter((id) => id !== taskId)
         : [...prev, taskId]
       saveDailyCareCompleted(pet.id, next)
+      queueMicrotask(() => refreshBadges())
       return next
     })
   }
@@ -338,6 +340,8 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       note: newWeightNote || undefined,
     }
     setWeightData((prev) => [...prev, entry])
+    persistWeightMeasurement(entry)
+    refreshBadges()
     setNewWeight('')
     setNewWeightNote('')
     showToast('Měření přidáno', `${pet.name}: ${weight} kg`, 'gold')

@@ -37,6 +37,10 @@ const HELP_TOPICS: {
         a: 'V sekci Moji mazlíčci klikněte na „Přidat mazlíčka“, vyplňte základní údaje a uložte profil. Poté můžete doplnit fotografie, dokumenty a zdravotní záznamy.',
       },
       {
+        q: 'Jak smažu profil mazlíčka?',
+        a: 'Otevřete profil mazlíčka, dole pod chovným profilem klikněte na „Smazat profil“ a potvrďte. Smazání je nevratné a odstraní i fotky, dokumenty, zdravotní záznamy a související události v kalendáři.',
+      },
+      {
         q: 'Kde najdu přehled dne?',
         a: 'Na stránce Přehled uvidíte denní péči, blížící se termíny a rychlé akce pro své mazlíčky.',
       },

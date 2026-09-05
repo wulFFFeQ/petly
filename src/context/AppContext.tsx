@@ -180,6 +180,8 @@ interface AppContextValue {
   calendarEvents: CalendarEvent[]
   notifications: AppNotification[]
   earnedBadges: EarnedBadge[]
+  /** Re-run badge evaluation (e.g. after localStorage-only care/share/weight signals). */
+  refreshBadges: () => void
   activeModal: ModalType
   modalPetId: string | null
   discoverSearch: string
@@ -202,6 +204,7 @@ interface AppContextValue {
   setDiscoverFilter: (filter: DiscoverFilter) => void
   setNotificationsOpen: (open: boolean) => void
   addPet: (form: NewPetForm) => void
+  deletePet: (petId: string) => void
   updatePet: (petId: string, updates: Partial<Pet>) => void
   updatePetImage: (petId: string, image: string) => void
   updatePetCoverImage: (petId: string, coverImage: string) => void
@@ -293,6 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>(loadEarnedBadges)
   const [nightOwlEligible, setNightOwlEligible] = useState(loadNightOwlEligible)
+  const [badgeRevision, setBadgeRevision] = useState(0)
   const badgesHydratedRef = useRef(false)
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
   const [modalPetId, setModalPetId] = useState<string | null>(null)
@@ -308,6 +312,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [healthRecordPrefillType, setHealthRecordPrefillType] = useState<HealthRecordType | null>(
     null,
   )
+
+  const refreshBadges = useCallback(() => {
+    setBadgeRevision((n) => n + 1)
+  }, [])
 
   const clearCalendarFocusDate = useCallback(() => {
     setCalendarFocusDate(null)
@@ -355,9 +363,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pets,
       healthRecords,
       documents,
+      photos,
       posts,
       calendarEvents,
-      nightOwlEligible,
       todayIso: toIsoDay(),
     })
 
@@ -407,7 +415,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- evaluate on domain data; merge via functional update
-  }, [pets, healthRecords, documents, posts, calendarEvents, nightOwlEligible])
+  }, [pets, healthRecords, documents, photos, posts, calendarEvents, badgeRevision])
 
   // Migrate legacy Samice/Samec → Fena/Pes or Kočka/Kocour
   useEffect(() => {
@@ -518,6 +526,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       `${newPet.name} přidán mezi vaše mazlíčky`,
       'Doplňte profil podle potřeby — ostatní údaje zůstávají prázdné.',
       'gold',
+    )
+  }
+
+  const deletePet = (petId: string) => {
+    const pet = pets.find((item) => item.id === petId)
+    if (!pet) return
+
+    setPets((prev) => prev.filter((item) => item.id !== petId))
+    setPhotos((prev) => prev.filter((photo) => photo.petId !== petId))
+    setDocuments((prev) => prev.filter((doc) => doc.petId !== petId))
+    setHealthRecords((prev) => prev.filter((record) => record.petId !== petId))
+    setCalendarEvents((prev) => prev.filter((event) => event.petName !== pet.name))
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.petId === petId ? { ...post, petId: undefined } : post,
+      ),
+    )
+    setEarnedBadges((prev) => prev.filter((badge) => badge.petId !== petId))
+
+    if (modalPetId === petId) {
+      setModalPetId(null)
+      setActiveModalState(null)
+    }
+
+    showToast(
+      `Profil ${pet.name} smazán`,
+      'Mazlíček a související údaje byly odstraněny.',
+      'info',
     )
   }
 
@@ -1152,6 +1188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         calendarEvents,
         notifications,
         earnedBadges,
+        refreshBadges,
         activeModal,
         modalPetId,
         discoverSearch,
@@ -1171,6 +1208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDiscoverFilter,
         setNotificationsOpen,
         addPet,
+        deletePet,
         updatePet,
         updatePetImage,
         updatePetCoverImage,

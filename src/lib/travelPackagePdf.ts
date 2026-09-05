@@ -1,25 +1,11 @@
 import { jsPDF } from 'jspdf'
 import { BRAND_NAME, BRAND_TAGLINE } from './brand'
-import type { Pet, PetTravelPackage, TravelDestination } from '../types'
+import {
+  localizeTravelPackForPdf,
+  type TravelPackPdfSource,
+} from './travelPdfI18n'
 
-function readinessLabel(overall: 'ready' | 'attention' | 'missing') {
-  if (overall === 'ready') return 'Připraveno k cestě'
-  if (overall === 'attention') return 'Téměř připraveno'
-  return 'Doplnit požadavky'
-}
-
-export type TravelPackPdfInput = {
-  pet: Pet
-  pack: PetTravelPackage
-  destination: TravelDestination
-  overall: 'ready' | 'attention' | 'missing'
-  evaluated: Array<{
-    label: string
-    detail: string
-    hint: string
-    status: 'ready' | 'attention' | 'missing'
-  }>
-}
+export type TravelPackPdfInput = TravelPackPdfSource
 
 const COLORS = {
   bg: '#FAF8F5',
@@ -226,7 +212,11 @@ function drawCoverImage(
   ctx.restore()
 }
 
-async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCanvasElement> {
+async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<{
+  canvas: HTMLCanvasElement
+  filename: string
+}> {
+  const L = localizeTravelPackForPdf(input)
   const width = 794
   // Tall enough for destinations with more requirements; PDF scales to one A4 page.
   const height = 1400
@@ -240,7 +230,7 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   await (document.fonts?.ready ?? Promise.resolve())
   const petImage = await loadPetImage(input.pet.image)
 
-  const { pet, pack, destination, overall, evaluated } = input
+  const { pet, pack } = input
   const pad = 36
   let y = pad
 
@@ -261,8 +251,8 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   ctx.textAlign = 'right'
   ctx.fillStyle = COLORS.teal
   ctx.font = '700 9px "Plus Jakarta Sans", Arial, sans-serif'
-  ctx.fillText('BALÍČEK PRO CESTOVÁNÍ', width - pad, y)
-  drawPill(ctx, readinessLabel(overall), width - pad, y + 28, COLORS.goldBg, COLORS.goldDark)
+  ctx.fillText(L.travelPackTitle, width - pad, y)
+  drawPill(ctx, L.readinessLabel, width - pad, y + 28, COLORS.goldBg, COLORS.goldDark)
   ctx.textAlign = 'left'
 
   y += 52
@@ -288,16 +278,16 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   ctx.fillStyle = COLORS.text
   ctx.font = '700 17px "Plus Jakarta Sans", Arial, sans-serif'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillText(`${pet.name} · ${pet.breed}`, photoX + photo + 14, y + 30)
+  ctx.fillText(`${pet.name} · ${L.breed}`, photoX + photo + 14, y + 30)
   ctx.fillStyle = COLORS.muted
   ctx.font = '500 12px "Plus Jakarta Sans", Arial, sans-serif'
-  ctx.fillText(`Cíl: ${destination.emoji} ${destination.country}`, photoX + photo + 14, y + 50)
+  ctx.fillText(L.destinationLine, photoX + photo + 14, y + 50)
   y += petCardH + 12
 
   // Summary
   ctx.fillStyle = COLORS.secondary
   ctx.font = '400 11px "Plus Jakarta Sans", Arial, sans-serif'
-  const summaryLines = wrapText(ctx, destination.summary, width - pad * 2)
+  const summaryLines = wrapText(ctx, L.summary, width - pad * 2)
   for (const line of summaryLines) {
     ctx.fillText(line, pad, y + 12)
     y += 15
@@ -309,14 +299,10 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   const cardW = (width - pad * 2 - gap) / 2
   const cardH = 68
   const infoCards: Array<[string, string, string]> = [
-    ['EU PAS', pack.euPassport.number, `Platnost do ${pack.euPassport.validUntil}`],
-    ['OČKOVÁNÍ', pack.vaccinationSummary, `Další termín: ${pet.nextVaccination ?? '—'}`],
-    ['ČIP', pack.microchip, `Registrován v systému ${BRAND_NAME}`],
-    [
-      'ZDRAVOTNÍ ZÁZNAMY',
-      `${pack.healthRecordCount} klinických záznamů`,
-      `Poslední návštěva: ${pet.lastVetVisit ?? '—'}`,
-    ],
+    [L.euPassportTitle, pack.euPassport.number, L.validUntilLine],
+    [L.vaccinationTitle, L.vaccinationSummary, L.nextDueLine],
+    [L.microchipTitle, pack.microchip, L.registeredLine],
+    [L.healthRecordsTitle, L.clinicalRecordsLine, L.lastVisitLine],
   ]
   infoCards.forEach(([title, primary, secondary], index) => {
     const col = index % 2
@@ -340,10 +326,10 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   // Requirements
   ctx.fillStyle = COLORS.teal
   ctx.font = '700 9px "Plus Jakarta Sans", Arial, sans-serif'
-  ctx.fillText(`POŽADAVKY PRO ${destination.country.toUpperCase()}`, pad, y + 10)
+  ctx.fillText(L.requirementsHeading, pad, y + 10)
   y += 20
 
-  for (const item of evaluated) {
+  for (const item of L.evaluated) {
     const badgeBg =
       item.status === 'ready'
         ? COLORS.readyBg
@@ -356,8 +342,7 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
         : item.status === 'attention'
           ? COLORS.attentionFg
           : COLORS.missingFg
-    const statusText =
-      item.status === 'ready' ? 'Splněno' : item.status === 'attention' ? 'K doplnění' : 'Chybí'
+    const statusText = L.statusLabel(item.status)
 
     ctx.font = '400 10px "Plus Jakarta Sans", Arial, sans-serif'
     const detailLines = wrapText(ctx, item.detail, width - pad * 2 - 120)
@@ -397,13 +382,13 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
 
   // Documents
   y += 4
-  const docsH = 22 + pack.documents.length * 24
+  const docsH = 22 + L.documents.length * 24
   fillRoundRect(ctx, pad, y, width - pad * 2, docsH, 12, COLORS.surface, COLORS.border)
   ctx.fillStyle = COLORS.teal
   ctx.font = '700 9px "Plus Jakarta Sans", Arial, sans-serif'
-  ctx.fillText('DOKUMENTY V BALÍČKU', pad + 14, y + 16)
+  ctx.fillText(L.documentsHeading, pad + 14, y + 16)
 
-  pack.documents.forEach((doc, index) => {
+  L.documents.forEach((doc, index) => {
     const dy = y + 30 + index * 24
     drawStatusCircle(ctx, pad + 24, dy, 8, doc.ready ? 'ready' : 'missing')
     ctx.fillStyle = doc.ready ? COLORS.text : COLORS.muted
@@ -424,9 +409,9 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   ctx.font = '400 10px "Plus Jakarta Sans", Arial, sans-serif'
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
-  ctx.fillText(`Souhrn cestovních dokumentů · ${pet.name}`, pad, y)
+  ctx.fillText(L.footerLeft, pad, y)
   ctx.textAlign = 'right'
-  ctx.fillText(`Vygenerováno ${new Date().toLocaleString('cs-CZ')}`, width - pad, y)
+  ctx.fillText(L.footerRight, width - pad, y)
   ctx.textAlign = 'left'
 
   // Crop unused bottom whitespace so scaling stays sharp on A4.
@@ -435,7 +420,7 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
   cropped.width = width * 2
   cropped.height = usedHeight * 2
   const cropCtx = cropped.getContext('2d')
-  if (!cropCtx) return canvas
+  if (!cropCtx) return { canvas, filename: L.filename }
   cropCtx.drawImage(
     canvas,
     0,
@@ -447,11 +432,11 @@ async function renderTravelPackCanvas(input: TravelPackPdfInput): Promise<HTMLCa
     width * 2,
     usedHeight * 2,
   )
-  return cropped
+  return { canvas: cropped, filename: L.filename }
 }
 
 export async function downloadTravelPackagePdf(input: TravelPackPdfInput) {
-  const canvas = await renderTravelPackCanvas(input)
+  const { canvas, filename } = await renderTravelPackCanvas(input)
   const imgData = canvas.toDataURL('image/jpeg', 0.95)
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = pdf.internal.pageSize.getWidth()
@@ -469,29 +454,23 @@ export async function downloadTravelPackagePdf(input: TravelPackPdfInput) {
   const y = margin + (maxH - imgH) / 2
   pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH)
 
-  const filename = `cestovni-balicek-${input.pet.name.toLowerCase()}.pdf`
-  pdf.save(filename)
+  // Force a real download (Chrome/Edge often open PDF blobs in a viewer instead).
+  const pdfBytes = pdf.output('arraybuffer')
+  const blob = new Blob([pdfBytes], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500)
+
   return filename
 }
 
 export function buildTravelPackShareText(input: TravelPackPdfInput) {
-  const docs = input.pack.documents
-    .map((doc) => `${doc.ready ? '✓' : '–'} ${doc.label}`)
-    .join('\n')
-
-  return [
-    `${BRAND_NAME} — Balíček pro cestování`,
-    '',
-    `Mazlíček: ${input.pet.name} (${input.pet.breed})`,
-    `Destinace: ${input.destination.country}`,
-    `Stav: ${readinessLabel(input.overall)}`,
-    '',
-    `EU pas: ${input.pack.euPassport.number}`,
-    `Platnost do: ${input.pack.euPassport.validUntil}`,
-    `Očkování: ${input.pack.vaccinationSummary}`,
-    `Mikročip: ${input.pack.microchip}`,
-    '',
-    'Dokumenty:',
-    docs,
-  ].join('\n')
+  return localizeTravelPackForPdf(input).shareText
 }

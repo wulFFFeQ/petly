@@ -387,7 +387,9 @@ export const petPhotos: PetPhoto[] = [
 export const weightMeasurements: WeightMeasurement[] = [
   { id: 'wm_luna_1', petId: 'luna', date: '1. 3. 2026', weight: 27.2, note: 'Po zimním období' },
   { id: 'wm_luna_2', petId: 'luna', date: '1. 5. 2026', weight: 27.8 },
-  { id: 'wm_luna_3', petId: 'luna', date: '1. 8. 2026', weight: 28.0, note: 'Ideální kondice' },
+  { id: 'wm_luna_3', petId: 'luna', date: '1. 6. 2026', weight: 27.9 },
+  { id: 'wm_luna_4', petId: 'luna', date: '1. 7. 2026', weight: 28.1 },
+  { id: 'wm_luna_5', petId: 'luna', date: '1. 8. 2026', weight: 28.0, note: 'Ideální kondice' },
   { id: 'wm_milo_1', petId: 'milo', date: '1. 4. 2026', weight: 5.0 },
   { id: 'wm_milo_2', petId: 'milo', date: '1. 8. 2026', weight: 5.2 },
   { id: 'wm_bella_1', petId: 'bella', date: '1. 2. 2026', weight: 17.8 },

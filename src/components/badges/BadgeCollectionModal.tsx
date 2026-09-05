@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BADGE_CATEGORY_LABELS, getBadgeDefinition } from '../../lib/badges/catalog'
+import { BADGE_CATEGORY_LABELS, BADGE_RARITY_LABELS, getBadgeDefinition } from '../../lib/badges/catalog'
 import { romanLevel } from '../../lib/badges/evaluate'
 import { formatIsoDateToCzech } from '../../lib/petProfileUtils'
 import { cn } from '../../lib/utils'
@@ -12,6 +12,8 @@ interface BadgeCollectionModalProps {
   onClose: () => void
   scope: 'pet' | 'user'
   petId?: string
+  /** Across all pets — earn if any pet unlocked the badge. */
+  household?: boolean
   earnedBadges: EarnedBadge[]
   catalog: BadgeDefinition[]
   categoryLabels: typeof BADGE_CATEGORY_LABELS
@@ -240,7 +242,7 @@ export function BadgeCollectionModal({
                         />
                         <div>
                           <p className="text-xs font-semibold tracking-wide text-[#E8D8B5]">
-                            Objev {index + 1}
+                            Objev {romanLevel(index + 1)}
                           </p>
                           <p className="mt-0.5 text-[11px] leading-relaxed text-[#A3AEA7]">
                             Zapečetěno. Odhalí se ve chvíli, kdy na něj přijde čas.
@@ -273,6 +275,9 @@ export function BadgeCollectionModal({
                 <p className="text-base font-bold text-[#191E1B]">{selectedDef.name}</p>
                 <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9E7D3A]">
                   {BADGE_CATEGORY_LABELS[selectedDef.category]}
+                  {selectedDef.rarity !== 'secret'
+                    ? ` · ${BADGE_RARITY_LABELS[selectedDef.rarity]}`
+                    : ''}
                   {selectedEarned && (selectedDef.maxLevel ?? 1) > 1
                     ? ` · ${romanLevel(selectedEarned.level)}`
                     : ''}
