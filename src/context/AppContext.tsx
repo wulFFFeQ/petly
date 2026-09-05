@@ -204,7 +204,10 @@ interface AppContextValue {
     text: string
     image?: string
     petTag?: string
+    petId?: string
     location?: string
+    locationLat?: number
+    locationLng?: number
   }) => void
   deletePost: (postId: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
@@ -491,6 +494,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       likes: 0,
       liked: false,
       petTag: pet ? `${pet.name} · ${pet.breed}` : undefined,
+      petId: pet?.id,
       commentsCount: 0,
       comments: [],
       sourcePhotoId: photo.id,
@@ -917,7 +921,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     text: string
     image?: string
     petTag?: string
+    petId?: string
     location?: string
+    locationLat?: number
+    locationLng?: number
   }) => {
     const text = input.text.trim()
     if (!text && !input.image) return
@@ -933,7 +940,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       likes: 0,
       liked: false,
       petTag: input.petTag,
+      petId: input.petId,
       location: input.location,
+      locationLat: input.locationLat,
+      locationLng: input.locationLng,
       commentsCount: 0,
       comments: [],
     }

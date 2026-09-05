@@ -493,6 +493,10 @@ export const communityPosts: CommunityPost[] = [
     likes: 24,
     liked: false,
     petTag: 'Max · Labradorský retriever',
+    petId: 'd1',
+    location: 'Kmochův ostrov, Kolín',
+    locationLat: 50.0278,
+    locationLng: 15.2005,
     commentsCount: 3,
     comments: [
       {
@@ -521,6 +525,10 @@ export const communityPosts: CommunityPost[] = [
     likes: 18,
     liked: true,
     petTag: 'Nala · Britská krátkosrstá kočka',
+    petId: 'd2',
+    location: 'PetCare Central, Praha',
+    locationLat: 50.0755,
+    locationLng: 14.4378,
     commentsCount: 1,
     comments: [
       {
@@ -543,6 +551,10 @@ export const communityPosts: CommunityPost[] = [
     likes: 42,
     liked: false,
     petTag: 'Rocky · Border kolie',
+    petId: 'd3',
+    location: 'Agility aréna, Kutná Hora',
+    locationLat: 49.9484,
+    locationLng: 15.2682,
     commentsCount: 2,
     comments: [],
   },

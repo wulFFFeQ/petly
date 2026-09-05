@@ -10,10 +10,13 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import { discoverPets } from '../../data/mockData'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import { mapsUrlForPlace } from '../../lib/geolocation'
 import { formatCommentDisplayTime } from '../../lib/relativeTime'
-import type { CommunityPost } from '../../types'
+import type { CommunityPost, Pet } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
@@ -21,18 +24,44 @@ import { cn } from '../../lib/utils'
 
 const CURRENT_USER_NAME = 'Tereza V.'
 
+function resolvePetHref(
+  pets: Pet[],
+  petId?: string,
+  petTag?: string,
+): string | null {
+  if (petId) {
+    if (pets.some((pet) => pet.id === petId)) return `/pets/${petId}`
+    if (discoverPets.some((pet) => pet.id === petId)) return `/discover/${petId}`
+  }
+
+  const name = petTag?.split('·')[0]?.trim()
+  if (!name) return null
+
+  const ownPet = pets.find((pet) => pet.name === name)
+  if (ownPet) return `/pets/${ownPet.id}`
+
+  const discoverPet = discoverPets.find((pet) => pet.name === name)
+  if (discoverPet) return `/discover/${discoverPet.id}`
+
+  return null
+}
+
 interface PostCardProps {
   post: CommunityPost
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const { toggleLike, addComment, deleteComment, deletePost, showToast } = useApp()
+  const { toggleLike, addComment, deleteComment, deletePost, showToast, pets } = useApp()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [nowTick, setNowTick] = useState(() => Date.now())
   const menuRef = useRef<HTMLDivElement>(null)
   const isOwnPost = post.author === CURRENT_USER_NAME
+  const petHref = resolvePetHref(pets, post.petId, post.petTag)
+  const locationHref = post.location
+    ? mapsUrlForPlace(post.location, post.locationLat, post.locationLng)
+    : null
 
   useEffect(() => {
     if (!showComments) return
@@ -113,16 +142,30 @@ export function PostCard({ post }: PostCardProps) {
               {post.petTag && (
                 <>
                   <span>·</span>
-                  <span className="text-[#234B54] font-medium">{post.petTag}</span>
+                  {petHref ? (
+                    <Link
+                      to={petHref}
+                      className="font-medium text-[#234B54] underline-offset-2 hover:underline"
+                    >
+                      {post.petTag}
+                    </Link>
+                  ) : (
+                    <span className="text-[#234B54] font-medium">{post.petTag}</span>
+                  )}
                 </>
               )}
-              {post.location && (
+              {post.location && locationHref && (
                 <>
                   <span>·</span>
-                  <span className="inline-flex items-center gap-0.5 font-medium text-[#B8934A]">
+                  <a
+                    href={locationHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 font-medium text-[#B8934A] underline-offset-2 hover:underline"
+                  >
                     <MapPin size={11} className="shrink-0" />
                     {post.location}
-                  </span>
+                  </a>
                 </>
               )}
             </div>

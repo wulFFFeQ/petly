@@ -28,6 +28,10 @@ export function CreatePostInput() {
   const [taggedPet, setTaggedPet] = useState<Pet | null>(null)
   const [petPickerOpen, setPetPickerOpen] = useState(false)
   const [locationLabel, setLocationLabel] = useState<string | null>(null)
+  const [locationCoords, setLocationCoords] = useState<{
+    latitude: number
+    longitude: number
+  } | null>(null)
   const [locationPickerOpen, setLocationPickerOpen] = useState(false)
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSuggestions, setLocationSuggestions] = useState<PlaceSuggestion[]>([])
@@ -160,13 +164,22 @@ export function CreatePostInput() {
     setLocationPickerOpen((open) => !open)
   }
 
-  const selectLocation = (label: string) => {
+  const selectLocation = (
+    label: string,
+    coords?: { latitude: number; longitude: number } | null,
+  ) => {
     setLocationLabel(label)
+    setLocationCoords(coords ?? null)
     setLocationPickerOpen(false)
     setLocationQuery('')
     setLocationSuggestions([])
     setLocationSearchStatus('idle')
     showToast('Lokalita nastavena', label, 'info')
+  }
+
+  const clearLocation = () => {
+    setLocationLabel(null)
+    setLocationCoords(null)
   }
 
   const handleUseCurrentLocation = async () => {
@@ -175,7 +188,10 @@ export function CreatePostInput() {
     setLocating(true)
     try {
       const resolved = await resolveCurrentLocation()
-      selectLocation(resolved.label)
+      selectLocation(resolved.label, {
+        latitude: resolved.latitude,
+        longitude: resolved.longitude,
+      })
     } catch (error) {
       const code =
         error instanceof GeolocationRequestError ? error.code : 'position_unavailable'
@@ -207,12 +223,16 @@ export function CreatePostInput() {
       text: text.trim(),
       image: imagePreview ?? undefined,
       petTag: taggedPet ? formatPetTag(taggedPet) : undefined,
+      petId: taggedPet?.id,
       location: locationLabel ?? undefined,
+      locationLat: locationCoords?.latitude,
+      locationLng: locationCoords?.longitude,
     })
     setText('')
     setImagePreview(null)
     setTaggedPet(null)
     setLocationLabel(null)
+    setLocationCoords(null)
     setLocationPickerOpen(false)
   }
 
@@ -257,7 +277,7 @@ export function CreatePostInput() {
                     <span>{locationLabel}</span>
                     <button
                       type="button"
-                      onClick={() => setLocationLabel(null)}
+                      onClick={clearLocation}
                       className="ml-0.5 rounded-full p-0.5 hover:bg-white/70 cursor-pointer"
                       aria-label="Odebrat lokalitu"
                     >
@@ -394,7 +414,12 @@ export function CreatePostInput() {
                           type="button"
                           role="option"
                           aria-selected={selected}
-                          onClick={() => selectLocation(place.label)}
+                          onClick={() =>
+                            selectLocation(place.label, {
+                              latitude: place.latitude,
+                              longitude: place.longitude,
+                            })
+                          }
                           className={cn(
                             'flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer',
                             selected ? 'bg-[#FBF6EC]' : 'hover:bg-[#FAF8F5]',

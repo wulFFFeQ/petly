@@ -222,7 +222,11 @@ export interface CommunityPost {
   likes: number
   liked: boolean
   petTag?: string
+  /** Own pet (`/pets/:id`) or discover pet (`/discover/:id`) when the tag is linked. */
+  petId?: string
   location?: string
+  locationLat?: number
+  locationLng?: number
   commentsCount: number
   comments?: PostComment[]
   /** When set, post was created from a gallery photo upload. */

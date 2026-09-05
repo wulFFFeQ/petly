@@ -182,9 +182,11 @@ export async function searchPlaces(
 
   const url = new URL('https://photon.komoot.io/api/')
   url.searchParams.set('q', trimmed)
-  url.searchParams.set('lang', 'cs')
-  url.searchParams.set('limit', '6')
-  // Bias results toward Czechia without blocking nearby border places entirely.
+  // Photon only supports: default, de, en, fr (not cs). OSM names stay localized.
+  url.searchParams.set('lang', 'default')
+  url.searchParams.set('limit', '8')
+  // Prefer places in Czechia (minLon,minLat,maxLon,maxLat).
+  url.searchParams.set('bbox', '12.09,48.55,18.86,51.06')
   url.searchParams.set('lat', '49.8')
   url.searchParams.set('lon', '15.5')
 
@@ -219,6 +221,17 @@ export async function searchPlaces(
   }
 
   return suggestions
+}
+
+export function mapsUrlForPlace(
+  label: string,
+  latitude?: number,
+  longitude?: number,
+): string {
+  if (latitude != null && longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    return `https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`
 }
 
 export function geolocationErrorMessage(code: GeolocationErrorCode): {
