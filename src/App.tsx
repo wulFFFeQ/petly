@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { ToastContainer } from './components/ui/Toast'
 import { AppProvider } from './context/AppContext'
 import { CalendarPage } from './pages/CalendarPage'
 import { CommunityPage } from './pages/CommunityPage'
@@ -8,6 +9,7 @@ import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { DiscoverPetPage } from './pages/DiscoverPetPage'
+import { FoundPetPage } from './pages/FoundPetPage'
 import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
 import { MessagesPage } from './pages/MessagesPage'
@@ -17,6 +19,15 @@ import { PetProfilePage } from './pages/PetProfilePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
 
+function FoundPetLayout() {
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]">
+      <FoundPetPage />
+      <ToastContainer />
+    </div>
+  )
+}
+
 function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
 
@@ -24,6 +35,7 @@ function App() {
     <BrowserRouter basename={basename}>
       <AppProvider>
         <Routes>
+          <Route path="found/:token" element={<FoundPetLayout />} />
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="pets" element={<MyPetsPage />} />

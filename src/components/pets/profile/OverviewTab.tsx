@@ -27,6 +27,7 @@ import { cn } from '../../../lib/utils'
 import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
+import { PetFoundQrCard } from '../found/PetFoundQrCard'
 import type { PetProfileTabState } from './usePetProfileTabState'
 
 type OverviewTabProps = PetProfileTabState['overview']
@@ -57,6 +58,8 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6">
+      <PetFoundQrCard pet={pet} />
+
       <div
         className={`grid gap-4 sm:grid-cols-2 ${
           showLastHeatCard ? 'lg:grid-cols-4' : 'lg:grid-cols-3'

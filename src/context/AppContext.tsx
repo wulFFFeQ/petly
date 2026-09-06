@@ -33,6 +33,11 @@ import {
   type DiscoverCriteria,
 } from '../lib/discoverCriteria'
 import { normalizeMicrochipInput } from '../lib/microchip'
+import {
+  createFoundContactToken,
+  ensurePetsFoundContactFields,
+  findPetByFoundToken,
+} from '../lib/foundPet'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -108,8 +113,21 @@ function loadPets(): Pet[] {
               ? pet.lookingFor.trim()
               : undefined
             : seed?.lookingFor,
+        foundContactToken:
+          typeof pet.foundContactToken === 'string' && pet.foundContactToken.trim()
+            ? pet.foundContactToken.trim()
+            : seed?.foundContactToken,
+        qrContactEnabled:
+          typeof pet.qrContactEnabled === 'boolean'
+            ? pet.qrContactEnabled
+            : (seed?.qrContactEnabled ?? true),
+        foundPublic: pet.foundPublic ?? seed?.foundPublic,
       }
-    })
+    }).map((pet) => ({
+      ...pet,
+      foundContactToken: pet.foundContactToken || createFoundContactToken(),
+      qrContactEnabled: pet.qrContactEnabled ?? true,
+    }))
   } catch {
     return initialPets
   }
@@ -283,6 +301,7 @@ interface AppContextValue {
   setMedicationReminderTime: (recordId: string, time: string) => void
   setMedicationReminderDays: (recordId: string, days: number) => void
   markNotificationsRead: () => void
+  submitFoundPetContact: (token: string, message: string) => boolean
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
@@ -562,6 +581,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       breed: form.breed,
       image: getDefaultBreedImage(form.type, form.breed),
       coverColor: pickRandomCoverColor(),
+      foundContactToken: createFoundContactToken(),
+      qrContactEnabled: true,
       ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
       ...(form.gender
         ? { gender: normalizeGenderForType(form.gender, form.type) ?? form.gender }
@@ -1038,6 +1059,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })))
   }
 
+  const submitFoundPetContact = (token: string, message: string): boolean => {
+    const trimmed = message.trim()
+    if (!trimmed) return false
+
+    const pet = findPetByFoundToken(pets, token)
+    if (!pet || pet.qrContactEnabled === false) return false
+
+    setNotifications((prev) => [
+      {
+        id: `found-${Date.now()}`,
+        title: `Někdo se pokouší kontaktovat vás kvůli ${pet.name}.`,
+        time: 'právě teď',
+        unread: true,
+        kind: 'system',
+      },
+      {
+        id: `found-msg-${Date.now()}`,
+        title: `Zpráva o ${pet.name}: ${trimmed.slice(0, 120)}${trimmed.length > 120 ? '…' : ''}`,
+        time: 'právě teď',
+        unread: true,
+        kind: 'system',
+      },
+      ...prev,
+    ])
+
+    try {
+      const key = 'lovedandknown.foundPetMessages'
+      const existing = JSON.parse(window.localStorage.getItem(key) || '[]') as unknown[]
+      const entry = {
+        id: `fm-${Date.now()}`,
+        token,
+        petId: pet.id,
+        petName: pet.name,
+        message: trimmed,
+        createdAt: new Date().toISOString(),
+      }
+      window.localStorage.setItem(key, JSON.stringify([entry, ...(Array.isArray(existing) ? existing : [])]))
+    } catch {
+      // Demo persistence is best-effort.
+    }
+
+    showToast(
+      'Zpráva odeslána majiteli',
+      'Kontakt probíhá přes LOVED & KNOWN — majitel neuvidí váš telefon ani e-mail automaticky.',
+      'gold',
+    )
+    return true
+  }
+
+  // Ensure QR tokens exist for pets loaded before this feature.
+  useEffect(() => {
+    setPets((prev) => ensurePetsFoundContactFields(prev))
+  }, [])
+
   // Mark finished medication courses as completed and clear reminders
   useEffect(() => {
     const expired = healthRecords.filter((record) => {
@@ -1326,6 +1401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMedicationReminderTime,
         setMedicationReminderDays,
         markNotificationsRead,
+        submitFoundPetContact,
         toggleLike,
         addComment,
         deleteComment,

@@ -117,14 +117,54 @@ export function lookupLovedKnownPetByMicrochip(
   return { petId: pet.id, petName: pet.name }
 }
 
-/** Public info links — not an API, just guidance where chips may be registered. */
-export const MICROCHIP_REGISTRY_INFO_LINKS: { label: string; href: string }[] = [
-  {
-    label: 'Národní registr zvířat (CZ)',
-    href: 'https://www.nacionalniregistr.cz/',
-  },
-  {
-    label: 'Europetnet',
-    href: 'https://www.europetnet.com/',
-  },
-]
+export interface MicrochipExternalSearchLink {
+  id: string
+  label: string
+  description: string
+  href: string
+  /** True when the chip number is embedded in the URL. */
+  prefillsChip: boolean
+}
+
+/**
+ * Deep-links to public web search tools (not an API integration).
+ * LOVED & KNOWN does not scrape results or read owner PII from these sites.
+ */
+export function buildMicrochipExternalSearchLinks(
+  chipNumber: string,
+): MicrochipExternalSearchLink[] {
+  const code = normalizeMicrochipInput(chipNumber)
+
+  return [
+    {
+      id: 'petmaxx',
+      label: 'PetMaxx — hledat čip',
+      description: code
+        ? 'Otevře mezinárodní vyhledávač s předvyplněným číslem.'
+        : 'Mezinárodní vyhledávač mikročipů.',
+      href: code
+        ? `https://www.petmaxx.com/?code=${encodeURIComponent(code)}`
+        : 'https://www.petmaxx.com/',
+      prefillsChip: Boolean(code),
+    },
+    {
+      id: 'europetnet',
+      label: 'Europetnet — Pet ID search',
+      description:
+        'Evropský portál. Číslo zadejte ve vyhledávání na stránce (deep-link není podporován).',
+      href: 'https://europetnet.org/pet-id-search/',
+      prefillsChip: false,
+    },
+    {
+      id: 'nrmz',
+      label: 'Národní registr (CZ)',
+      description: 'Informace a přístup k českému národnímu registru.',
+      href: 'https://www.narodniregistr.cz/',
+      prefillsChip: false,
+    },
+  ]
+}
+
+/** @deprecated Prefer buildMicrochipExternalSearchLinks(chip) */
+export const MICROCHIP_REGISTRY_INFO_LINKS: { label: string; href: string }[] =
+  buildMicrochipExternalSearchLinks('').map(({ label, href }) => ({ label, href }))

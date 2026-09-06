@@ -9,6 +9,7 @@ import {
   formatOptionalWeight,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
+import { maskMicrochip } from '../../lib/microchip'
 import { formatAge } from '../../lib/dashboardDates'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -106,7 +107,9 @@ export function PetGridCard({ pet }: PetGridCardProps) {
             <p className="min-w-0 truncate text-[10px] text-[#A3AEA7]">
               Mikročip{' '}
               <span className="font-mono text-[#B8C2BC]">
-                {hasMicrochip(pet.microchip) ? pet.microchip : formatOptionalText(pet.microchip)}
+                {hasMicrochip(pet.microchip)
+                  ? maskMicrochip(pet.microchip!)
+                  : formatOptionalText(pet.microchip)}
               </span>
             </p>
             {pet.neutered != null && (

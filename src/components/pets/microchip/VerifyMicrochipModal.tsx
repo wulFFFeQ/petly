@@ -1,15 +1,11 @@
-import { CheckCircle2, Info, Loader2, Search, ShieldAlert, XCircle } from 'lucide-react'
+import { Info, Loader2, Search, ShieldAlert, XCircle, CheckCircle2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../../context/AppContext'
 import {
   isMicrochipDevMockMode,
-  lookupLovedKnownPetByMicrochip,
-  MICROCHIP_REGISTRY_INFO_LINKS,
   microchipValidationMessage,
   normalizeMicrochipInput,
   verifyMicrochip,
-  type LovedKnownMicrochipMatch,
   type MicrochipVerificationResult,
 } from '../../../lib/microchip'
 import { formatIsoDateToCzech } from '../../../lib/petProfileUtils'
@@ -17,7 +13,7 @@ import { Button } from '../../ui/Button'
 import { Input } from '../../ui/Input'
 import { Modal } from '../../ui/Modal'
 
-type ModalView = 'form' | 'result' | 'registry_info'
+type ModalView = 'form' | 'result'
 
 interface VerifyMicrochipModalProps {
   open: boolean
@@ -26,8 +22,6 @@ interface VerifyMicrochipModalProps {
   initialChip?: string
   /** When set, persist verification result onto this pet. */
   petId?: string
-  /** Start in "report found pet" flow. */
-  mode?: 'verify' | 'found_pet'
 }
 
 function formatCheckedAt(iso: string): string {
@@ -40,22 +34,22 @@ function formatCheckedAt(iso: string): string {
   }
 }
 
+/**
+ * Owner-private registry check infrastructure.
+ * Not a public found-pet tool — use QR /found/:token for that.
+ */
 export function VerifyMicrochipModal({
   open,
   onClose,
   initialChip = '',
   petId,
-  mode = 'verify',
 }: VerifyMicrochipModalProps) {
-  const { pets, updatePet, showToast } = useApp()
-  const navigate = useNavigate()
+  const { updatePet } = useApp()
   const [view, setView] = useState<ModalView>('form')
   const [chip, setChip] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<MicrochipVerificationResult | null>(null)
-  const [lkMatch, setLkMatch] = useState<LovedKnownMicrochipMatch | null>(null)
-  const [flow, setFlow] = useState<'verify' | 'found_pet'>(mode)
 
   useEffect(() => {
     if (!open) return
@@ -63,24 +57,8 @@ export function VerifyMicrochipModal({
     setError(null)
     setLoading(false)
     setResult(null)
-    setLkMatch(null)
     setView('form')
-    setFlow(mode)
-  }, [open, initialChip, mode])
-
-  const title =
-    view === 'registry_info'
-      ? 'Kde může být čip registrovaný'
-      : flow === 'found_pet'
-        ? 'Nahlásit nalezeného mazlíčka'
-        : 'Ověřit mikročip'
-
-  const subtitle =
-    view === 'form' && flow === 'verify'
-      ? 'Zkontrolujte, zda je mikročip vašeho mazlíčka evidovaný v dostupných registrech.'
-      : view === 'form' && flow === 'found_pet'
-        ? 'Zadejte číslo mikročipu. Osobní údaje majitele nezobrazujeme.'
-        : undefined
+  }, [open, initialChip])
 
   const handleChipChange = (value: string) => {
     setChip(normalizeMicrochipInput(value).slice(0, 15))
@@ -116,35 +94,26 @@ export function VerifyMicrochipModal({
       const verification = await verifyMicrochip(normalized)
       setResult(verification)
       persistResult(verification)
-
-      if (flow === 'found_pet') {
-        const match = lookupLovedKnownPetByMicrochip(normalized, pets)
-        setLkMatch(match)
-      } else {
-        setLkMatch(lookupLovedKnownPetByMicrochip(normalized, pets))
-      }
       setView('result')
     } catch {
-      setError('Ověření se nepodařilo dokončit. Zkuste to prosím znovu.')
+      setError('Kontrola se nepodařila dokončit. Zkuste to prosím znovu.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleContactOwner = () => {
-    if (!lkMatch) return
-    showToast(
-      'Anonymní kontakt',
-      'V produkci by se otevřela bezpečná konverzace bez sdílení telefonu nebo e-mailu nálezce.',
-      'gold',
-    )
-    // Household demo: chip matched a local pet — open profile instead of exposing PII.
-    navigate(`/pets/${lkMatch.petId}`)
-    onClose()
-  }
-
   return (
-    <Modal open={open} onClose={onClose} title={title} subtitle={subtitle} maxWidth="sm">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Kontrola mikročipu"
+      subtitle={
+        view === 'form'
+          ? 'Identifikační údaj pro veterináře a oprávněné organizace. Není určený pro veřejné hledání mazlíčka.'
+          : undefined
+      }
+      maxWidth="sm"
+    >
       {isMicrochipDevMockMode() && (
         <div className="mb-4 rounded-xl border border-[#E8D8B5] bg-[#FAF4E6]/80 px-3 py-2 text-[11px] font-medium text-[#8A6A2E]">
           Vývojový režim — není skutečné ověření v registru.
@@ -169,7 +138,8 @@ export function VerifyMicrochipModal({
             </p>
           )}
           <p className="text-[11px] leading-relaxed text-[#7D8B82]">
-            Z bezpečnostních důvodů nikdy nezobrazujeme osobní údaje majitele zvířete.
+            LOVED &amp; KNOWN zatím nemá napojený živý registr. Tato kontrola je připravená
+            infrastruktura — pro nalezení mazlíčka použijte QR kód na obojku.
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -183,22 +153,9 @@ export function VerifyMicrochipModal({
               onClick={() => void runVerify()}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-              {flow === 'found_pet' ? 'Hledat mikročip' : 'Ověřit mikročip'}
+              Zkontrolovat
             </Button>
           </div>
-          {flow === 'verify' && (
-            <button
-              type="button"
-              onClick={() => {
-                setFlow('found_pet')
-                setView('form')
-                setResult(null)
-              }}
-              className="text-[11px] font-semibold text-[#2C4A3E] hover:underline cursor-pointer"
-            >
-              Nahlásit nalezeného mazlíčka
-            </button>
-          )}
         </div>
       )}
 
@@ -211,10 +168,7 @@ export function VerifyMicrochipModal({
                 <div>
                   <p className="text-sm font-bold text-[#191E1B]">Mikročip nalezen</p>
                   <p className="mt-1 text-xs leading-relaxed text-[#4A564F]">
-                    Tento mikročip je evidovaný v registru.
-                  </p>
-                  <p className="mt-2 text-[11px] leading-relaxed text-[#7D8B82]">
-                    Z bezpečnostních důvodů nezobrazujeme osobní údaje majitele.
+                    Tento mikročip je evidovaný v dostupném zdroji kontroly.
                   </p>
                 </div>
               </div>
@@ -228,11 +182,7 @@ export function VerifyMicrochipModal({
                 <div>
                   <p className="text-sm font-bold text-[#191E1B]">Mikročip nebyl nalezen</p>
                   <p className="mt-1 text-xs leading-relaxed text-[#4A564F]">
-                    V dostupných registrech se k tomuto číslu nepodařilo najít záznam.
-                  </p>
-                  <p className="mt-2 text-[11px] leading-relaxed text-[#7D8B82]">
-                    To nemusí znamenat, že mikročip není registrovaný. Může být vedený v jiném
-                    registru, který momentálně není dostupný.
+                    V dostupných zdrojích se k tomuto číslu nepodařilo najít záznam.
                   </p>
                 </div>
               </div>
@@ -246,12 +196,12 @@ export function VerifyMicrochipModal({
                 <div>
                   <p className="text-sm font-bold text-[#191E1B]">Registr není připojený</p>
                   <p className="mt-1 text-xs leading-relaxed text-[#4A564F]">
-                    LOVED &amp; KNOWN momentálně nemá napojený živý registr mikročipů. Ověření v
+                    LOVED &amp; KNOWN momentálně nemá napojený živý registr mikročipů. Kontrola v
                     externí evidenci proto nelze dokončit.
                   </p>
                   <p className="mt-2 text-[11px] leading-relaxed text-[#7D8B82]">
-                    Číslo můžete uložit v profilu mazlíčka a ověření zopakovat, až bude registr
-                    dostupný.
+                    Číslo zůstává uložené jako soukromý identifikátor. Pro kontakt při nálezu
+                    použijte QR kód.
                   </p>
                 </div>
               </div>
@@ -264,7 +214,7 @@ export function VerifyMicrochipModal({
               <span className="font-mono">{result.chipNumber}</span>
             </p>
             <p>
-              <span className="font-semibold text-[#191E1B]">Ověřeno: </span>
+              <span className="font-semibold text-[#191E1B]">Kontrola: </span>
               {formatCheckedAt(result.checkedAt)}
             </p>
             {result.registries.map((reg) => (
@@ -276,30 +226,13 @@ export function VerifyMicrochipModal({
             ))}
           </div>
 
-          {lkMatch && (
-            <div className="rounded-xl border border-[#D1E0D8] bg-white p-3.5">
-              <p className="text-sm font-bold text-[#191E1B]">
-                Tento mazlíček má aktivní profil v LOVED &amp; KNOWN.
-              </p>
-              <p className="mt-1 text-[11px] text-[#7D8B82]">
-                Mazlíček: {lkMatch.petName}. Kontakt probíhá anonymně přes aplikaci — údaje
-                nálezce se majiteli neposílají automaticky.
-              </p>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                className="mt-3"
-                onClick={handleContactOwner}
-              >
-                Kontaktovat majitele
-              </Button>
-              <p className="mt-2 text-[10px] text-[#A3AEA7]">
-                Kontakt probíhá jen přes LOVED &amp; KNOWN — telefon, e-mail ani adresa se
-                nepředávají automaticky.
-              </p>
-            </div>
-          )}
+          <div className="flex items-start gap-2 rounded-xl bg-[#FAF8F5] p-3">
+            <Info size={16} className="mt-0.5 shrink-0 text-[#B8934A]" />
+            <p className="text-xs leading-relaxed text-[#4A564F]">
+              Mikročip slouží veterinářům a oprávněným organizacím. Veřejné hledání mazlíčka podle
+              čísla čipu v aplikaci není dostupné.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
             <Button
@@ -310,46 +243,12 @@ export function VerifyMicrochipModal({
                 setResult(null)
               }}
             >
-              {result.aggregate === 'not_found' ? 'Zkusit ověřit znovu' : 'Ověřit znovu'}
+              Zkontrolovat znovu
             </Button>
-            {result.aggregate === 'not_found' || result.aggregate === 'unavailable' ? (
-              <Button type="button" variant="outline" onClick={() => setView('registry_info')}>
-                Zjistit, kde může být čip registrovaný
-              </Button>
-            ) : null}
             <Button type="button" variant="ghost" onClick={onClose}>
               Zavřít
             </Button>
           </div>
-        </div>
-      )}
-
-      {view === 'registry_info' && (
-        <div className="space-y-4">
-          <div className="flex items-start gap-2 rounded-xl bg-[#FAF8F5] p-3">
-            <Info size={16} className="mt-0.5 shrink-0 text-[#B8934A]" />
-            <p className="text-xs leading-relaxed text-[#4A564F]">
-              Tyto odkazy vedou na veřejné informační stránky registrů. LOVED &amp; KNOWN z nich
-              nenačítá osobní údaje majitele.
-            </p>
-          </div>
-          <ul className="space-y-2">
-            {MICROCHIP_REGISTRY_INFO_LINKS.map((link) => (
-              <li key={link.href}>
-                <a
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="block rounded-xl border border-[#E8E4DC] px-3.5 py-2.5 text-sm font-semibold text-[#2C4A3E] hover:bg-[#FAF8F5] transition-colors"
-                >
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <Button type="button" variant="outline" onClick={() => setView(result ? 'result' : 'form')}>
-            Zpět
-          </Button>
         </div>
       )}
     </Modal>

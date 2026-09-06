@@ -99,6 +99,23 @@ export interface Pet {
     mode: 'live' | 'dev_mock' | 'unconfigured'
     chipNumber: string
   }
+  /**
+   * Opaque public token for the found-pet QR URL (`/found/:token`).
+   * Never equal to microchip or internal pet id.
+   */
+  foundContactToken?: string
+  /**
+   * When false, the found-pet page cannot contact the owner.
+   * Defaults to true once a token exists.
+   */
+  qrContactEnabled?: boolean
+  /** Owner-controlled fields that may appear on the found-pet page. */
+  foundPublic?: {
+    showApproximateArea?: boolean
+    approximateArea?: string
+    showUrgentNote?: boolean
+    urgentNote?: string
+  }
   neutered?: boolean
   /** When true, breeding calendar events (Chov) are available for this pet. */
   breedingProfile?: boolean

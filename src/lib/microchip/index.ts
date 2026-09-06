@@ -14,8 +14,10 @@ export {
   normalizeMicrochipInput,
 } from './validate'
 export {
+  buildMicrochipExternalSearchLinks,
   isMicrochipDevMockMode,
   lookupLovedKnownPetByMicrochip,
   MICROCHIP_REGISTRY_INFO_LINKS,
   verifyMicrochip,
 } from './verificationService'
+export type { MicrochipExternalSearchLink } from './verificationService'
