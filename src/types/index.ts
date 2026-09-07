@@ -22,6 +22,8 @@ export type {
   SafeContactStatus,
   SafeContactCloseReason,
   SafeApproxLocationShare,
+  ContactExchangeOffer,
+  SafeContactExchange,
   SafeContactChannel,
   VoiceProxyConfig,
 } from './lostPet'

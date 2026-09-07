@@ -16,6 +16,7 @@ import {
 import type { SafeContactChannel } from '../../../types'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
+import { Input } from '../../ui/Input'
 import { Modal } from '../../ui/Modal'
 
 interface SafeContactChatProps {
@@ -39,6 +40,8 @@ export function SafeContactChat({
     sendLostFinderMessage,
     shareSafeApproxLocation,
     thankSafeContactFinder,
+    offerSafeContactPhone,
+    respondSafeContactPhoneOffer,
     showToast,
     safeContactChannels,
   } = useApp()
@@ -73,6 +76,8 @@ export function SafeContactChat({
   const [text, setText] = useState('')
   const [locationConsentOpen, setLocationConsentOpen] = useState(false)
   const [sharingLocation, setSharingLocation] = useState(false)
+  const [phoneOfferOpen, setPhoneOfferOpen] = useState(false)
+  const [offerPhoneValue, setOfferPhoneValue] = useState('')
   const voice = getVoiceProxyConfig()
 
   if (!channel) return null
@@ -80,6 +85,20 @@ export function SafeContactChat({
   const isClosed = channel.status === 'closed'
   const quickReplies = role === 'finder' ? FINDER_QUICK_REPLIES : OWNER_QUICK_REPLIES
   const placeholder = role === 'finder' ? 'Vaše zpráva...' : 'Zpráva nálezci...'
+
+  const incomingOffer =
+    role === 'owner'
+      ? channel.contactExchange?.finderOffer
+      : channel.contactExchange?.ownerOffer
+  const myOffer =
+    role === 'owner'
+      ? channel.contactExchange?.ownerOffer
+      : channel.contactExchange?.finderOffer
+  const pendingIncoming =
+    incomingOffer && !incomingOffer.acceptedAt && !incomingOffer.declinedAt
+  const revealedIncoming = incomingOffer?.acceptedAt ? incomingOffer.phone : null
+  const canOfferPhone =
+    !isClosed && (!myOffer || !!myOffer.declinedAt)
 
   const handleSend = (raw: string, kind: 'text' | 'quick_reply' = 'text') => {
     if (!raw.trim() || isClosed) return
@@ -128,18 +147,77 @@ export function SafeContactChat({
         <div className="mt-2 space-y-1 text-sm text-[#4A564F]">
           <p className="font-semibold text-[#191E1B]">Kontakt s majitelem byl navázán.</p>
           <p className="text-xs text-[#7D8B82]">
-            Napište majiteli, kde se mazlíček nachází. Telefon, e-mail ani adresa se nezobrazí.
+            Napište majiteli, kde se mazlíček nachází. Telefon se nezobrazí, dokud ho sami
+            nenabídnete a druhá strana to neodsouhlasí.
           </p>
         </div>
       ) : (
         <p className="mt-2 text-xs text-[#7D8B82]">
-          Identita nálezce zůstává anonymní. Komunikujte pouze přes LOVED &amp; KNOWN.
+          Identita nálezce zůstává anonymní, dokud obě strany neodsouhlasí výměnu telefonu.
+        </p>
+      )}
+
+      {pendingIncoming && (
+        <div className="mt-3 rounded-2xl border border-[#E8D8B5] bg-[#FAF4E6] p-3">
+          <p className="text-sm font-semibold text-[#191E1B]">
+            {role === 'owner'
+              ? 'Nálezce nabízí své telefonní číslo'
+              : 'Majitel nabízí své telefonní číslo'}
+          </p>
+          <p className="mt-1 text-xs text-[#7A6230]">
+            Číslo uvidíte až po souhlasu. Můžete odmítnout a zůstat u anonymního chatu.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="gold"
+              size="sm"
+              className="flex-1"
+              onClick={() => respondSafeContactPhoneOffer(channel.id, role, true)}
+            >
+              Souhlasím a zobrazit číslo
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => respondSafeContactPhoneOffer(channel.id, role, false)}
+            >
+              Ne, zůstat anonymní
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {revealedIncoming && (
+        <div className="mt-3 rounded-2xl border border-[#D1E0D8] bg-[#EBF2EE] px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+            Telefon {role === 'owner' ? 'nálezce' : 'majitele'}
+          </p>
+          <a
+            href={`tel:${revealedIncoming.replace(/\s/g, '')}`}
+            className="mt-0.5 block text-lg font-bold text-[#2C4A3E] hover:underline"
+          >
+            {revealedIncoming}
+          </a>
+        </div>
+      )}
+
+      {myOffer && !myOffer.declinedAt && !myOffer.acceptedAt && (
+        <p className="mt-2 text-xs text-[#7D8B82]">
+          Vaše číslo ({myOffer.phone}) čeká na souhlas druhé strany.
         </p>
       )}
 
       <div className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-xl bg-[#FAF8F5] p-3">
         {channel.messages.map((msg) => {
-          if (msg.sender === 'system' || msg.kind === 'system' || msg.kind === 'thank_you') {
+          if (
+            msg.sender === 'system' ||
+            msg.kind === 'system' ||
+            msg.kind === 'thank_you' ||
+            msg.kind === 'contact_offer'
+          ) {
             return (
               <div
                 key={msg.id}
@@ -228,6 +306,18 @@ export function SafeContactChat({
                 Sdílet přibližnou polohu
               </Button>
             )}
+            {canOfferPhone && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1.5"
+                onClick={() => setPhoneOfferOpen(true)}
+              >
+                <Phone size={14} />
+                Předat telefon
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -242,7 +332,8 @@ export function SafeContactChat({
             </Button>
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-[#A3AEA7]">
-            Telefonické spojení: anonymní proxy hovor (bez zobrazení čísla) — zatím nedostupné.
+            Proxy hovor (bez zobrazení čísla) — zatím nedostupné. Výměna telefonu je dobrovolná a
+            vyžaduje souhlas obou stran.
           </p>
         </>
       )}
@@ -286,6 +377,44 @@ export function SafeContactChat({
             onClick={() => void handleShareLocation()}
           >
             {sharingLocation ? 'Sdílím…' : 'Souhlasím a sdílet'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={phoneOfferOpen}
+        onClose={() => setPhoneOfferOpen(false)}
+        title="Předat telefonní číslo"
+        subtitle="Druhá strana ho uvidí až po svém souhlasu"
+        maxWidth="sm"
+      >
+        <p className="mb-3 text-sm leading-relaxed text-[#4A564F]">
+          Číslo se neodešle automaticky viditelně. Druhá strana musí nejdřív odsouhlasit zobrazení.
+        </p>
+        <Input
+          label="Telefonní číslo"
+          type="tel"
+          inputMode="tel"
+          placeholder="+420 …"
+          value={offerPhoneValue}
+          onChange={(e) => setOfferPhoneValue(e.target.value)}
+        />
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={() => setPhoneOfferOpen(false)}>
+            Zrušit
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => {
+              const ok = offerSafeContactPhone(channel.id, role, offerPhoneValue)
+              if (ok) {
+                setPhoneOfferOpen(false)
+                setOfferPhoneValue('')
+              }
+            }}
+          >
+            Nabídnout číslo
           </Button>
         </div>
       </Modal>

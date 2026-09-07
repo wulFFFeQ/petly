@@ -52,6 +52,7 @@ import {
   saveLostReports,
   saveSafeContactChannels,
   scrubPersonalData,
+  normalizeSharedPhone,
 } from '../lib/lostPet'
 import type { EarnedBadge } from '../types/badges'
 import type {
@@ -355,6 +356,16 @@ interface AppContextValue {
   getSafeContactChannel: (idOrConversationId: string) => SafeContactChannel | undefined
   shareSafeApproxLocation: (channelId: string, location: SafeApproxLocationShare) => boolean
   thankSafeContactFinder: (channelId: string) => boolean
+  offerSafeContactPhone: (
+    channelId: string,
+    as: 'owner' | 'finder',
+    phone: string,
+  ) => boolean
+  respondSafeContactPhoneOffer: (
+    channelId: string,
+    as: 'owner' | 'finder',
+    accept: boolean,
+  ) => boolean
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
@@ -1458,16 +1469,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: now,
     }
 
+    const sharedPhone =
+      input.sharePhoneConsent && input.sharedPhone
+        ? normalizeSharedPhone(input.sharedPhone)
+        : null
+
+    const contactOfferMsg = sharedPhone
+      ? {
+          id: `cm-phone-${Date.now()}`,
+          sender: 'system' as const,
+          kind: 'contact_offer' as const,
+          text: 'Nálezce nabízí své telefonní číslo. Majitel ho uvidí až po vlastním souhlasu.',
+          createdAt: now,
+        }
+      : null
+
     const conversation: Conversation = {
       id: conversationId,
       name: `Nálezce · ${pet.name}`,
       avatar: pet.image,
-      role: 'Anonymní nálezce · bezpečný kontakt',
+      role: sharedPhone
+        ? 'Nálezce · nabídka telefonu (čeká na souhlas)'
+        : 'Anonymní nálezce · bezpečný kontakt',
       petContext: pet.name,
       petId: pet.id,
       contactType: 'lost_finder',
       online: true,
-      lastMessage: opener,
+      lastMessage: contactOfferMsg?.text ?? opener,
       time: 'právě teď',
       unread: 1,
       messages: [
@@ -1483,6 +1511,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           text: opener,
           time: 'právě teď',
         },
+        ...(contactOfferMsg
+          ? [
+              {
+                id: `m-phone-${Date.now()}`,
+                sender: 'them' as const,
+                text: contactOfferMsg.text,
+                time: 'právě teď',
+              },
+            ]
+          : []),
       ],
       lostAnnouncementId: announcementId,
       lostReportId: reportId,
@@ -1499,7 +1537,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       finderAnonymousId: input.reporterAnonymousId,
       status: 'active',
       createdAt: now,
-      messages: [systemIntro, openerMsg],
+      messages: contactOfferMsg
+        ? [systemIntro, openerMsg, contactOfferMsg]
+        : [systemIntro, openerMsg],
+      ...(sharedPhone
+        ? {
+            contactExchange: {
+              finderOffer: {
+                phone: sharedPhone,
+                offeredAt: now,
+              },
+            },
+          }
+        : {}),
     }
 
     setLostReports((prev) => [report, ...prev])
@@ -1509,7 +1559,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {
         id: `lost-found-${Date.now()}`,
         title: `${pet.name} byl/a nalezen/a.`,
-        time: `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
+        time: sharedPhone
+          ? `Nálezce nabízí telefonní kontakt (vyžaduje váš souhlas). · ${input.location.publicLabel}`
+          : `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
         unread: true,
         kind: 'lost_pet',
         lostAnnouncementId: announcementId,
@@ -1521,7 +1573,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     showToast(
       'Bezpečný kontakt navázán',
-      'Majitel byl informován. Osobní údaje zůstávají skryté.',
+      sharedPhone
+        ? 'Majitel byl informován o nabídce telefonu. Číslo uvidí až po svém souhlasu.'
+        : 'Majitel byl informován. Komunikace zůstává anonymní přes LOVED & KNOWN.',
       'gold',
     )
     return { reportId, conversationId, channelId }
@@ -1762,6 +1816,188 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }),
     )
     showToast('Poděkování odesláno', 'Nálezce uvidí vaše poděkování v bezpečném kontaktu.', 'gold')
+    return true
+  }
+
+  const offerSafeContactPhone = (
+    channelId: string,
+    as: 'owner' | 'finder',
+    phone: string,
+  ): boolean => {
+    const channel = safeContactChannels.find((c) => c.id === channelId)
+    if (!channel || channel.status !== 'active') return false
+    const normalized = normalizeSharedPhone(phone)
+    if (!normalized) {
+      showToast('Neplatné číslo', 'Zadejte telefonní číslo (alespoň 9 číslic).', 'info')
+      return false
+    }
+    const now = new Date().toISOString()
+    const offerKey = as === 'finder' ? 'finderOffer' : 'ownerOffer'
+    const existing = channel.contactExchange?.[offerKey]
+    if (existing && !existing.declinedAt) {
+      showToast('Nabídka už existuje', 'Telefon už byl nabídnut v tomto kontaktu.', 'info')
+      return false
+    }
+
+    const text =
+      as === 'finder'
+        ? 'Nálezce nabízí své telefonní číslo. Majitel ho uvidí až po vlastním souhlasu.'
+        : 'Majitel nabízí své telefonní číslo. Nálezce ho uvidí až po vlastním souhlasu.'
+
+    setSafeContactChannels((prev) =>
+      prev.map((item) => {
+        if (item.id !== channelId) return item
+        return {
+          ...item,
+          contactExchange: {
+            ...item.contactExchange,
+            [offerKey]: { phone: normalized, offeredAt: now },
+          },
+          messages: [
+            ...item.messages,
+            {
+              id: `cm-phone-offer-${Date.now()}`,
+              sender: 'system',
+              kind: 'contact_offer',
+              text,
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    )
+    setLostConversations((prev) =>
+      prev.map((item) => {
+        if (item.id !== channel.conversationId) return item
+        return {
+          ...item,
+          lastMessage: text,
+          time: 'právě teď',
+          unread: as === 'finder' ? item.unread + 1 : item.unread,
+          messages: [
+            ...item.messages,
+            {
+              id: `m-phone-offer-${Date.now()}`,
+              sender: as === 'finder' ? 'them' : 'me',
+              text,
+              time: 'právě teď',
+            },
+          ],
+        }
+      }),
+    )
+    if (as === 'finder') {
+      setNotifications((prev) => [
+        {
+          id: `lost-phone-${Date.now()}`,
+          title: `Nálezce nabízí telefon · ${channel.petName}`,
+          time: 'Vyžaduje váš souhlas před zobrazením čísla',
+          unread: true,
+          kind: 'lost_pet',
+          lostAnnouncementId: channel.announcementId,
+          href: `/messages?conversationId=${channel.conversationId}`,
+        },
+        ...prev,
+      ])
+    }
+    showToast(
+      'Nabídka odeslána',
+      'Druhá strana uvidí číslo až po svém výslovném souhlasu.',
+      'gold',
+    )
+    return true
+  }
+
+  const respondSafeContactPhoneOffer = (
+    channelId: string,
+    as: 'owner' | 'finder',
+    accept: boolean,
+  ): boolean => {
+    const channel = safeContactChannels.find((c) => c.id === channelId)
+    if (!channel || channel.status !== 'active') return false
+    // Owner responds to finderOffer; finder responds to ownerOffer
+    const offerKey = as === 'owner' ? 'finderOffer' : 'ownerOffer'
+    const offer = channel.contactExchange?.[offerKey]
+    if (!offer || offer.acceptedAt || offer.declinedAt) return false
+    const now = new Date().toISOString()
+
+    if (accept) {
+      const text =
+        as === 'owner'
+          ? `Majitel přijal kontakt. Telefon nálezce: ${offer.phone}`
+          : `Nálezce přijal kontakt. Telefon majitele: ${offer.phone}`
+      setSafeContactChannels((prev) =>
+        prev.map((item) => {
+          if (item.id !== channelId) return item
+          return {
+            ...item,
+            contactExchange: {
+              ...item.contactExchange,
+              [offerKey]: { ...offer, acceptedAt: now },
+            },
+            messages: [
+              ...item.messages,
+              {
+                id: `cm-phone-ok-${Date.now()}`,
+                sender: 'system',
+                kind: 'contact_offer',
+                text,
+                createdAt: now,
+              },
+            ],
+          }
+        }),
+      )
+      setLostConversations((prev) =>
+        prev.map((item) => {
+          if (item.id !== channel.conversationId) return item
+          return {
+            ...item,
+            lastMessage: text,
+            time: 'právě teď',
+            messages: [
+              ...item.messages,
+              {
+                id: `m-phone-ok-${Date.now()}`,
+                sender: 'me',
+                text,
+                time: 'právě teď',
+              },
+            ],
+          }
+        }),
+      )
+      showToast('Kontakt přijat', 'Telefonní číslo je nyní viditelné v bezpečném kontaktu.', 'success')
+      return true
+    }
+
+    const declineText =
+      as === 'owner'
+        ? 'Majitel ponechal anonymní chat. Telefon nálezce nebyl zobrazen.'
+        : 'Nálezce ponechal anonymní chat. Telefon majitele nebyl zobrazen.'
+    setSafeContactChannels((prev) =>
+      prev.map((item) => {
+        if (item.id !== channelId) return item
+        return {
+          ...item,
+          contactExchange: {
+            ...item.contactExchange,
+            [offerKey]: { ...offer, declinedAt: now },
+          },
+          messages: [
+            ...item.messages,
+            {
+              id: `cm-phone-no-${Date.now()}`,
+              sender: 'system',
+              kind: 'system',
+              text: declineText,
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    )
+    showToast('Zůstává anonymní kontakt', 'Můžete dál komunikovat přes LOVED & KNOWN.', 'info')
     return true
   }
 
@@ -2116,6 +2352,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getSafeContactChannel,
         shareSafeApproxLocation,
         thankSafeContactFinder,
+        offerSafeContactPhone,
+        respondSafeContactPhoneOffer,
         toggleLike,
         addComment,
         deleteComment,

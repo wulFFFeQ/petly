@@ -46,3 +46,4 @@ export {
   OWNER_QUICK_REPLIES,
 } from './pii'
 export { getVoiceProxyConfig, requestAnonymousVoiceSession } from './voiceProxy'
+export { normalizeSharedPhone } from './phoneShare'

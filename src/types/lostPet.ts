@@ -124,6 +124,12 @@ export interface SubmitLostFoundInput {
   canKeepSafely: boolean
   note?: string
   photoUrl?: string
+  /**
+   * Optional: finder consents to offer their phone to the owner.
+   * Owner still must accept before the number is revealed.
+   */
+  sharePhoneConsent?: boolean
+  sharedPhone?: string
 }
 
 /** Anonymous chat message between owner and finder (via LOVED & KNOWN). */
@@ -143,6 +149,7 @@ export type SafeContactMessageKind =
   | 'quick_reply'
   | 'approx_location'
   | 'thank_you'
+  | 'contact_offer'
 
 export type SafeContactStatus = 'active' | 'closed'
 
@@ -158,8 +165,25 @@ export interface SafeApproxLocationShare {
 }
 
 /**
+ * Optional phone exchange — visible to the other party only after they accept.
+ * Default remains fully anonymous until both sides consent.
+ */
+export interface ContactExchangeOffer {
+  phone: string
+  offeredAt: string
+  /** Other party accepted — only then is the number shown to them. */
+  acceptedAt?: string
+  declinedAt?: string
+}
+
+export interface SafeContactExchange {
+  finderOffer?: ContactExchangeOffer
+  ownerOffer?: ContactExchangeOffer
+}
+
+/**
  * Secure contact channel — 1:1 with a found report.
- * Never stores phone, email, address, or real identity.
+ * Personal phone is never shown automatically; only via mutual consent exchange.
  */
 export interface SafeContactChannel {
   id: string
@@ -175,6 +199,8 @@ export interface SafeContactChannel {
   closedReason?: SafeContactCloseReason
   thankYouSentAt?: string
   messages: LostPetChatMessage[]
+  /** Optional mutual phone exchange (both sides must consent). */
+  contactExchange?: SafeContactExchange
 }
 
 /** Future anonymous/proxy voice — no real numbers ever stored here. */
