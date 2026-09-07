@@ -18,6 +18,12 @@ export type {
   SubmitLostSightingInput,
   SubmitLostFoundInput,
   LostPetChatMessage,
+  SafeContactMessageKind,
+  SafeContactStatus,
+  SafeContactCloseReason,
+  SafeApproxLocationShare,
+  SafeContactChannel,
+  VoiceProxyConfig,
 } from './lostPet'
 export type HealthStatus =
   | 'excellent'

@@ -87,7 +87,7 @@ export function LostPetReportDetail({
       <div className="mt-3 flex flex-wrap gap-2">
         {report.type === 'found' && onContactFinder && (
           <Button type="button" variant="gold" size="sm" onClick={onContactFinder}>
-            Kontaktovat nálezce
+            Otevřít bezpečný kontakt
           </Button>
         )}
         {onFlag && !report.ownerFlag && (

@@ -129,7 +129,59 @@ export interface SubmitLostFoundInput {
 /** Anonymous chat message between owner and finder (via LOVED & KNOWN). */
 export interface LostPetChatMessage {
   id: string
-  sender: 'owner' | 'finder'
+  sender: 'owner' | 'finder' | 'system'
   text: string
   createdAt: string
+  kind?: SafeContactMessageKind
+  /** Safe approx location payload — never exact address. */
+  approxLocation?: SafeApproxLocationShare
+}
+
+export type SafeContactMessageKind =
+  | 'text'
+  | 'system'
+  | 'quick_reply'
+  | 'approx_location'
+  | 'thank_you'
+
+export type SafeContactStatus = 'active' | 'closed'
+
+export type SafeContactCloseReason = 'pet_home' | 'owner_closed'
+
+/** Public-safe location share inside the secure channel. */
+export interface SafeApproxLocationShare {
+  publicLabel: string
+  publicLat: number
+  publicLng: number
+  /** Human note, e.g. „přibližně 200 m od tohoto místa“. */
+  accuracyNote: string
+}
+
+/**
+ * Secure contact channel — 1:1 with a found report.
+ * Never stores phone, email, address, or real identity.
+ */
+export interface SafeContactChannel {
+  id: string
+  conversationId: string
+  announcementId: string
+  reportId: string
+  petId: string
+  petName: string
+  finderAnonymousId: string
+  status: SafeContactStatus
+  createdAt: string
+  closedAt?: string
+  closedReason?: SafeContactCloseReason
+  thankYouSentAt?: string
+  messages: LostPetChatMessage[]
+}
+
+/** Future anonymous/proxy voice — no real numbers ever stored here. */
+export interface VoiceProxyConfig {
+  /** False until a proxy telephony provider is connected. */
+  enabled: boolean
+  provider: 'none' | 'twilio_proxy' | 'vonage_proxy'
+  label: string
+  unavailableReason: string
 }

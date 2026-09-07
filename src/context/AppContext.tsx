@@ -44,14 +44,14 @@ import {
   foundSafetyLabel,
   formatRelativeCzech,
   loadLostAnnouncements,
-  loadLostChatThreads,
   loadLostConversations,
   loadLostReports,
+  loadSafeContactChannels,
   saveLostAnnouncements,
-  saveLostChatThreads,
   saveLostConversations,
   saveLostReports,
-  type LostPetChatThread,
+  saveSafeContactChannels,
+  scrubPersonalData,
 } from '../lib/lostPet'
 import type { EarnedBadge } from '../types/badges'
 import type {
@@ -71,6 +71,9 @@ import type {
   PetDocument,
   PetPhoto,
   ReportFlagReason,
+  SafeApproxLocationShare,
+  SafeContactChannel,
+  SafeContactMessageKind,
   SubmitLostFoundInput,
   SubmitLostSightingInput,
   ToastMessage,
@@ -334,15 +337,24 @@ interface AppContextValue {
   submitLostFoundReport: (
     announcementId: string,
     input: SubmitLostFoundInput,
-  ) => { reportId: string; conversationId: string } | null
+  ) => { reportId: string; conversationId: string; channelId: string } | null
   flagLostReport: (reportId: string, reason: ReportFlagReason, note?: string) => boolean
   getLostAnnouncementByToken: (token: string) => LostPetAnnouncement | undefined
   getLostReportsForAnnouncement: (announcementId: string) => LostPetReport[]
-  sendLostFinderMessage: (conversationId: string, text: string, as: 'owner' | 'finder') => boolean
+  sendLostFinderMessage: (
+    conversationId: string,
+    text: string,
+    as: 'owner' | 'finder',
+    kind?: SafeContactMessageKind,
+  ) => boolean
   getLostChatThreadForFinder: (
     announcementId: string,
     finderAnonymousId: string,
-  ) => LostPetChatThread | undefined
+  ) => SafeContactChannel | undefined
+  safeContactChannels: SafeContactChannel[]
+  getSafeContactChannel: (idOrConversationId: string) => SafeContactChannel | undefined
+  shareSafeApproxLocation: (channelId: string, location: SafeApproxLocationShare) => boolean
+  thankSafeContactFinder: (channelId: string) => boolean
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
@@ -423,7 +435,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lostAnnouncements, setLostAnnouncements] = useState<LostPetAnnouncement[]>(loadLostAnnouncements)
   const [lostReports, setLostReports] = useState<LostPetReport[]>(loadLostReports)
   const [lostConversations, setLostConversations] = useState<Conversation[]>(loadLostConversations)
-  const [lostChatThreads, setLostChatThreads] = useState<LostPetChatThread[]>(loadLostChatThreads)
+  const [safeContactChannels, setSafeContactChannels] = useState<SafeContactChannel[]>(
+    loadSafeContactChannels,
+  )
 
   const refreshBadges = useCallback(() => {
     setBadgeRevision((n) => n + 1)
@@ -466,8 +480,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [lostConversations])
 
   useEffect(() => {
-    saveLostChatThreads(lostChatThreads)
-  }, [lostChatThreads])
+    saveSafeContactChannels(safeContactChannels)
+  }, [safeContactChannels])
 
   useEffect(() => {
     window.localStorage.setItem(BADGES_STORAGE_KEY, JSON.stringify(earnedBadges))
@@ -1270,35 +1284,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ])
     }
 
-    // Notify finder conversations
+    // Close secure contacts + notify finders
+    const homeText = `Mazlíček je doma. ❤️\nDěkujeme, že jste pomohli.`
     setLostConversations((prev) =>
       prev.map((conv) => {
         if (conv.lostAnnouncementId !== announcementId) return conv
         const systemMsg = {
           id: `m-resolved-${Date.now()}-${conv.id}`,
           sender: 'me' as const,
-          text: `🟢 ${petName} je doma. Děkujeme všem, kteří pomohli.`,
+          text: homeText,
           time: 'právě teď',
         }
         return {
           ...conv,
-          lastMessage: systemMsg.text,
+          lastMessage: 'Mazlíček je doma. ❤️',
           time: 'právě teď',
           messages: [...conv.messages, systemMsg],
         }
       }),
     )
-    setLostChatThreads((prev) =>
-      prev.map((thread) => {
-        if (thread.announcementId !== announcementId) return thread
+    setSafeContactChannels((prev) =>
+      prev.map((channel) => {
+        if (channel.announcementId !== announcementId) return channel
         return {
-          ...thread,
+          ...channel,
+          status: 'closed',
+          closedAt: now,
+          closedReason: 'pet_home',
           messages: [
-            ...thread.messages,
+            ...channel.messages,
             {
-              id: `cm-resolved-${Date.now()}-${thread.conversationId}`,
-              sender: 'owner',
-              text: `🟢 ${petName} je doma. Děkujeme všem, kteří pomohli.`,
+              id: `cm-resolved-${Date.now()}-${channel.id}`,
+              sender: 'system',
+              kind: 'system',
+              text: homeText,
               createdAt: now,
             },
           ],
@@ -1306,7 +1325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }),
     )
 
-    showToast(`${petName} je doma`, 'Oznámení bylo označeno jako vyřešené.', 'success')
+    showToast(`${petName} je doma`, 'Oznámení bylo označeno jako vyřešené. Bezpečný kontakt je ukončen.', 'success')
     return true
   }
 
@@ -1383,7 +1402,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const submitLostFoundReport = (
     announcementId: string,
     input: SubmitLostFoundInput,
-  ): { reportId: string; conversationId: string } | null => {
+  ): { reportId: string; conversationId: string; channelId: string } | null => {
     const announcement = lostAnnouncements.find((item) => item.id === announcementId)
     if (!announcement || announcement.status !== 'lost') return null
     if (!announcement.allowAppContact) {
@@ -1395,8 +1414,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const reportId = `lfr-${Date.now()}`
     const conversationId = `lost-conv-${Date.now()}`
+    const channelId = `sc-${Date.now()}`
     const now = new Date().toISOString()
     const safetyText = foundSafetyLabel(input.safetyStatus)
+
+    const noteScrubbed = input.note?.trim()
+      ? scrubPersonalData(input.note.trim())
+      : null
 
     const report: LostPetReport = {
       id: reportId,
@@ -1410,19 +1434,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       hasPetWithThem: input.hasPetWithThem,
       safetyStatus: input.safetyStatus,
       canKeepSafely: input.canKeepSafely,
-      note: input.note?.trim() || undefined,
+      note: noteScrubbed?.text || undefined,
       photoUrl: input.photoUrl,
     }
 
-    const opener =
-      input.note?.trim() ||
+    const openerRaw =
+      noteScrubbed?.text ||
       `${pet.name} byl/a právě nalezen/a. Nálezce uvedl: ${safetyText}. ${input.location.publicLabel}`
+    const opener = scrubPersonalData(openerRaw).text
+
+    const systemIntro = {
+      id: `cm-sys-${Date.now()}`,
+      sender: 'system' as const,
+      kind: 'system' as const,
+      text: 'Kontakt s majitelem byl navázán. Komunikace probíhá anonymně přes LOVED & KNOWN.',
+      createdAt: now,
+    }
+    const openerMsg = {
+      id: `cm-${Date.now()}`,
+      sender: 'finder' as const,
+      kind: 'text' as const,
+      text: opener,
+      createdAt: now,
+    }
 
     const conversation: Conversation = {
       id: conversationId,
       name: `Nálezce · ${pet.name}`,
       avatar: pet.image,
-      role: 'Anonymní nálezce',
+      role: 'Anonymní nálezce · bezpečný kontakt',
       petContext: pet.name,
       petId: pet.id,
       contactType: 'lost_finder',
@@ -1431,6 +1471,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       time: 'právě teď',
       unread: 1,
       messages: [
+        {
+          id: `m-sys-${Date.now()}`,
+          sender: 'them',
+          text: systemIntro.text,
+          time: 'právě teď',
+        },
         {
           id: `m-${Date.now()}`,
           sender: 'them',
@@ -1443,25 +1489,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       finderAnonymousId: input.reporterAnonymousId,
     }
 
-    const chatThread: LostPetChatThread = {
+    const channel: SafeContactChannel = {
+      id: channelId,
       conversationId,
       announcementId,
       reportId,
-      finderAnonymousId: input.reporterAnonymousId,
+      petId: pet.id,
       petName: pet.name,
-      messages: [
-        {
-          id: `cm-${Date.now()}`,
-          sender: 'finder',
-          text: opener,
-          createdAt: now,
-        },
-      ],
+      finderAnonymousId: input.reporterAnonymousId,
+      status: 'active',
+      createdAt: now,
+      messages: [systemIntro, openerMsg],
     }
 
     setLostReports((prev) => [report, ...prev])
     setLostConversations((prev) => [conversation, ...prev])
-    setLostChatThreads((prev) => [chatThread, ...prev])
+    setSafeContactChannels((prev) => [channel, ...prev])
     setNotifications((prev) => [
       {
         id: `lost-found-${Date.now()}`,
@@ -1477,11 +1520,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ])
 
     showToast(
-      'Majitel byl kontaktován',
-      'Zpráva byla odeslána anonymně přes LOVED & KNOWN.',
+      'Bezpečný kontakt navázán',
+      'Majitel byl informován. Osobní údaje zůstávají skryté.',
       'gold',
     )
-    return { reportId, conversationId }
+    return { reportId, conversationId, channelId }
   }
 
   const flagLostReport = (
@@ -1517,50 +1560,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .filter((item) => item.announcementId === announcementId)
       .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
 
+  const getSafeContactChannel = (idOrConversationId: string) =>
+    safeContactChannels.find(
+      (c) => c.id === idOrConversationId || c.conversationId === idOrConversationId,
+    )
+
   const sendLostFinderMessage = (
     conversationId: string,
     text: string,
     as: 'owner' | 'finder',
+    kind: SafeContactMessageKind = 'text',
   ): boolean => {
-    const trimmed = text.trim()
-    if (!trimmed) return false
+    const channel = safeContactChannels.find((c) => c.conversationId === conversationId)
+    if (channel?.status === 'closed') {
+      showToast('Kontakt je ukončen', 'Mazlíček je doma — další zprávy nejsou možné.', 'info')
+      return false
+    }
+
+    const { text: cleaned, scrubbed } = scrubPersonalData(text)
+    if (!cleaned) return false
+    if (scrubbed) {
+      showToast(
+        'Osobní údaje byly skryty',
+        'Telefon, e-mail nebo adresa se v bezpečném kontaktu nezobrazují.',
+        'info',
+      )
+    }
+
     const conv = lostConversations.find((item) => item.id === conversationId)
-    if (!conv) return false
+    if (!conv && !channel) return false
     const now = new Date().toISOString()
     const ownerSender = as === 'owner' ? ('me' as const) : ('them' as const)
 
-    setLostConversations((prev) =>
+    if (conv) {
+      setLostConversations((prev) =>
+        prev.map((item) => {
+          if (item.id !== conversationId) return item
+          return {
+            ...item,
+            lastMessage: cleaned,
+            time: 'právě teď',
+            unread: as === 'finder' ? item.unread + 1 : item.unread,
+            messages: [
+              ...item.messages,
+              {
+                id: `m-${Date.now()}`,
+                sender: ownerSender,
+                text: cleaned,
+                time: 'právě teď',
+              },
+            ],
+          }
+        }),
+      )
+    }
+
+    setSafeContactChannels((prev) =>
       prev.map((item) => {
-        if (item.id !== conversationId) return item
+        if (item.conversationId !== conversationId) return item
         return {
           ...item,
-          lastMessage: trimmed,
-          time: 'právě teď',
-          unread: as === 'finder' ? item.unread + 1 : item.unread,
           messages: [
             ...item.messages,
             {
-              id: `m-${Date.now()}`,
-              sender: ownerSender,
-              text: trimmed,
-              time: 'právě teď',
-            },
-          ],
-        }
-      }),
-    )
-
-    setLostChatThreads((prev) =>
-      prev.map((thread) => {
-        if (thread.conversationId !== conversationId) return thread
-        return {
-          ...thread,
-          messages: [
-            ...thread.messages,
-            {
               id: `cm-${Date.now()}`,
               sender: as,
-              text: trimmed,
+              kind,
+              text: cleaned,
               createdAt: now,
             },
           ],
@@ -1569,15 +1635,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
 
     if (as === 'finder') {
-      const petName = conv.petContext
+      const petName = conv?.petContext ?? channel?.petName ?? 'mazlíčka'
       setNotifications((prev) => [
         {
           id: `lost-msg-${Date.now()}`,
-          title: `Nová zpráva od nálezce · ${petName}`,
+          title: `Nová zpráva v bezpečném kontaktu · ${petName}`,
           time: 'právě teď',
           unread: true,
           kind: 'lost_pet',
-          lostAnnouncementId: conv.lostAnnouncementId,
+          lostAnnouncementId: conv?.lostAnnouncementId ?? channel?.announcementId,
           href: `/messages?conversationId=${conversationId}`,
         },
         ...prev,
@@ -1587,11 +1653,123 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true
   }
 
+  const shareSafeApproxLocation = (
+    channelId: string,
+    location: SafeApproxLocationShare,
+  ): boolean => {
+    const channel = safeContactChannels.find((c) => c.id === channelId)
+    if (!channel || channel.status !== 'active') return false
+    const now = new Date().toISOString()
+    const text = `📍 Přibližná poloha: ${location.publicLabel} (${location.accuracyNote})`
+
+    setSafeContactChannels((prev) =>
+      prev.map((item) => {
+        if (item.id !== channelId) return item
+        return {
+          ...item,
+          messages: [
+            ...item.messages,
+            {
+              id: `cm-loc-${Date.now()}`,
+              sender: 'finder',
+              kind: 'approx_location',
+              text,
+              createdAt: now,
+              approxLocation: location,
+            },
+          ],
+        }
+      }),
+    )
+    setLostConversations((prev) =>
+      prev.map((item) => {
+        if (item.id !== channel.conversationId) return item
+        return {
+          ...item,
+          lastMessage: text,
+          time: 'právě teď',
+          unread: item.unread + 1,
+          messages: [
+            ...item.messages,
+            {
+              id: `m-loc-${Date.now()}`,
+              sender: 'them',
+              text,
+              time: 'právě teď',
+            },
+          ],
+        }
+      }),
+    )
+    setNotifications((prev) => [
+      {
+        id: `lost-loc-${Date.now()}`,
+        title: `Nálezce sdílel přibližnou polohu · ${channel.petName}`,
+        time: location.publicLabel,
+        unread: true,
+        kind: 'lost_pet',
+        lostAnnouncementId: channel.announcementId,
+        href: `/messages?conversationId=${channel.conversationId}`,
+      },
+      ...prev,
+    ])
+    showToast('Poloha sdílena', 'Majitel vidí jen přibližnou oblast.', 'gold')
+    return true
+  }
+
+  const thankSafeContactFinder = (channelId: string): boolean => {
+    const channel = safeContactChannels.find((c) => c.id === channelId)
+    if (!channel || channel.thankYouSentAt) return false
+    const now = new Date().toISOString()
+    const text = '❤️ Majitel vám děkuje za pomoc.'
+
+    setSafeContactChannels((prev) =>
+      prev.map((item) => {
+        if (item.id !== channelId) return item
+        return {
+          ...item,
+          thankYouSentAt: now,
+          messages: [
+            ...item.messages,
+            {
+              id: `cm-thanks-${Date.now()}`,
+              sender: 'system',
+              kind: 'thank_you',
+              text,
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    )
+    setLostConversations((prev) =>
+      prev.map((item) => {
+        if (item.id !== channel.conversationId) return item
+        return {
+          ...item,
+          lastMessage: text,
+          time: 'právě teď',
+          messages: [
+            ...item.messages,
+            {
+              id: `m-thanks-${Date.now()}`,
+              sender: 'me',
+              text,
+              time: 'právě teď',
+            },
+          ],
+        }
+      }),
+    )
+    showToast('Poděkování odesláno', 'Nálezce uvidí vaše poděkování v bezpečném kontaktu.', 'gold')
+    return true
+  }
+
   const getLostChatThreadForFinder = (
     announcementId: string,
     finderAnonymousId: string,
   ) =>
-    lostChatThreads.find(
+    safeContactChannels.find(
       (thread) =>
         thread.announcementId === announcementId &&
         thread.finderAnonymousId === finderAnonymousId,
@@ -1934,6 +2112,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getLostReportsForAnnouncement,
         sendLostFinderMessage,
         getLostChatThreadForFinder,
+        safeContactChannels,
+        getSafeContactChannel,
+        shareSafeApproxLocation,
+        thankSafeContactFinder,
         toggleLike,
         addComment,
         deleteComment,

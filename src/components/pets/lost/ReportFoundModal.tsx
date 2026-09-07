@@ -187,6 +187,7 @@ export function ReportFoundModal({
           className="font-bold"
         >
           Kontaktovat majitele
+          <span className="text-[10px] font-normal opacity-90">· bezpečný kontakt</span>
         </Button>
       </div>
     </Modal>

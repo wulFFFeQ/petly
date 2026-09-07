@@ -8,6 +8,7 @@ import { Card } from '../ui/Card'
 import { ChatThread } from './ChatThread'
 import { ContactProfileModal } from './ContactProfileModal'
 import { ConversationSidebar } from './ConversationSidebar'
+import { SafeContactChat } from '../pets/lost/SafeContactChat'
 import {
   buildConversationFromDiscoverPet,
   buildHealthShareMessage,
@@ -367,49 +368,66 @@ export function MessagesPageContent() {
           onRestoreConversation={handleRestoreConversation}
         />
 
-        <ChatThread
-          conversation={active}
-          contactPet={contactPet}
-          mobileShowChat={mobileShowChat}
-          chatEndRef={chatEndRef}
-          message={message}
-          onMessageChange={setMessage}
-          onSubmitMessage={handleSendMessage}
-          onBack={() => setMobileShowChat(false)}
-          onOpenProfile={() => setContactProfileOpen(true)}
-          onArchive={() => handleArchiveConversation(active!.id)}
-          onRestore={() => handleRestoreConversation(active!.id)}
-          onCall={() =>
-            showToast('Hlasový hovor zahájen', `Připojování k ${active!.name}...`, 'info')
-          }
-          onVideoCall={() =>
-            showToast(
-              'Vzdálená videokonzultace',
-              `Otevírání video odkazu pro ${active!.name}...`,
-              'gold',
-            )
-          }
-          shareMenuOpen={shareMenuOpen}
-          onShareMenuToggle={() => setShareMenuOpen((open) => !open)}
-          shareMenuRef={shareMenuRef}
-          shareableRecords={shareableRecords}
-          selectedShareIds={selectedShareIds}
-          onToggleShareSelection={toggleShareSelection}
-          onToggleSelectAllShareRecords={() =>
-            setSelectedShareIds(
-              selectedShareIds.length === shareableRecords.length
-                ? []
-                : shareableRecords.map((r) => r.id),
-            )
-          }
-          onShareSelectedRecords={handleShareSelectedRecords}
-          onAttachFile={() =>
-            showToast('Příloha souboru', 'Vyberte veterinární PDF nebo fotografii.', 'info')
-          }
-        />
+        {active?.contactType === 'lost_finder' ? (
+          <div
+            className={`flex min-w-0 flex-1 flex-col overflow-y-auto bg-[#FAF8F5] p-4 ${
+              mobileShowChat ? 'flex' : 'hidden lg:flex'
+            }`}
+          >
+            <button
+              type="button"
+              className="mb-3 cursor-pointer text-left text-xs font-semibold text-[#7D8B82] lg:hidden"
+              onClick={() => setMobileShowChat(false)}
+            >
+              ← Zprávy
+            </button>
+            <SafeContactChat role="owner" conversationId={active.id} />
+          </div>
+        ) : (
+          <ChatThread
+            conversation={active}
+            contactPet={contactPet}
+            mobileShowChat={mobileShowChat}
+            chatEndRef={chatEndRef}
+            message={message}
+            onMessageChange={setMessage}
+            onSubmitMessage={handleSendMessage}
+            onBack={() => setMobileShowChat(false)}
+            onOpenProfile={() => setContactProfileOpen(true)}
+            onArchive={() => handleArchiveConversation(active!.id)}
+            onRestore={() => handleRestoreConversation(active!.id)}
+            onCall={() =>
+              showToast('Hlasový hovor zahájen', `Připojování k ${active!.name}...`, 'info')
+            }
+            onVideoCall={() =>
+              showToast(
+                'Vzdálená videokonzultace',
+                `Otevírání video odkazu pro ${active!.name}...`,
+                'gold',
+              )
+            }
+            shareMenuOpen={shareMenuOpen}
+            onShareMenuToggle={() => setShareMenuOpen((open) => !open)}
+            shareMenuRef={shareMenuRef}
+            shareableRecords={shareableRecords}
+            selectedShareIds={selectedShareIds}
+            onToggleShareSelection={toggleShareSelection}
+            onToggleSelectAllShareRecords={() =>
+              setSelectedShareIds(
+                selectedShareIds.length === shareableRecords.length
+                  ? []
+                  : shareableRecords.map((r) => r.id),
+              )
+            }
+            onShareSelectedRecords={handleShareSelectedRecords}
+            onAttachFile={() =>
+              showToast('Příloha souboru', 'Vyberte veterinární PDF nebo fotografii.', 'info')
+            }
+          />
+        )}
       </Card>
 
-      {active && (
+      {active && active.contactType !== 'lost_finder' && (
         <ContactProfileModal
           conversation={active}
           contactPet={contactPet}

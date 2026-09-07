@@ -12,10 +12,10 @@ import {
 } from '../lib/lostPet'
 import { petTypeLabel } from '../lib/petTypes'
 import { Button } from '../components/ui/Button'
-import { LostPetAnonymousChat } from '../components/pets/lost/LostPetAnonymousChat'
 import { LostPetStatusBadge } from '../components/pets/lost/LostPetStatusBadge'
 import { ReportFoundModal } from '../components/pets/lost/ReportFoundModal'
 import { ReportSightingModal } from '../components/pets/lost/ReportSightingModal'
+import { SafeContactChat } from '../components/pets/lost/SafeContactChat'
 
 export function LostPetPage() {
   const { token = '' } = useParams<{ token: string }>()
@@ -205,13 +205,12 @@ export function LostPetPage() {
         </div>
       </div>
 
-      {isActive && (
-        <LostPetAnonymousChat
-          announcementId={announcement.id}
-          petName={view.name}
-          conversationId={chatConversationId}
-        />
-      )}
+      <SafeContactChat
+        role="finder"
+        announcementId={announcement.id}
+        conversationId={chatConversationId}
+        className="mt-6"
+      />
 
       <ReportSightingModal
         open={sightingOpen}
