@@ -16,6 +16,7 @@ import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
 import { IconBox } from '../ui/IconBox'
 import { PetPhotoCard } from '../ui/PetPhotoCard'
+import { LostPetStatusBadge } from './lost/LostPetStatusBadge'
 
 interface PetGridCardProps {
   pet: Pet
@@ -57,7 +58,12 @@ export function PetGridCard({ pet }: PetGridCardProps) {
             </Badge>
           }
           topRight={
-            pet.healthStatus ? (
+            pet.lostStatus === 'lost' ? (
+              <LostPetStatusBadge
+                status="lost"
+                className="bg-white/95 backdrop-blur-md shadow-xs"
+              />
+            ) : pet.healthStatus ? (
               <Badge
                 variant={statusVariant}
                 size="sm"

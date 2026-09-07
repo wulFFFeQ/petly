@@ -14,6 +14,8 @@ import {
   HeartHandshake,
   Pencil,
   Trash2,
+  Search,
+  Home,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -47,6 +49,8 @@ import { Input } from '../ui/Input'
 import { Modal } from '../ui/Modal'
 import { OptionSelect } from '../ui/OptionSelect'
 import { VerifyMicrochipModal } from './microchip/VerifyMicrochipModal'
+import { MarkLostModal } from './lost/MarkLostModal'
+import { LostPetStatusBadge } from './lost/LostPetStatusBadge'
 
 interface PetProfileHeaderProps {
   pet: Pet
@@ -98,6 +102,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [copied, setCopied] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
+  const [markLostOpen, setMarkLostOpen] = useState(false)
+  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -107,7 +113,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const [detailsForm, setDetailsForm] = useState<DetailsForm>(() => buildDetailsForm(pet))
   const photoInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
-  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet, deletePet, refreshBadges } =
+  const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet, deletePet, refreshBadges, resolveLostAnnouncement } =
     useApp()
 
   useEffect(() => {
@@ -281,6 +287,27 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
 
       {/* Prominent action bar */}
       <div className="flex flex-col sm:flex-row gap-3">
+        {pet.lostStatus === 'lost' ? (
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => setResolveConfirmOpen(true)}
+            className="flex-1 gap-2 font-bold shadow-sm bg-emerald-700 hover:bg-emerald-800"
+          >
+            <Home size={18} />
+            Mazlíček je doma
+          </Button>
+        ) : (
+          <Button
+            variant="danger"
+            size="lg"
+            onClick={() => setMarkLostOpen(true)}
+            className="flex-1 gap-2 font-bold shadow-sm"
+          >
+            <Search size={18} />
+            Ztratil se!
+          </Button>
+        )}
         <Button
           variant="gold"
           size="lg"
@@ -382,6 +409,9 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                     >
                       {formatHealthStatus(pet.healthStatus)}
                     </Badge>
+                  )}
+                  {pet.lostStatus && (
+                    <LostPetStatusBadge status={pet.lostStatus} className="shrink-0" />
                   )}
                   {pet.breedingProfile && (
                     <Badge
@@ -947,6 +977,45 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         initialChip={microchipValue}
         petId={pet.id}
       />
+
+      <MarkLostModal
+        key={pet.id}
+        pet={pet}
+        open={markLostOpen}
+        onClose={() => setMarkLostOpen(false)}
+      />
+
+      <Modal
+        open={resolveConfirmOpen}
+        onClose={() => setResolveConfirmOpen(false)}
+        title="Mazlíček je doma"
+        subtitle={`Potvrdit, že ${pet.name} byl/a nalezen/a`}
+        maxWidth="sm"
+      >
+        <p className="text-sm leading-relaxed text-[#4A564F]">
+          Veřejné oznámení se deaktivuje a další hlášení nebudou možná. Historie hlášení zůstane
+          zachována. Uživatelé, kteří poslali hlášení, budou informováni.
+        </p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={() => setResolveConfirmOpen(false)}>
+            Zrušit
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            className="bg-emerald-700 hover:bg-emerald-800"
+            onClick={() => {
+              if (pet.activeLostAnnouncementId) {
+                resolveLostAnnouncement(pet.activeLostAnnouncementId)
+              }
+              setResolveConfirmOpen(false)
+            }}
+          >
+            <Home size={14} />
+            Ano, {pet.name} je doma
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

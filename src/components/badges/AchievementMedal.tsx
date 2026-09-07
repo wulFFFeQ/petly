@@ -42,7 +42,7 @@ export function AchievementMedal({
   selected = false,
 }: AchievementMedalProps) {
   const Icon = BADGE_ICONS[icon]
-  const palette = SEAL_PALETTE[category] ?? SEAL_PALETTE.care
+  const palette = SEAL_PALETTE[category] ?? SEAL_PALETTE.milestone
   const dim = sizes[size]
   const showLevel = maxLevel > 1 && !locked && !secretLocked
   const earned = !locked && !secretLocked

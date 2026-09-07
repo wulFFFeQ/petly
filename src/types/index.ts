@@ -1,6 +1,24 @@
 import type { PetType } from '../lib/petTypes'
+import type { LostPetLifecycle } from './lostPet'
 
 export type { PetType } from '../lib/petTypes'
+export type {
+  LostPetLifecycle,
+  PublicBehavior,
+  TemperamentHint,
+  LostPetReportType,
+  SightingActivity,
+  FoundSafety,
+  ReportFlagReason,
+  ObservedAtPreset,
+  ApproxLocation,
+  LostPetAnnouncement,
+  LostPetReport,
+  CreateLostAnnouncementInput,
+  SubmitLostSightingInput,
+  SubmitLostFoundInput,
+  LostPetChatMessage,
+} from './lostPet'
 export type HealthStatus =
   | 'excellent'
   | 'good'
@@ -133,6 +151,13 @@ export interface Pet {
   dislikes?: string[]
   /** What they are looking for (walk buddy, playdates…). */
   lookingFor?: string
+  /**
+   * Derived lost-pet lifecycle for badges.
+   * Synced from LostPetAnnouncement — do not store the full announcement here.
+   */
+  lostStatus?: LostPetLifecycle
+  /** Active announcement id when `lostStatus === 'lost'`. */
+  activeLostAnnouncementId?: string
 }
 
 export interface HealthAssessmentSnapshot {
@@ -376,8 +401,12 @@ export interface AppNotification {
   title: string
   time: string
   unread: boolean
-  kind?: 'medication_reminder' | 'system' | 'community'
+  kind?: 'medication_reminder' | 'system' | 'community' | 'lost_pet'
   sourceRecordId?: string
+  /** Deep link path, e.g. `/pets/luna?tab=overview&lostReport=xyz`. */
+  href?: string
+  lostAnnouncementId?: string
+  lostReportId?: string
 }
 
 export interface Message {
@@ -405,7 +434,7 @@ export interface Conversation {
   petId?: string
   /** Discover pet belonging to the contact (their animal's public profile). */
   contactPetId?: string
-  contactType: 'vet' | 'trainer' | 'community'
+  contactType: 'vet' | 'trainer' | 'community' | 'lost_finder'
   online?: boolean
   lastMessage: string
   time: string
@@ -413,6 +442,10 @@ export interface Conversation {
   messages: Message[]
   /** Entire thread hidden from the active conversation list when true. */
   archived?: boolean
+  /** Lost-pet anonymous finder thread. */
+  lostAnnouncementId?: string
+  lostReportId?: string
+  finderAnonymousId?: string
 }
 
 export interface WeightDataPoint {

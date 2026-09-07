@@ -38,19 +38,41 @@ import {
   ensurePetsFoundContactFields,
   findPetByFoundToken,
 } from '../lib/foundPet'
+import {
+  createLostAnnouncementToken,
+  findAnnouncementByToken,
+  foundSafetyLabel,
+  formatRelativeCzech,
+  loadLostAnnouncements,
+  loadLostChatThreads,
+  loadLostConversations,
+  loadLostReports,
+  saveLostAnnouncements,
+  saveLostChatThreads,
+  saveLostConversations,
+  saveLostReports,
+  type LostPetChatThread,
+} from '../lib/lostPet'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
   CalendarEvent,
   CommunityPost,
+  Conversation,
+  CreateLostAnnouncementInput,
   EventType,
   HealthRecord,
   HealthRecordType,
+  LostPetAnnouncement,
+  LostPetReport,
   ModalType,
   NewPetForm,
   Pet,
   PetDocument,
   PetPhoto,
+  ReportFlagReason,
+  SubmitLostFoundInput,
+  SubmitLostSightingInput,
   ToastMessage,
 } from '../types'
 
@@ -302,6 +324,25 @@ interface AppContextValue {
   setMedicationReminderDays: (recordId: string, days: number) => void
   markNotificationsRead: () => void
   submitFoundPetContact: (token: string, message: string) => boolean
+  lostAnnouncements: LostPetAnnouncement[]
+  lostReports: LostPetReport[]
+  lostConversations: Conversation[]
+  createLostAnnouncement: (petId: string, input: CreateLostAnnouncementInput) => string | null
+  resolveLostAnnouncement: (announcementId: string) => boolean
+  closeLostAnnouncement: (announcementId: string) => boolean
+  submitLostSighting: (announcementId: string, input: SubmitLostSightingInput) => string | null
+  submitLostFoundReport: (
+    announcementId: string,
+    input: SubmitLostFoundInput,
+  ) => { reportId: string; conversationId: string } | null
+  flagLostReport: (reportId: string, reason: ReportFlagReason, note?: string) => boolean
+  getLostAnnouncementByToken: (token: string) => LostPetAnnouncement | undefined
+  getLostReportsForAnnouncement: (announcementId: string) => LostPetReport[]
+  sendLostFinderMessage: (conversationId: string, text: string, as: 'owner' | 'finder') => boolean
+  getLostChatThreadForFinder: (
+    announcementId: string,
+    finderAnonymousId: string,
+  ) => LostPetChatThread | undefined
   toggleLike: (postId: string) => void
   addComment: (postId: string, text: string) => void
   deleteComment: (postId: string, commentId: string) => void
@@ -379,6 +420,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [healthRecordPrefillType, setHealthRecordPrefillType] = useState<HealthRecordType | null>(
     null,
   )
+  const [lostAnnouncements, setLostAnnouncements] = useState<LostPetAnnouncement[]>(loadLostAnnouncements)
+  const [lostReports, setLostReports] = useState<LostPetReport[]>(loadLostReports)
+  const [lostConversations, setLostConversations] = useState<Conversation[]>(loadLostConversations)
+  const [lostChatThreads, setLostChatThreads] = useState<LostPetChatThread[]>(loadLostChatThreads)
 
   const refreshBadges = useCallback(() => {
     setBadgeRevision((n) => n + 1)
@@ -407,6 +452,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    saveLostAnnouncements(lostAnnouncements)
+  }, [lostAnnouncements])
+
+  useEffect(() => {
+    saveLostReports(lostReports)
+  }, [lostReports])
+
+  useEffect(() => {
+    saveLostConversations(lostConversations)
+  }, [lostConversations])
+
+  useEffect(() => {
+    saveLostChatThreads(lostChatThreads)
+  }, [lostChatThreads])
 
   useEffect(() => {
     window.localStorage.setItem(BADGES_STORAGE_KEY, JSON.stringify(earnedBadges))
@@ -482,7 +543,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- evaluate on domain data; merge via functional update
-  }, [pets, healthRecords, documents, photos, posts, calendarEvents, badgeRevision])
+  }, [pets, healthRecords, documents, photos, posts, calendarEvents, badgeRevision, nightOwlEligible])
 
   // Migrate legacy Samice/Samec → Fena/Pes or Kočka/Kocour
   useEffect(() => {
@@ -1108,10 +1169,468 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true
   }
 
+  const createLostAnnouncement = (
+    petId: string,
+    input: CreateLostAnnouncementInput,
+  ): string | null => {
+    const pet = pets.find((item) => item.id === petId)
+    if (!pet) return null
+    if (lostAnnouncements.some((item) => item.petId === petId && item.status === 'lost')) {
+      showToast('Aktivní oznámení už existuje', `${pet.name} už je označen/a jako ztracený.`, 'info')
+      return null
+    }
+
+    const respondsToName = input.respondsToName.trim()
+    if (!respondsToName || !input.lastSeen?.publicLabel) {
+      showToast('Doplňte povinné údaje', 'Lokalita a jméno, na které slyší, jsou povinné.', 'info')
+      return null
+    }
+
+    const id = `lost-${Date.now()}`
+    const announcement: LostPetAnnouncement = {
+      id,
+      publicToken: createLostAnnouncementToken(),
+      petId,
+      status: 'lost',
+      createdAt: new Date().toISOString(),
+      lastSeen: input.lastSeen,
+      knowsPossibleArea: input.knowsPossibleArea,
+      possibleArea: input.knowsPossibleArea ? input.possibleArea : undefined,
+      publicBehavior: input.publicBehavior,
+      importantInstructions: input.importantInstructions?.trim() || undefined,
+      respondsToName,
+      nickname: input.nickname?.trim() || undefined,
+      allowAppContact: input.allowAppContact,
+      reactionToPeople: input.reactionToPeople,
+      reactionToAnimals: input.reactionToAnimals,
+      specialCaution: input.specialCaution?.trim() || undefined,
+    }
+
+    setLostAnnouncements((prev) => [announcement, ...prev])
+    setPets((prev) =>
+      prev.map((item) =>
+        item.id === petId
+          ? { ...item, lostStatus: 'lost', activeLostAnnouncementId: id }
+          : item,
+      ),
+    )
+
+    showToast(
+      'Oznámení zveřejněno',
+      `${pet.name} je označen/a jako ztracený. Veřejné oznámení je aktivní.`,
+      'gold',
+    )
+    return id
+  }
+
+  const resolveLostAnnouncement = (announcementId: string): boolean => {
+    const announcement = lostAnnouncements.find((item) => item.id === announcementId)
+    if (!announcement || announcement.status !== 'lost') return false
+    const pet = pets.find((item) => item.id === announcement.petId)
+    const petName = pet?.name ?? 'Mazlíček'
+    const now = new Date().toISOString()
+
+    setLostAnnouncements((prev) =>
+      prev.map((item) =>
+        item.id === announcementId
+          ? { ...item, status: 'found', resolvedAt: now }
+          : item,
+      ),
+    )
+    setPets((prev) =>
+      prev.map((item) =>
+        item.id === announcement.petId
+          ? { ...item, lostStatus: 'found', activeLostAnnouncementId: undefined }
+          : item,
+      ),
+    )
+
+    const relatedReports = lostReports.filter((r) => r.announcementId === announcementId)
+    setLostReports((prev) =>
+      prev.map((report) =>
+        report.announcementId === announcementId
+          ? { ...report, notifiedOfResolution: true }
+          : report,
+      ),
+    )
+
+    const reporterIds = [...new Set(relatedReports.map((r) => r.reporterAnonymousId))]
+    if (reporterIds.length > 0) {
+      setNotifications((prev) => [
+        {
+          id: `lost-resolved-${Date.now()}`,
+          title: `${petName} je doma. Děkujeme všem, kteří pomohli.`,
+          time: 'právě teď',
+          unread: true,
+          kind: 'lost_pet',
+          lostAnnouncementId: announcementId,
+          href: `/pets/${announcement.petId}?tab=overview`,
+        },
+        ...prev,
+      ])
+    }
+
+    // Notify finder conversations
+    setLostConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.lostAnnouncementId !== announcementId) return conv
+        const systemMsg = {
+          id: `m-resolved-${Date.now()}-${conv.id}`,
+          sender: 'me' as const,
+          text: `🟢 ${petName} je doma. Děkujeme všem, kteří pomohli.`,
+          time: 'právě teď',
+        }
+        return {
+          ...conv,
+          lastMessage: systemMsg.text,
+          time: 'právě teď',
+          messages: [...conv.messages, systemMsg],
+        }
+      }),
+    )
+    setLostChatThreads((prev) =>
+      prev.map((thread) => {
+        if (thread.announcementId !== announcementId) return thread
+        return {
+          ...thread,
+          messages: [
+            ...thread.messages,
+            {
+              id: `cm-resolved-${Date.now()}-${thread.conversationId}`,
+              sender: 'owner',
+              text: `🟢 ${petName} je doma. Děkujeme všem, kteří pomohli.`,
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    )
+
+    showToast(`${petName} je doma`, 'Oznámení bylo označeno jako vyřešené.', 'success')
+    return true
+  }
+
+  const closeLostAnnouncement = (announcementId: string): boolean => {
+    const announcement = lostAnnouncements.find((item) => item.id === announcementId)
+    if (!announcement) return false
+    const now = new Date().toISOString()
+    setLostAnnouncements((prev) =>
+      prev.map((item) =>
+        item.id === announcementId
+          ? { ...item, status: 'closed', closedAt: now }
+          : item,
+      ),
+    )
+    setPets((prev) =>
+      prev.map((item) =>
+        item.id === announcement.petId
+          ? { ...item, lostStatus: 'closed', activeLostAnnouncementId: undefined }
+          : item,
+      ),
+    )
+    showToast('Oznámení ukončeno', 'Veřejné hlášení bylo deaktivováno.', 'info')
+    return true
+  }
+
+  const submitLostSighting = (
+    announcementId: string,
+    input: SubmitLostSightingInput,
+  ): string | null => {
+    const announcement = lostAnnouncements.find((item) => item.id === announcementId)
+    if (!announcement || announcement.status !== 'lost') return null
+    const pet = pets.find((item) => item.id === announcement.petId)
+    if (!pet) return null
+
+    const reportId = `lsr-${Date.now()}`
+    const report: LostPetReport = {
+      id: reportId,
+      announcementId,
+      petId: announcement.petId,
+      type: 'sighting',
+      createdAt: new Date().toISOString(),
+      reporterAnonymousId: input.reporterAnonymousId,
+      location: input.location,
+      observedAt: input.observedAt,
+      observedAtPreset: input.observedAtPreset,
+      activity: input.activity,
+      note: input.note?.trim() || undefined,
+      photoUrl: input.photoUrl,
+    }
+
+    setLostReports((prev) => [report, ...prev])
+    setNotifications((prev) => [
+      {
+        id: `lost-sight-${Date.now()}`,
+        title: `Nové hlášení o ${pet.name}`,
+        time: `${formatRelativeCzech(input.observedAt)} · ${input.location.publicLabel}`,
+        unread: true,
+        kind: 'lost_pet',
+        lostAnnouncementId: announcementId,
+        lostReportId: reportId,
+        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}`,
+      },
+      ...prev,
+    ])
+
+    showToast(
+      'Hlášení odesláno',
+      'Majitel byl informován. Vaše identita zůstává anonymní.',
+      'gold',
+    )
+    return reportId
+  }
+
+  const submitLostFoundReport = (
+    announcementId: string,
+    input: SubmitLostFoundInput,
+  ): { reportId: string; conversationId: string } | null => {
+    const announcement = lostAnnouncements.find((item) => item.id === announcementId)
+    if (!announcement || announcement.status !== 'lost') return null
+    if (!announcement.allowAppContact) {
+      showToast('Kontakt je vypnutý', 'Majitel momentálně nepřijímá zprávy přes aplikaci.', 'info')
+      return null
+    }
+    const pet = pets.find((item) => item.id === announcement.petId)
+    if (!pet) return null
+
+    const reportId = `lfr-${Date.now()}`
+    const conversationId = `lost-conv-${Date.now()}`
+    const now = new Date().toISOString()
+    const safetyText = foundSafetyLabel(input.safetyStatus)
+
+    const report: LostPetReport = {
+      id: reportId,
+      announcementId,
+      petId: announcement.petId,
+      type: 'found',
+      createdAt: now,
+      reporterAnonymousId: input.reporterAnonymousId,
+      location: input.location,
+      observedAt: input.observedAt,
+      hasPetWithThem: input.hasPetWithThem,
+      safetyStatus: input.safetyStatus,
+      canKeepSafely: input.canKeepSafely,
+      note: input.note?.trim() || undefined,
+      photoUrl: input.photoUrl,
+    }
+
+    const opener =
+      input.note?.trim() ||
+      `${pet.name} byl/a právě nalezen/a. Nálezce uvedl: ${safetyText}. ${input.location.publicLabel}`
+
+    const conversation: Conversation = {
+      id: conversationId,
+      name: `Nálezce · ${pet.name}`,
+      avatar: pet.image,
+      role: 'Anonymní nálezce',
+      petContext: pet.name,
+      petId: pet.id,
+      contactType: 'lost_finder',
+      online: true,
+      lastMessage: opener,
+      time: 'právě teď',
+      unread: 1,
+      messages: [
+        {
+          id: `m-${Date.now()}`,
+          sender: 'them',
+          text: opener,
+          time: 'právě teď',
+        },
+      ],
+      lostAnnouncementId: announcementId,
+      lostReportId: reportId,
+      finderAnonymousId: input.reporterAnonymousId,
+    }
+
+    const chatThread: LostPetChatThread = {
+      conversationId,
+      announcementId,
+      reportId,
+      finderAnonymousId: input.reporterAnonymousId,
+      petName: pet.name,
+      messages: [
+        {
+          id: `cm-${Date.now()}`,
+          sender: 'finder',
+          text: opener,
+          createdAt: now,
+        },
+      ],
+    }
+
+    setLostReports((prev) => [report, ...prev])
+    setLostConversations((prev) => [conversation, ...prev])
+    setLostChatThreads((prev) => [chatThread, ...prev])
+    setNotifications((prev) => [
+      {
+        id: `lost-found-${Date.now()}`,
+        title: `${pet.name} byl/a nalezen/a.`,
+        time: `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
+        unread: true,
+        kind: 'lost_pet',
+        lostAnnouncementId: announcementId,
+        lostReportId: reportId,
+        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}`,
+      },
+      ...prev,
+    ])
+
+    showToast(
+      'Majitel byl kontaktován',
+      'Zpráva byla odeslána anonymně přes LOVED & KNOWN.',
+      'gold',
+    )
+    return { reportId, conversationId }
+  }
+
+  const flagLostReport = (
+    reportId: string,
+    reason: ReportFlagReason,
+    note?: string,
+  ): boolean => {
+    const report = lostReports.find((item) => item.id === reportId)
+    if (!report) return false
+    setLostReports((prev) =>
+      prev.map((item) =>
+        item.id === reportId
+          ? {
+              ...item,
+              ownerFlag: {
+                reason,
+                note: note?.trim() || undefined,
+                flaggedAt: new Date().toISOString(),
+              },
+            }
+          : item,
+      ),
+    )
+    showToast('Hlášení označeno', 'Děkujeme za nahlášení. Hlášení zůstane v historii.', 'info')
+    return true
+  }
+
+  const getLostAnnouncementByToken = (token: string) =>
+    findAnnouncementByToken(lostAnnouncements, token)
+
+  const getLostReportsForAnnouncement = (announcementId: string) =>
+    [...lostReports]
+      .filter((item) => item.announcementId === announcementId)
+      .sort((a, b) => a.observedAt.localeCompare(b.observedAt))
+
+  const sendLostFinderMessage = (
+    conversationId: string,
+    text: string,
+    as: 'owner' | 'finder',
+  ): boolean => {
+    const trimmed = text.trim()
+    if (!trimmed) return false
+    const conv = lostConversations.find((item) => item.id === conversationId)
+    if (!conv) return false
+    const now = new Date().toISOString()
+    const ownerSender = as === 'owner' ? ('me' as const) : ('them' as const)
+
+    setLostConversations((prev) =>
+      prev.map((item) => {
+        if (item.id !== conversationId) return item
+        return {
+          ...item,
+          lastMessage: trimmed,
+          time: 'právě teď',
+          unread: as === 'finder' ? item.unread + 1 : item.unread,
+          messages: [
+            ...item.messages,
+            {
+              id: `m-${Date.now()}`,
+              sender: ownerSender,
+              text: trimmed,
+              time: 'právě teď',
+            },
+          ],
+        }
+      }),
+    )
+
+    setLostChatThreads((prev) =>
+      prev.map((thread) => {
+        if (thread.conversationId !== conversationId) return thread
+        return {
+          ...thread,
+          messages: [
+            ...thread.messages,
+            {
+              id: `cm-${Date.now()}`,
+              sender: as,
+              text: trimmed,
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    )
+
+    if (as === 'finder') {
+      const petName = conv.petContext
+      setNotifications((prev) => [
+        {
+          id: `lost-msg-${Date.now()}`,
+          title: `Nová zpráva od nálezce · ${petName}`,
+          time: 'právě teď',
+          unread: true,
+          kind: 'lost_pet',
+          lostAnnouncementId: conv.lostAnnouncementId,
+          href: `/messages?conversationId=${conversationId}`,
+        },
+        ...prev,
+      ])
+    }
+
+    return true
+  }
+
+  const getLostChatThreadForFinder = (
+    announcementId: string,
+    finderAnonymousId: string,
+  ) =>
+    lostChatThreads.find(
+      (thread) =>
+        thread.announcementId === announcementId &&
+        thread.finderAnonymousId === finderAnonymousId,
+    )
+
   // Ensure QR tokens exist for pets loaded before this feature.
   useEffect(() => {
     setPets((prev) => ensurePetsFoundContactFields(prev))
   }, [])
+
+  // Sync pet.lostStatus badges from persisted announcements.
+  useEffect(() => {
+    setPets((prev) =>
+      prev.map((pet) => {
+        const forPet = lostAnnouncements.filter((item) => item.petId === pet.id)
+        if (forPet.length === 0) {
+          if (!pet.lostStatus && !pet.activeLostAnnouncementId) return pet
+          const { lostStatus: _a, activeLostAnnouncementId: _b, ...rest } = pet
+          return rest
+        }
+        const active = forPet.find((item) => item.status === 'lost')
+        if (active) {
+          if (pet.lostStatus === 'lost' && pet.activeLostAnnouncementId === active.id) {
+            return pet
+          }
+          return { ...pet, lostStatus: 'lost', activeLostAnnouncementId: active.id }
+        }
+        const latest = [...forPet].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+        if (pet.lostStatus === latest.status && !pet.activeLostAnnouncementId) return pet
+        return {
+          ...pet,
+          lostStatus: latest.status,
+          activeLostAnnouncementId: undefined,
+        }
+      }),
+    )
+    // Only when announcements change (initial hydrate + mutations).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lostAnnouncements])
 
   // Mark finished medication courses as completed and clear reminders
   useEffect(() => {
@@ -1402,6 +1921,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMedicationReminderDays,
         markNotificationsRead,
         submitFoundPetContact,
+        lostAnnouncements,
+        lostReports,
+        lostConversations,
+        createLostAnnouncement,
+        resolveLostAnnouncement,
+        closeLostAnnouncement,
+        submitLostSighting,
+        submitLostFoundReport,
+        flagLostReport,
+        getLostAnnouncementByToken,
+        getLostReportsForAnnouncement,
+        sendLostFinderMessage,
+        getLostChatThreadForFinder,
         toggleLike,
         addComment,
         deleteComment,

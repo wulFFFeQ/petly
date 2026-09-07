@@ -115,6 +115,10 @@ export function Header() {
                           onClick={() => {
                             if (item.kind === 'medication_reminder') {
                               navigate('/calendar')
+                            } else if (item.href) {
+                              navigate(item.href)
+                            } else if (item.kind === 'lost_pet') {
+                              navigate('/pets')
                             }
                             setShowNotifications(false)
                           }}

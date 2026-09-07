@@ -15,7 +15,7 @@ import {
 } from './messageShareUtils'
 
 export function MessagesPageContent() {
-  const { showToast } = useApp()
+  const { showToast, lostConversations, sendLostFinderMessage } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
   const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
@@ -34,9 +34,35 @@ export function MessagesPageContent() {
 
   useEffect(() => {
     const contactPetId = searchParams.get('contactPetId')
-    if (!contactPetId) return
+    const conversationId = searchParams.get('conversationId')
+    if (!contactPetId && !conversationId) return
 
     let openedId: string | null = null
+
+    if (conversationId) {
+      setConversations((prev) => {
+        const fromLost = lostConversations.find((c) => c.id === conversationId)
+        const existing = prev.find((c) => c.id === conversationId)
+        if (existing) {
+          openedId = existing.id
+          return prev.map((c) =>
+            c.id === existing.id ? { ...c, archived: false, unread: 0 } : c,
+          )
+        }
+        if (fromLost) {
+          openedId = fromLost.id
+          return [{ ...fromLost, archived: false, unread: 0 }, ...prev]
+        }
+        return prev
+      })
+      if (openedId) {
+        setListMode('inbox')
+        setActiveId(openedId)
+        setMobileShowChat(true)
+      }
+      setSearchParams({}, { replace: true })
+      return
+    }
 
     setConversations((prev) => {
       const existing = prev.find((c) => c.contactPetId === contactPetId)
@@ -62,7 +88,40 @@ export function MessagesPageContent() {
     }
 
     setSearchParams({}, { replace: true })
-  }, [searchParams, setSearchParams])
+  }, [searchParams, setSearchParams, lostConversations])
+
+  // Merge lost-pet finder threads into inbox without wiping local edits.
+  useEffect(() => {
+    if (lostConversations.length === 0) return
+    setConversations((prev) => {
+      const byId = new Map(prev.map((c) => [c.id, c]))
+      let changed = false
+      for (const lost of lostConversations) {
+        const existing = byId.get(lost.id)
+        if (!existing) {
+          byId.set(lost.id, lost)
+          changed = true
+          continue
+        }
+        if (
+          existing.contactType === 'lost_finder' &&
+          (existing.messages.length !== lost.messages.length ||
+            existing.lastMessage !== lost.lastMessage)
+        ) {
+          byId.set(lost.id, {
+            ...lost,
+            archived: existing.archived,
+            unread: existing.unread,
+          })
+          changed = true
+        }
+      }
+      if (!changed) return prev
+      const rest = prev.filter((c) => c.contactType !== 'lost_finder')
+      const lostMerged = lostConversations.map((c) => byId.get(c.id) ?? c)
+      return [...lostMerged, ...rest]
+    })
+  }, [lostConversations])
 
   const active = conversations.find((c) => c.id === activeId)
   const contactPet = active?.contactPetId
@@ -180,6 +239,13 @@ export function MessagesPageContent() {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim() || !activeId) return
+
+    const activeConv = conversations.find((c) => c.id === activeId)
+    if (activeConv?.contactType === 'lost_finder') {
+      sendLostFinderMessage(activeId, message.trim(), 'owner')
+      setMessage('')
+      return
+    }
 
     const now = new Date()
     const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`

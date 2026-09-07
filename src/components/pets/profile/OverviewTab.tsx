@@ -28,6 +28,7 @@ import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
 import { PetFoundQrCard } from '../found/PetFoundQrCard'
+import { LostPetOwnerPanel } from '../lost/LostPetOwnerPanel'
 import type { PetProfileTabState } from './usePetProfileTabState'
 
 type OverviewTabProps = PetProfileTabState['overview']
@@ -58,6 +59,8 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6">
+      {(pet.lostStatus || pet.activeLostAnnouncementId) && <LostPetOwnerPanel pet={pet} />}
+
       <PetFoundQrCard pet={pet} />
 
       <div
