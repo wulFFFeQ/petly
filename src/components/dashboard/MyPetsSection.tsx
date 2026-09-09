@@ -25,6 +25,7 @@ function EditorialPetTile({
   featured?: boolean
 }) {
   const { calendarEvents } = useApp()
+  const isLost = pet.lostStatus === 'lost'
   const status = getPetStatusBadge(pet, calendarEvents)
 
   return (
@@ -32,6 +33,7 @@ function EditorialPetTile({
       to={`/pets/${pet.id}`}
       className={cn(
         'group relative block overflow-hidden rounded-2xl sm:rounded-3xl',
+        isLost && 'ring-2 ring-rose-400/80 ring-offset-2 ring-offset-[#FAF8F5]',
         className,
       )}
     >
@@ -47,11 +49,20 @@ function EditorialPetTile({
         className={cn(
           'absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-black/5',
           featured && 'from-black/70 via-black/25',
+          isLost && 'from-rose-950/75 via-rose-900/25 to-black/10',
         )}
       />
       <div className="absolute inset-0 bg-gradient-to-br from-[#2C4A3E]/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
-      {featured && (
+      {isLost && (
+        <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600/95 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-sm">
+            🔴 Ztracený
+          </span>
+        </div>
+      )}
+
+      {featured && !isLost && (
         <PawPrint
           size={48}
           strokeWidth={1.25}
@@ -86,14 +97,21 @@ function EditorialPetTile({
         </p>
         <p
           className={cn(
-            'mt-2 flex items-center gap-2 font-medium text-white/75',
+            'mt-2 flex items-center gap-2 font-medium',
+            isLost ? 'text-rose-100' : 'text-white/75',
             featured ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs',
           )}
         >
-          <span
-            className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(status.variant))}
-          />
-          {status.label}
+          {isLost ? (
+            'Otevřít hledání'
+          ) : (
+            <>
+              <span
+                className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDotClass(status.variant))}
+              />
+              {status.label}
+            </>
+          )}
         </p>
       </div>
     </Link>
@@ -111,9 +129,12 @@ export function MyPetsSection() {
   return (
     <section>
       <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
-        <h2 className="text-xl font-bold tracking-tight text-[#191E1B] sm:text-2xl">
-          Moji mazlíčci
-        </h2>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-[#191E1B] sm:text-2xl">
+            Moji mazlíčci
+          </h2>
+          <p className="mt-0.5 text-sm text-[#7D8B82]">Rychlý přehled vašich mazlíčků</p>
+        </div>
         <AddMenuButton />
       </div>
 
