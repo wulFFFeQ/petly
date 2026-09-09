@@ -87,6 +87,14 @@ export function EmergencyCardPublicBody({
         </p>
       </div>
 
+      <div className="px-1">
+        <p className="text-[11px] font-semibold text-[#5A6660]">Našli jste tohoto mazlíčka?</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-[#7D8B82]">
+          Zůstaňte prosím v bezpečí a kontaktujte majitele přes {BRAND_NAME}. Pokud je zvíře
+          zraněné nebo v bezprostředním ohrožení, obraťte se na nejbližší veterinární pohotovost.
+        </p>
+      </div>
+
       {view.isLost && view.lost && (
         <div className="grid gap-3 rounded-xl border border-[#E8E4DC] bg-white p-4 text-sm">
           {view.lost.lastSeenPublicLabel && (
