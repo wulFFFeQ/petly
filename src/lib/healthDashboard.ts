@@ -210,6 +210,23 @@ function formatPeriodBetween(fromTs: number, toTs: number): string {
   return `za ${days} dní`
 }
 
+function formatPeriodShort(fromTs: number, toTs: number): string {
+  if (!fromTs || !toTs || toTs <= fromTs) return ''
+  const from = new Date(fromTs)
+  const to = new Date(toTs)
+  const months =
+    (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
+  if (months >= 1) {
+    if (months === 1) return '1 měsíc'
+    if (months >= 2 && months <= 4) return `${months} měsíce`
+    return `${months} měsíců`
+  }
+  const days = Math.max(1, Math.round((toTs - fromTs) / (1000 * 60 * 60 * 24)))
+  if (days === 1) return '1 den'
+  if (days >= 2 && days <= 4) return `${days} dny`
+  return `${days} dní`
+}
+
 /** Neutral statistical change only — no veterinary diagnosis. */
 export function computeWeightTrend(measurements: WeightMeasurement[]): WeightTrend {
   const sorted = [...measurements].sort(
@@ -222,11 +239,14 @@ export function computeWeightTrend(measurements: WeightMeasurement[]): WeightTre
   const first = sorted[0]
   const last = sorted[sorted.length - 1]
   const delta = last.weight - first.weight
-  const period = formatPeriodBetween(parseCzechDate(first.date), parseCzechDate(last.date))
+  const fromTs = parseCzechDate(first.date)
+  const toTs = parseCzechDate(last.date)
+  const period = formatPeriodBetween(fromTs, toTs)
+  const periodShort = formatPeriodShort(fromTs, toTs)
 
   if (Math.abs(delta) < 0.3) {
     return {
-      label: period ? `→ Bez výrazné změny ${period}` : '→ Bez výrazné změny',
+      label: periodShort ? `→ Stabilní · ${periodShort}` : '→ Stabilní',
       arrow: 'stable',
     }
   }

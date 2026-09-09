@@ -190,7 +190,7 @@ export function WeightChart({
     const content = (
       <>
         {variant === 'overview' && (
-          <div className="mb-4">
+          <div className="mb-3">
             <h3 className="text-lg font-bold text-[#191E1B]">Vývoj hmotnosti</h3>
             <p className="mt-0.5 text-xs text-[#5A6660]">
               Přehled posledních měření všech mazlíčků
@@ -198,7 +198,7 @@ export function WeightChart({
           </div>
         )}
 
-        <ul className="divide-y divide-[#F0EDE6]">
+        <ul className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
           {pets.map((pet) => (
             <AllPetsWeightRow
               key={pet.id}
@@ -215,7 +215,7 @@ export function WeightChart({
     }
 
     return (
-      <Card variant="elevated" padding="lg" className={className}>
+      <Card variant="elevated" padding="md" className={className}>
         {content}
       </Card>
     )
@@ -440,52 +440,42 @@ function AllPetsWeightRow({ pet, onSelect }: { pet: Pet; onSelect: () => void })
   const latest = sorted[0]
   const trend = computeWeightTrend(list)
   const hasData = list.length > 0
-  const weight =
-    latest?.weight ?? (typeof pet.weight === 'number' ? pet.weight : undefined)
+
+  const valueLabel = hasData && latest ? formatWeightKg(latest.weight) : 'Bez měření'
+  const metaLabel =
+    hasData && latest
+      ? list.length >= 2
+        ? `měřeno ${latest.date} · ${trend.label}`
+        : `měřeno ${latest.date}`
+      : 'Přidejte první měření'
 
   return (
-    <li>
+    <li className="min-w-0">
       <button
         type="button"
         onClick={onSelect}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 py-3.5 text-left transition-colors hover:bg-[#FAF8F5] -mx-2 px-2 rounded-xl sm:mx-0 sm:px-1"
+        className="flex h-full w-full cursor-pointer items-center gap-2.5 rounded-xl border border-[#E8E4DC] bg-white px-3 py-2.5 text-left transition-colors hover:border-[#D8D3CA] hover:bg-[#FAF8F5]"
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <img
-            src={pet.image}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white shadow-sm"
-          />
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-[#191E1B]">{pet.name}</p>
-            {hasData && latest ? (
-              <>
-                <p className="mt-0.5 text-base font-bold tabular-nums text-[#234B54]">
-                  {formatWeightKg(latest.weight)}
-                </p>
-                <p className="mt-0.5 text-[11px] text-[#5A6660]">měřeno {latest.date}</p>
-                {list.length >= 2 && (
-                  <p className="mt-0.5 text-[11px] font-semibold text-[#234B54]">
-                    {trend.label}
-                  </p>
-                )}
-              </>
-            ) : weight != null ? (
-              <>
-                <p className="mt-0.5 text-base font-bold tabular-nums text-[#234B54]">
-                  {formatWeightKg(weight)}
-                </p>
-                <p className="mt-0.5 text-[11px] text-[#5A6660]">Bez záznamu měření</p>
-              </>
-            ) : (
-              <>
-                <p className="mt-0.5 text-sm font-semibold text-[#5A6660]">Bez měření</p>
-                <p className="mt-0.5 text-[11px] text-[#7D8B82]">Přidejte první měření</p>
-              </>
-            )}
-          </div>
+        <img
+          src={pet.image}
+          alt=""
+          className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-[#E8E4DC]"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold leading-tight text-[#191E1B]">{pet.name}</p>
+          <p className="mt-0.5 text-[10px] leading-snug text-[#5A6660] sm:text-[11px]">
+            {metaLabel}
+          </p>
         </div>
-        <ChevronRight size={16} className="shrink-0 text-[#C5CDC8]" />
+        <p
+          className={cn(
+            'w-[5.75rem] shrink-0 text-right text-sm font-bold tabular-nums leading-none',
+            hasData ? 'text-[#234B54]' : 'text-[#5A6660]',
+          )}
+        >
+          {valueLabel}
+        </p>
+        <ChevronRight size={14} className="shrink-0 text-[#D0D5D2]" aria-hidden />
       </button>
     </li>
   )
