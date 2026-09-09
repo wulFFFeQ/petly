@@ -1,15 +1,11 @@
 /**
  * Emergency card data is intentionally separate from the private pet profile.
  * Public surfaces must only read fields gated by EmergencyCardVisibility
- * (defaults: everything OFF except basic pet identification).
+ * (defaults: sensitive fields OFF). Basic ID is always public.
  */
 
-/** Opt-in flags — every sensitive field defaults to false. */
+/** Opt-in flags — sensitive fields default to false. */
 export interface EmergencyCardVisibility {
-  /** Age on the public / shared card. */
-  showAge: boolean
-  /** Gender on the public / shared card. */
-  showGender: boolean
   /**
    * Show masked microchip only (e.g. ••••••••7890).
    * Full chip number is never allowed on the public card.
@@ -20,16 +16,15 @@ export interface EmergencyCardVisibility {
   showHealthMedication: boolean
   showHealthRestrictions: boolean
   showHealthOther: boolean
-  /** Clinic / vet name on the public card. */
+  /** Clinic / vet name on the public card — master switch for vet block. */
   showVet: boolean
-  /** Vet phone (Call button) — only if showVet is also true. */
+  /** Vet phone (Call button) — only effective when showVet is true. */
   showVetPhone: boolean
-  /** Navigate to clinic — only if showVet is also true. */
+  /** Navigate to clinic — only effective when showVet is true. */
   showVetNavigate: boolean
   /**
    * Owner phone on a printed physical card only.
-   * Never shown on the digital public emergency page unless this is true
-   * AND the print path is used — still never on the finder web view by default.
+   * Never shown on the digital public emergency page by default.
    */
   showOwnerPhoneOnPrint: boolean
 }
@@ -71,8 +66,6 @@ export interface EmergencyCardSettings {
 }
 
 export const DEFAULT_EMERGENCY_VISIBILITY: EmergencyCardVisibility = {
-  showAge: false,
-  showGender: false,
   showMaskedMicrochip: false,
   showHealthAllergies: false,
   showHealthChronic: false,

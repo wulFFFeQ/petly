@@ -124,7 +124,10 @@ export function EmergencyCardModal({ pet, open, onClose }: EmergencyCardModalPro
           </button>
           <button
             type="button"
-            onClick={() => setMode('finder')}
+            onClick={() => {
+              setMode('finder')
+              setSettingsOpen(false)
+            }}
             className={[
               'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors',
               mode === 'finder'
@@ -140,74 +143,87 @@ export function EmergencyCardModal({ pet, open, onClose }: EmergencyCardModalPro
         {mode === 'owner' ? (
           <EmergencyCardOwnerBody pet={pet} />
         ) : (
-          <EmergencyCardPublicBody view={publicView} previewOnly />
+          <EmergencyCardPublicBody
+            view={publicView}
+            onContactOwner={() =>
+              showToast(
+                'Bezpečný kontakt',
+                `Na veřejné kartě by se otevřel anonymní chat přes ${BRAND_NAME} — bez telefonu a e-mailu.`,
+                'gold',
+              )
+            }
+          />
         )}
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-1.5 sm:flex-1"
-            onClick={() => setSettingsOpen((o) => !o)}
-          >
-            <Settings2 size={15} />
-            {settingsOpen ? 'Skrýt nastavení' : 'Co zobrazit veřejně'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-1.5 sm:flex-1"
-            onClick={handleDownloadQr}
-          >
-            <QrCode size={15} />
-            Stáhnout QR
-          </Button>
-        </div>
+        {mode === 'owner' && (
+          <>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5 sm:flex-1"
+                onClick={() => setSettingsOpen((o) => !o)}
+              >
+                <Settings2 size={15} />
+                {settingsOpen ? 'Skrýt nastavení' : 'Co zobrazit veřejně'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5 sm:flex-1"
+                onClick={handleDownloadQr}
+              >
+                <QrCode size={15} />
+                Stáhnout QR
+              </Button>
+            </div>
 
-        {settingsOpen && (
-          <div className="rounded-xl border border-[#E8E4DC] bg-white p-3">
-            <EmergencyCardSettingsPanel pet={pet} onChange={persistSettings} />
-          </div>
+            {settingsOpen && (
+              <div className="rounded-xl border border-[#E8E4DC] bg-white p-3">
+                <EmergencyCardSettingsPanel pet={pet} onChange={persistSettings} />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="gold"
+                fullWidth
+                className="gap-1.5"
+                onClick={handleShare}
+                disabled={sharing}
+              >
+                <Share2 size={15} />
+                Sdílet nouzovou kartu
+              </Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="outline" className="gap-1.5" onClick={handlePrint}>
+                  <Download size={15} />
+                  Stáhnout / vytisknout
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={async () => {
+                    const ok = await copyTextToClipboard(publicUrl)
+                    showToast(
+                      ok ? 'Odkaz zkopírován' : 'Odkaz',
+                      ok ? publicUrl : 'Zkopírujte ručně: ' + publicUrl,
+                      'info',
+                    )
+                  }}
+                >
+                  <Copy size={15} />
+                  Kopírovat veřejný odkaz
+                </Button>
+              </div>
+              <p className="text-center text-[11px] text-[#7D8B82]">
+                Veřejná URL: <span className="font-medium text-[#4A564F]">{publicUrl}</span>
+              </p>
+            </div>
+          </>
         )}
-
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant="gold"
-            fullWidth
-            className="gap-1.5"
-            onClick={handleShare}
-            disabled={sharing}
-          >
-            <Share2 size={15} />
-            Sdílet nouzovou kartu
-          </Button>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Button type="button" variant="outline" className="gap-1.5" onClick={handlePrint}>
-              <Download size={15} />
-              Stáhnout / vytisknout
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-1.5"
-              onClick={async () => {
-                const ok = await copyTextToClipboard(publicUrl)
-                showToast(
-                  ok ? 'Odkaz zkopírován' : 'Odkaz',
-                  ok ? publicUrl : 'Zkopírujte ručně: ' + publicUrl,
-                  'info',
-                )
-              }}
-            >
-              <Copy size={15} />
-              Kopírovat veřejný odkaz
-            </Button>
-          </div>
-          <p className="text-center text-[11px] text-[#7D8B82]">
-            Veřejná URL: <span className="font-medium text-[#4A564F]">{publicUrl}</span>
-          </p>
-        </div>
       </div>
     </Modal>
   )

@@ -1,4 +1,5 @@
 import { ensureEmergencyCardSettings, mergeEmergencyVisibility } from '../../../lib/emergencyCard'
+import { hasMicrochip } from '../../../lib/petProfileDisplay'
 import type { Pet } from '../../../types'
 import type {
   EmergencyCardHealthContent,
@@ -17,17 +18,23 @@ function ToggleRow({
   hint,
   checked,
   onChange,
+  disabled,
 }: {
   label: string
   hint?: string
   checked: boolean
   onChange: (next: boolean) => void
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5 text-left transition-colors hover:bg-white"
+      className={[
+        'flex w-full items-center justify-between gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5 text-left transition-colors',
+        disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-white',
+      ].join(' ')}
     >
       <div className="min-w-0">
         <p className="text-sm font-semibold text-[#191E1B]">{label}</p>
@@ -36,14 +43,14 @@ function ToggleRow({
       <span
         className={[
           'relative h-6 w-11 shrink-0 rounded-full transition-colors',
-          checked ? 'bg-[#2C4A3E]' : 'bg-[#D1D9D4]',
+          checked && !disabled ? 'bg-[#2C4A3E]' : 'bg-[#D1D9D4]',
         ].join(' ')}
         aria-hidden
       >
         <span
           className={[
             'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all',
-            checked ? 'left-5' : 'left-0.5',
+            checked && !disabled ? 'left-5' : 'left-0.5',
           ].join(' ')}
         />
       </span>
@@ -52,10 +59,51 @@ function ToggleRow({
   )
 }
 
+function HealthField({
+  label,
+  placeholder,
+  value,
+  published,
+  onCommit,
+}: {
+  label: string
+  placeholder: string
+  value: string
+  published: boolean
+  onCommit: (nextValue: string, nextPublished: boolean) => void
+}) {
+  const filled = value.trim().length > 0
+
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="text-[11px] font-semibold text-[#5A6660]">{label}</span>
+        <Input
+          value={value}
+          onChange={(e) => {
+            const next = e.target.value
+            onCommit(next, next.trim() ? published : false)
+          }}
+          placeholder={placeholder}
+          className="mt-1"
+        />
+      </label>
+      {filled && (
+        <ToggleRow
+          label={`Zobrazit: ${label}`}
+          checked={published}
+          onChange={(nextPublished) => onCommit(value, nextPublished)}
+        />
+      )}
+    </div>
+  )
+}
+
 export function EmergencyCardSettingsPanel({ pet, onChange }: EmergencyCardSettingsPanelProps) {
   const card = ensureEmergencyCardSettings(pet)
   const v = card.visibility
   const health = card.health ?? {}
+  const chipAvailable = hasMicrochip(pet.microchip)
 
   const setVisibility = (patch: Partial<EmergencyCardVisibility>) => {
     onChange({
@@ -64,10 +112,24 @@ export function EmergencyCardSettingsPanel({ pet, onChange }: EmergencyCardSetti
     })
   }
 
-  const setHealth = (patch: Partial<EmergencyCardHealthContent>) => {
+  const setHealthField = (
+    key: keyof EmergencyCardHealthContent,
+    visibilityKey:
+      | 'showHealthAllergies'
+      | 'showHealthChronic'
+      | 'showHealthMedication'
+      | 'showHealthRestrictions'
+      | 'showHealthOther',
+    nextValue: string,
+    nextPublished: boolean,
+  ) => {
     onChange({
       ...card,
-      health: { ...health, ...patch },
+      health: { ...health, [key]: nextValue },
+      visibility: mergeEmergencyVisibility({
+        ...v,
+        [visibilityKey]: nextValue.trim() ? nextPublished : false,
+      }),
     })
   }
 
@@ -89,103 +151,72 @@ export function EmergencyCardSettingsPanel({ pet, onChange }: EmergencyCardSetti
           Zobrazit v nouzové kartě
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-[#7D8B82]">
-          Každý citlivý údaj je výchozí NE. Základní identifikace (foto, jméno, druh, plemeno) je
-          vždy veřejná.
+          Foto, jméno, druh, plemeno, věk a pohlaví jsou vždy veřejné. Citlivé údaje výchozí NE.
         </p>
       </div>
 
       <div className="space-y-2">
         <ToggleRow
-          label="Věk"
-          checked={v.showAge}
-          onChange={(showAge) => setVisibility({ showAge })}
-        />
-        <ToggleRow
-          label="Pohlaví"
-          checked={v.showGender}
-          onChange={(showGender) => setVisibility({ showGender })}
-        />
-        <ToggleRow
           label="Mikročip (pouze maskovaný)"
-          hint="Veřejně nikdy celé číslo — jen např. ••••••••7890"
+          hint={
+            chipAvailable
+              ? 'Veřejně nikdy celé číslo — jen např. ••••••••7890'
+              : 'Nejdříve doplňte číslo čipu v profilu'
+          }
           checked={v.showMaskedMicrochip}
+          disabled={!chipAvailable}
           onChange={(showMaskedMicrochip) => setVisibility({ showMaskedMicrochip })}
         />
       </div>
 
-      <div className="space-y-2 border-t border-[#E8E4DC] pt-3">
+      <div className="space-y-3 border-t border-[#E8E4DC] pt-3">
         <p className="text-xs font-bold uppercase tracking-wider text-[#234B54]">
           Akutní zdravotní informace
         </p>
-        <label className="block">
-          <span className="text-[11px] font-semibold text-[#5A6660]">Alergie</span>
-          <Input
-            value={health.allergies ?? ''}
-            onChange={(e) => setHealth({ allergies: e.target.value })}
-            placeholder="např. penicilin"
-            className="mt-1"
-          />
-        </label>
-        <ToggleRow
-          label="Zobrazit alergie"
-          checked={v.showHealthAllergies}
-          onChange={(showHealthAllergies) => setVisibility({ showHealthAllergies })}
+        <HealthField
+          label="Alergie"
+          placeholder="např. penicilin"
+          value={health.allergies ?? ''}
+          published={v.showHealthAllergies}
+          onCommit={(value, published) =>
+            setHealthField('allergies', 'showHealthAllergies', value, published)
+          }
         />
-        <label className="block">
-          <span className="text-[11px] font-semibold text-[#5A6660]">Chronické onemocnění</span>
-          <Input
-            value={health.chronicConditions ?? ''}
-            onChange={(e) => setHealth({ chronicConditions: e.target.value })}
-            placeholder="např. epilepsie"
-            className="mt-1"
-          />
-        </label>
-        <ToggleRow
-          label="Zobrazit chronické onemocnění"
-          checked={v.showHealthChronic}
-          onChange={(showHealthChronic) => setVisibility({ showHealthChronic })}
+        <HealthField
+          label="Chronické onemocnění"
+          placeholder="např. epilepsie"
+          value={health.chronicConditions ?? ''}
+          published={v.showHealthChronic}
+          onCommit={(value, published) =>
+            setHealthField('chronicConditions', 'showHealthChronic', value, published)
+          }
         />
-        <label className="block">
-          <span className="text-[11px] font-semibold text-[#5A6660]">Pravidelná léčba</span>
-          <Input
-            value={health.regularMedication ?? ''}
-            onChange={(e) => setHealth({ regularMedication: e.target.value })}
-            placeholder="např. potřebuje léky 2× denně"
-            className="mt-1"
-          />
-        </label>
-        <ToggleRow
-          label="Zobrazit léčbu"
-          checked={v.showHealthMedication}
-          onChange={(showHealthMedication) => setVisibility({ showHealthMedication })}
+        <HealthField
+          label="Pravidelná léčba"
+          placeholder="např. potřebuje léky 2× denně"
+          value={health.regularMedication ?? ''}
+          published={v.showHealthMedication}
+          onCommit={(value, published) =>
+            setHealthField('regularMedication', 'showHealthMedication', value, published)
+          }
         />
-        <label className="block">
-          <span className="text-[11px] font-semibold text-[#5A6660]">Důležitá omezení</span>
-          <Input
-            value={health.importantRestrictions ?? ''}
-            onChange={(e) => setHealth({ importantRestrictions: e.target.value })}
-            placeholder="např. nesmí čokoládu / hrozny"
-            className="mt-1"
-          />
-        </label>
-        <ToggleRow
-          label="Zobrazit omezení"
-          checked={v.showHealthRestrictions}
-          onChange={(showHealthRestrictions) => setVisibility({ showHealthRestrictions })}
+        <HealthField
+          label="Důležitá omezení"
+          placeholder="např. nesmí čokoládu / hrozny"
+          value={health.importantRestrictions ?? ''}
+          published={v.showHealthRestrictions}
+          onCommit={(value, published) =>
+            setHealthField('importantRestrictions', 'showHealthRestrictions', value, published)
+          }
         />
-        <label className="block">
-          <span className="text-[11px] font-semibold text-[#5A6660]">Další akutní poznámka</span>
-          <Input
-            value={health.other ?? ''}
-            onChange={(e) => setHealth({ other: e.target.value })}
-            placeholder="Volitelně"
-            className="mt-1"
-          />
-        </label>
-        <ToggleRow
-          label="Zobrazit další poznámku"
-          checked={v.showHealthOther}
-          onChange={(showHealthOther) => setVisibility({ showHealthOther })}
+        <HealthField
+          label="Další akutní poznámka"
+          placeholder="Volitelně"
+          value={health.other ?? ''}
+          published={v.showHealthOther}
+          onCommit={(value, published) =>
+            setHealthField('other', 'showHealthOther', value, published)
+          }
         />
       </div>
 
@@ -222,18 +253,27 @@ export function EmergencyCardSettingsPanel({ pet, onChange }: EmergencyCardSetti
         </label>
         <ToggleRow
           label="Zobrazit veterináře na veřejné kartě"
+          hint="Hlavní přepínač — bez něj není veřejný ani telefon, ani navigace"
           checked={v.showVet}
-          onChange={(showVet) => setVisibility({ showVet })}
+          onChange={(showVet) =>
+            setVisibility(
+              showVet
+                ? { showVet: true }
+                : { showVet: false, showVetPhone: false, showVetNavigate: false },
+            )
+          }
         />
         <ToggleRow
           label="Povolit tlačítko Zavolat"
           hint="Pouze telefon kliniky — nikoli váš osobní"
-          checked={v.showVetPhone}
+          checked={v.showVet && v.showVetPhone}
+          disabled={!v.showVet}
           onChange={(showVetPhone) => setVisibility({ showVetPhone })}
         />
         <ToggleRow
           label="Povolit tlačítko Navigovat"
-          checked={v.showVetNavigate}
+          checked={v.showVet && v.showVetNavigate}
+          disabled={!v.showVet}
           onChange={(showVetNavigate) => setVisibility({ showVetNavigate })}
         />
       </div>
@@ -242,12 +282,12 @@ export function EmergencyCardSettingsPanel({ pet, onChange }: EmergencyCardSetti
         <p className="text-xs font-bold uppercase tracking-wider text-[#234B54]">Tisk</p>
         <label className="block">
           <span className="text-[11px] font-semibold text-[#5A6660]">
-            Váš telefon jen na tištěnou kartu (volitelné)
+            Telefon na tištěné kartě (volitelné)
           </span>
           <Input
             value={card.ownerPhoneForPrint ?? ''}
             onChange={(e) => onChange({ ...card, ownerPhoneForPrint: e.target.value })}
-            placeholder="Výchozí: prázdné — preferujte QR"
+            placeholder="Výchozí: prázdné — doporučujeme QR kód a bezpečný kontakt."
             className="mt-1"
           />
         </label>

@@ -1,4 +1,4 @@
-import { AlertTriangle, Eye, HeartHandshake, MapPin, Navigation, Phone, Shield, Stethoscope } from 'lucide-react'
+import { AlertTriangle, Eye, HeartHandshake, Navigation, Phone, Shield, Stethoscope } from 'lucide-react'
 import { BRAND_NAME } from '../../../lib/brand'
 import type { EmergencyCardPublicView } from '../../../lib/emergencyCard'
 import { formatCzechDateTime, publicBehaviorLabel } from '../../../lib/lostPet'
@@ -7,8 +7,6 @@ import { Button } from '../../ui/Button'
 
 interface EmergencyCardPublicBodyProps {
   view: EmergencyCardPublicView
-  /** When true, hide interactive CTAs (used in owner “finder preview”). */
-  previewOnly?: boolean
   onContactOwner?: () => void
   onReportSighting?: () => void
   onReportFound?: () => void
@@ -17,7 +15,6 @@ interface EmergencyCardPublicBodyProps {
 
 export function EmergencyCardPublicBody({
   view,
-  previewOnly = false,
   onContactOwner,
   onReportSighting,
   onReportFound,
@@ -67,15 +64,17 @@ export function EmergencyCardPublicBody({
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-[#191E1B]">{view.name}</p>
             <p className="text-sm text-[#4A564F]">{metaParts.join(' · ')}</p>
-            {view.maskedMicrochip ? (
-              <p className="mt-1 font-mono text-xs font-bold text-[#234B54]">
-                Mikročip {view.maskedMicrochip}
-              </p>
-            ) : view.microchipStoredWithOwner ? (
-              <p className="mt-1 text-xs text-[#5A6660]">
-                Identifikační číslo je uloženo u majitele
-              </p>
-            ) : null}
+            {view.maskedMicrochip && (
+              <div className="mt-1.5">
+                <p className="font-mono text-xs font-bold text-[#234B54]">
+                  Mikročip {view.maskedMicrochip}
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-[#5A6660]">
+                  Číslo čipu je částečně skryté kvůli ochraně soukromí. Mikročip je registrován v
+                  profilu mazlíčka — celé číslo není z bezpečnostních důvodů veřejné.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -166,7 +165,7 @@ export function EmergencyCardPublicBody({
                 {view.vet.label}
               </p>
               <p className="text-sm font-bold text-[#191E1B]">{view.vet.clinicOrName}</p>
-              {!previewOnly && (
+              {(view.vet.phone || view.vet.navigateQuery) && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {view.vet.phone && (
                     <a
@@ -190,91 +189,64 @@ export function EmergencyCardPublicBody({
                   )}
                 </div>
               )}
-              {previewOnly && view.vet.phone && (
-                <p className="mt-1 text-xs text-[#7D8B82]">{view.vet.phone}</p>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {!previewOnly && (
-        <div className="space-y-2">
-          {view.isLost && view.lost ? (
-            <>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  fullWidth
-                  className="gap-1.5 font-bold"
-                  onClick={onReportSighting}
-                  disabled={!onReportSighting}
-                >
-                  <Eye size={16} />
-                  Viděl/a jsem ho
-                </Button>
-                <Button
-                  type="button"
-                  variant="gold"
-                  fullWidth
-                  className="gap-1.5 font-bold"
-                  onClick={onReportFound}
-                  disabled={!onReportFound || !view.lost.allowAppContact}
-                >
-                  <HeartHandshake size={16} />
-                  Našel/la jsem ho
-                </Button>
-              </div>
-              {view.contactEnabled && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  fullWidth
-                  className="gap-1.5"
-                  onClick={onContactOwner}
-                  disabled={contactBusy || !onContactOwner}
-                >
-                  <MapPin size={15} />
-                  Kontaktovat majitele
-                </Button>
-              )}
-            </>
-          ) : (
-            view.contactEnabled && (
-              <Button
-                type="button"
-                variant="gold"
-                fullWidth
-                className="gap-1.5 font-bold"
-                onClick={onContactOwner}
-                disabled={contactBusy || !onContactOwner}
-              >
-                <HeartHandshake size={16} />
-                Kontaktovat majitele
-              </Button>
-            )
-          )}
-          {!view.contactEnabled && (
-            <p className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5 text-xs text-[#7D8B82]">
-              Majitel má bezpečný kontakt momentálně vypnutý.
-            </p>
-          )}
-        </div>
-      )}
+      <div className="space-y-2">
+        {view.contactEnabled ? (
+          <Button
+            type="button"
+            variant="gold"
+            fullWidth
+            size="lg"
+            className="gap-1.5 font-bold"
+            onClick={onContactOwner}
+            disabled={contactBusy || !onContactOwner}
+          >
+            <HeartHandshake size={18} />
+            Kontaktovat majitele
+          </Button>
+        ) : (
+          <p className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5 text-xs text-[#7D8B82]">
+            Majitel má bezpečný kontakt momentálně vypnutý.
+          </p>
+        )}
 
-      {previewOnly && (
-        <div className="rounded-xl border border-dashed border-[#B8934A]/40 bg-[#FAF4E6]/50 px-3 py-2.5 text-xs text-[#8A6A2E]">
-          Nálezce uvidí tlačítko „Kontaktovat majitele“ — otevře bezpečný chat přes {BRAND_NAME},
-          nikoli telefon ani e-mail.
-        </div>
-      )}
+        {view.isLost && view.lost && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="primary"
+              fullWidth
+              className="gap-1.5 font-bold"
+              onClick={onReportSighting}
+              disabled={!onReportSighting}
+            >
+              <Eye size={16} />
+              Viděl/a jsem ho
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              fullWidth
+              className="gap-1.5 font-bold"
+              onClick={onReportFound}
+              disabled={!onReportFound || !view.lost.allowAppContact}
+            >
+              <HeartHandshake size={16} />
+              Našel/la jsem ho
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-start gap-2 rounded-xl bg-[#EBF2EE]/70 px-3 py-2.5">
         <Shield size={15} className="mt-0.5 shrink-0 text-[#2C4A3E]" />
         <p className="text-[11px] leading-relaxed text-[#7D8B82]">
           Kontakt s majitelem je zprostředkován bezpečně přes {BRAND_NAME}. Nezobrazujeme telefon,
-          e-mail, adresu ani celé číslo mikročipu.
+          e-mail ani adresu majitele.
         </p>
       </div>
     </div>

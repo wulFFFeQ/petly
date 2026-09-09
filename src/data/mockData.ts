@@ -56,8 +56,6 @@ export const myPets: Pet[] = [
         navigateQuery: 'PetCare Central Praha',
       },
       visibility: {
-        showAge: true,
-        showGender: false,
         showMaskedMicrochip: false,
         showHealthAllergies: true,
         showHealthChronic: false,

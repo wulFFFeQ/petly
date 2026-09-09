@@ -11,6 +11,7 @@ import { ensureEmergencyCardSettings } from './defaults'
 /**
  * Whitelisted public emergency card payload.
  * Built only from opted-in fields — never copies owner PII from the private profile.
+ * Basic ID (photo, name, type, breed, age, gender) is always included when known.
  */
 export interface EmergencyCardPublicView {
   publicSlug: string
@@ -20,10 +21,8 @@ export interface EmergencyCardPublicView {
   image: string
   ageLabel?: string
   gender?: string
-  /** Masked only, e.g. Mikročip ••••••••7890 */
+  /** Masked only, e.g. ••••••••7890 — only when owner opted in. */
   maskedMicrochip?: string
-  /** Shown when chip exists but owner did not opt into masked display. */
-  microchipStoredWithOwner: boolean
   health?: EmergencyCardHealthContent
   vet?: {
     label: string
@@ -95,21 +94,16 @@ export function buildEmergencyCardPublicView(
     breed: pet.breed,
     type: pet.type,
     image: pet.image,
-    microchipStoredWithOwner: hasChip && !v.showMaskedMicrochip,
     contactEnabled: pet.qrContactEnabled !== false,
     isLost: Boolean(isLost),
   }
 
-  if (v.showAge) {
-    const ageLabel = formatOptionalAge(pet.age, pet.ageMonths)
-    if (ageLabel !== 'Zatím nevyplněno') view.ageLabel = ageLabel
-  }
-  if (v.showGender && pet.gender?.trim()) {
-    view.gender = pet.gender.trim()
-  }
+  const ageLabel = formatOptionalAge(pet.age, pet.ageMonths)
+  if (ageLabel !== 'Zatím nevyplněno') view.ageLabel = ageLabel
+  if (pet.gender?.trim()) view.gender = pet.gender.trim()
+
   if (v.showMaskedMicrochip && hasChip && chip) {
     view.maskedMicrochip = maskMicrochip(chip)
-    view.microchipStoredWithOwner = false
   }
 
   const health = pickPublicHealth(card.health, v)

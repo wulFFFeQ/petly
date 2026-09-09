@@ -35,9 +35,10 @@ export function printEmergencyCard(options: {
 
   const chipLine = view.maskedMicrochip
     ? `Mikročip ${escapeHtml(view.maskedMicrochip)}`
-    : view.microchipStoredWithOwner
-      ? 'Identifikační číslo je uloženo u majitele'
-      : ''
+    : ''
+  const chipNote = view.maskedMicrochip
+    ? `<p class="safe">Číslo čipu je částečně skryté kvůli ochraně soukromí. Mikročip je registrován v profilu mazlíčka — celé číslo není z bezpečnostních důvodů veřejné.</p>`
+    : ''
 
   const phoneLine =
     ownerPhoneOnPrint?.trim()
@@ -73,6 +74,7 @@ export function printEmergencyCard(options: {
   <h1>${escapeHtml(view.name)}</h1>
   <p class="meta">${meta}</p>
   ${chipLine ? `<p class="chip">${chipLine}</p>` : ''}
+  ${chipNote}
   <div class="msg">Tento mazlíček má svého majitele. Pomozte nám ho bezpečně vrátit domů.<br/>Naskenujte QR nebo otevřete odkaz — kontakt přes ${escapeHtml(BRAND_NAME)}.</div>
   ${
     healthRows.length
