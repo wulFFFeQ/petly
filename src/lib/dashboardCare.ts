@@ -7,7 +7,6 @@ import {
 import {
   APP_TODAY,
   daysUntil,
-  getPetStatusBadge,
   parseCzechDate,
   parseEventDate,
 } from './dashboardDates'
@@ -53,6 +52,8 @@ export type DashboardHealthAlert = {
   message: string
   urgency: 'urgent' | 'attention'
   href: string
+  /** Lower = higher priority */
+  priority: number
 }
 
 export function isCompletableEventType(type: EventType): boolean {
@@ -127,106 +128,122 @@ export function loadAllDailyCareCompleted(
   return map
 }
 
+/**
+ * Pouze skutečná zdravotní pozornost — ne běžné budoucí preventivní termíny
+ * (očkování za týdny, odčervení, plánované kontroly), které patří do Nadchází.
+ */
 export function buildDashboardHealthAlerts(
   pets: Pet[],
   healthRecords: HealthRecord[],
-  calendarEvents: CalendarEvent[],
+  _calendarEvents: CalendarEvent[],
 ): DashboardHealthAlert[] {
   const alerts: DashboardHealthAlert[] = []
 
   for (const pet of pets) {
     if (pet.lostStatus === 'lost') continue
 
-    if (pet.healthStatus === 'urgent') {
+    if (pet.healthStatus === 'urgent' || pet.healthAssessment?.urgentWarning) {
       alerts.push({
         id: `urgent-${pet.id}`,
         petId: pet.id,
         petName: pet.name,
-        message: `${pet.name} – vyžaduje naléhavou pozornost`,
+        message:
+          pet.healthAssessment?.urgentWarning ||
+          `${pet.name} – vyžaduje naléhavou pozornost`,
         urgency: 'urgent',
         href: `/pets/${pet.id}?tab=health`,
+        priority: 0,
       })
-      continue
-    }
-
-    const activeMeds = healthRecords.filter(
-      (r) => r.petId === pet.id && r.type === 'medication' && isMedicationCurrentlyActive(r),
-    )
-    if (activeMeds.length > 0) {
-      alerts.push({
-        id: `med-${pet.id}`,
-        petId: pet.id,
-        petName: pet.name,
-        message: `${pet.name} – čeká vás léčba`,
-        urgency: 'attention',
-        href: `/pets/${pet.id}?tab=health`,
-      })
-    }
-
-    const badge = getPetStatusBadge(pet, calendarEvents)
-    if (badge.label.startsWith('Očkování za')) {
-      alerts.push({
-        id: `vax-${pet.id}`,
-        petId: pet.id,
-        petName: pet.name,
-        message: `${pet.name} – ${badge.label.toLowerCase()}`,
-        urgency: badge.variant === 'warning' ? 'attention' : 'attention',
-        href: `/pets/${pet.id}?tab=health`,
-      })
-    } else if (pet.healthStatus === 'attention' || pet.healthStatus === 'vet_check') {
+    } else if (pet.healthStatus === 'attention') {
       alerts.push({
         id: `status-${pet.id}`,
         petId: pet.id,
         petName: pet.name,
-        message:
-          pet.healthStatus === 'vet_check'
-            ? `${pet.name} – doporučena kontrola`
-            : `${pet.name} – vyžaduje pozornost`,
+        message: `${pet.name} – vyžaduje pozornost`,
         urgency: 'attention',
         href: `/pets/${pet.id}?tab=health`,
+        priority: 1,
+      })
+    } else if (pet.healthStatus === 'vet_check') {
+      alerts.push({
+        id: `status-${pet.id}`,
+        petId: pet.id,
+        petName: pet.name,
+        message: `${pet.name} – čeká vás kontrola`,
+        urgency: 'attention',
+        href: `/pets/${pet.id}?tab=health`,
+        priority: 2,
       })
     }
 
-    // Upcoming vaccination from health records within 30 days (if not already covered)
-    if (!alerts.some((a) => a.id === `vax-${pet.id}`)) {
-      const nextVax = healthRecords
-        .filter((r) => r.petId === pet.id && r.type === 'vaccination' && r.nextDueDate)
-        .map((r) => ({ record: r, due: parseCzechDate(r.nextDueDate!) }))
-        .filter((item) => item.due && item.due >= APP_TODAY)
-        .sort((a, b) => (a.due!.getTime() - b.due!.getTime()))[0]
+    // Aktivní léčba — ano i když je dnešní dávka v „Dnes“
+    const hasActiveTreatment = healthRecords.some(
+      (r) => r.petId === pet.id && isMedicationCurrentlyActive(r),
+    )
+    if (hasActiveTreatment) {
+      alerts.push({
+        id: `med-${pet.id}`,
+        petId: pet.id,
+        petName: pet.name,
+        message: `${pet.name} – probíhající léčba`,
+        urgency: 'attention',
+        href: `/pets/${pet.id}?tab=health`,
+        priority: 3,
+      })
+    }
 
-      if (nextVax?.due) {
-        const days = daysUntil(APP_TODAY, nextVax.due)
-        if (days <= 30) {
-          alerts.push({
-            id: `vax-${pet.id}`,
-            petId: pet.id,
-            petName: pet.name,
-            message: `${pet.name} – očkování za ${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`,
-            urgency: 'attention',
-            href: `/pets/${pet.id}?tab=health`,
-          })
-        }
-      }
+    // Zmeškané očkování (termín už prošel)
+    const overdueVax = healthRecords
+      .filter((r) => r.petId === pet.id && r.type === 'vaccination' && r.nextDueDate)
+      .map((r) => ({ record: r, due: parseCzechDate(r.nextDueDate!) }))
+      .filter((item): item is { record: HealthRecord; due: Date } => {
+        if (!item.due) return false
+        return daysUntil(APP_TODAY, item.due) < 0
+      })
+      .sort((a, b) => a.due.getTime() - b.due.getTime())[0]
+
+    if (overdueVax) {
+      alerts.push({
+        id: `overdue-vax-${pet.id}`,
+        petId: pet.id,
+        petName: pet.name,
+        message: `${pet.name} – zmeškané očkování`,
+        urgency: 'attention',
+        href: `/pets/${pet.id}?tab=health`,
+        priority: 1,
+      })
+    }
+
+    // Zmeškané naplánované klinické záznamy
+    const overdueScheduled = healthRecords.filter((r) => {
+      if (r.petId !== pet.id) return false
+      if (r.status !== 'scheduled') return false
+      if (r.type !== 'vet' && r.type !== 'examination' && r.type !== 'vaccination') return false
+      const due = parseCzechDate(r.date)
+      if (!due) return false
+      return daysUntil(APP_TODAY, due) < 0
+    })[0]
+
+    if (overdueScheduled) {
+      alerts.push({
+        id: `overdue-${overdueScheduled.id}`,
+        petId: pet.id,
+        petName: pet.name,
+        message: `${pet.name} – zmeškaný termín: ${overdueScheduled.subtitle || overdueScheduled.title}`,
+        urgency: 'attention',
+        href: `/pets/${pet.id}?tab=health`,
+        priority: 1,
+      })
     }
   }
 
-  // Deduplicate by pet preferring urgent, then med, then vax
+  // Jedna položka na mazlíčka (nejvyšší priorita), max 3 celkem
   const byPet = new Map<string, DashboardHealthAlert>()
-  const rank = (a: DashboardHealthAlert) => {
-    if (a.urgency === 'urgent') return 0
-    if (a.id.startsWith('med-')) return 1
-    if (a.id.startsWith('vax-')) return 2
-    return 3
-  }
-  for (const alert of alerts) {
-    const existing = byPet.get(alert.petId)
-    if (!existing || rank(alert) < rank(existing)) {
-      byPet.set(alert.petId, alert)
-    }
+  for (const alert of [...alerts].sort((a, b) => a.priority - b.priority)) {
+    if (!byPet.has(alert.petId)) byPet.set(alert.petId, alert)
   }
 
-  return [...byPet.values()].sort((a, b) => rank(a) - rank(b))
+  return [...byPet.values()].sort((a, b) => a.priority - b.priority).slice(0, 3)
 }
 
 export function buildUrgentHealthAlerts(
@@ -238,7 +255,7 @@ export function buildUrgentHealthAlerts(
 export function buildSoftHealthAlerts(
   alerts: DashboardHealthAlert[],
 ): DashboardHealthAlert[] {
-  return alerts.filter((a) => a.urgency === 'attention').slice(0, 4)
+  return alerts.filter((a) => a.urgency === 'attention').slice(0, 3)
 }
 
 export function sortUpcomingEvents(events: CalendarEvent[], limit = 5): CalendarEvent[] {

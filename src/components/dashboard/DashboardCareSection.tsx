@@ -221,18 +221,6 @@ function TodayCareRow({
         </span>
       </button>
 
-      {item.completable && !done && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggle()
-          }}
-          className="hidden shrink-0 cursor-pointer rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2C4A3E] transition-colors hover:bg-[#EBF2EE] sm:inline-flex"
-        >
-          ✓ Splněno
-        </button>
-      )}
       {item.completable && done && (
         <span className="hidden shrink-0 text-[11px] font-semibold text-[#5A6660] sm:inline">
           Splněno

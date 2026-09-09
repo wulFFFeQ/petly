@@ -129,12 +129,9 @@ export function MyPetsSection() {
   return (
     <section>
       <div className="mb-4 flex items-end justify-between gap-4 sm:mb-5">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-[#191E1B] sm:text-2xl">
-            Moji mazlíčci
-          </h2>
-          <p className="mt-0.5 text-sm text-[#7D8B82]">Rychlý přehled vašich mazlíčků</p>
-        </div>
+        <h2 className="text-xl font-bold tracking-tight text-[#191E1B] sm:text-2xl">
+          Moji mazlíčci
+        </h2>
         <AddMenuButton />
       </div>
 

@@ -2,20 +2,14 @@ import { ChevronRight, HeartPulse } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import {
-  buildDashboardHealthAlerts,
-  buildSoftHealthAlerts,
-} from '../../lib/dashboardCare'
+import { buildDashboardHealthAlerts, buildSoftHealthAlerts } from '../../lib/dashboardCare'
 import { cn } from '../../lib/utils'
 
 export function HealthAttentionSection() {
   const { pets, healthRecords, calendarEvents } = useApp()
 
   const alerts = useMemo(
-    () =>
-      buildSoftHealthAlerts(
-        buildDashboardHealthAlerts(pets, healthRecords, calendarEvents),
-      ),
+    () => buildSoftHealthAlerts(buildDashboardHealthAlerts(pets, healthRecords, calendarEvents)),
     [pets, healthRecords, calendarEvents],
   )
 
