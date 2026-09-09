@@ -123,35 +123,65 @@ export function getNextImportantHealthTerm(
         ? 'Zítra'
         : `${nearest.date.getDate()}. ${nearest.date.getMonth() + 1}.`
 
+  const y = nearest.date.getFullYear()
+  const m = String(nearest.date.getMonth() + 1).padStart(2, '0')
+  const d = String(nearest.date.getDate()).padStart(2, '0')
+
   return {
     label: nearest.label,
     dateLabel,
     daysAway,
-    sortKey: nearest.sortKey,
+    sortKey: `${y}-${m}-${d}`,
   }
 }
 
-/** Jemné zdravotní upozornění — ne běžné kalendářní události. */
+/** Doplňky stravy / prevence nejsou „aktivní léčba“. */
+function isSupplementOrPreventiveMedication(record: HealthRecord): boolean {
+  const text = `${record.title} ${record.subtitle} ${record.notes ?? ''}`.toLowerCase()
+  return /omega|doplň|vitamin|vitamín|glukosamin|chondroit|probiot|rybí olej|lososov|supplement|prevenc/i.test(
+    text,
+  )
+}
+
+function hasActiveClinicalTreatment(
+  petId: string,
+  healthRecords: HealthRecord[],
+): boolean {
+  return healthRecords.some(
+    (record) =>
+      record.petId === petId &&
+      record.type === 'medication' &&
+      record.status === 'active' &&
+      !isSupplementOrPreventiveMedication(record),
+  )
+}
+
+/**
+ * Jemné zdravotní upozornění pod fotkou.
+ * Zobrazí se jen při skutečné aktivní léčbě / blízké kontrole — nikdy jako falešný stav
+ * a nikdy v rozporu s badge „Výborný stav“ / „Dobrý stav“.
+ */
 export function getPetHealthAttentionHint(
   pet: Pet,
   healthRecords: HealthRecord[],
   nextTerm: NextHealthTerm | null,
 ): string | null {
-  const activeTreatment = healthRecords.some(
-    (record) =>
-      record.petId === pet.id &&
-      record.type === 'medication' &&
-      record.status === 'active',
-  )
-  if (activeTreatment) return 'Probíhá léčba'
+  const status = pet.healthStatus
+  const looksHealthy = status === 'excellent' || status === 'good'
+
+  const activeTreatment = hasActiveClinicalTreatment(pet.id, healthRecords)
+  // Neodporuj badge: u výborného/dobrého stavu neukazuj „Probíhá léčba“
+  // (doplňky už jsou odfiltrované; zbývající léčba by badge měla zhoršit).
+  if (activeTreatment && !looksHealthy) return 'Probíhá léčba'
 
   if (
     nextTerm &&
     nextTerm.daysAway <= 7 &&
+    !looksHealthy &&
     (/kontrol|vyšetř|veterin|prohlíd/i.test(nextTerm.label) ||
-      pet.healthStatus === 'vet_check' ||
-      pet.healthStatus === 'attention' ||
-      pet.healthStatus === 'urgent')
+      status === 'vet_check' ||
+      status === 'attention' ||
+      status === 'urgent')
   ) {
     if (nextTerm.daysAway === 0) return 'Kontrola dnes'
     if (nextTerm.daysAway === 1) return 'Kontrola zítra'
@@ -160,9 +190,6 @@ export function getPetHealthAttentionHint(
       days >= 2 && days <= 4 ? `${days} dny` : `${days} dní`
     return `Kontrola za ${daysLabel}`
   }
-
-  if (pet.healthStatus === 'urgent') return 'Vyžaduje pozornost'
-  if (pet.healthAssessment?.urgentWarning) return 'Vyžaduje pozornost'
 
   return null
 }
@@ -232,12 +259,15 @@ export function sortPetsForList(
       }
       case 'recent':
       default: {
-        const aTime = a.pet.profileUpdatedAt ?? ''
-        const bTime = b.pet.profileUpdatedAt ?? ''
-        if (aTime && bTime) return bTime.localeCompare(aTime) || a.index - b.index
-        if (aTime) return -1
-        if (bTime) return 1
-        return b.index - a.index
+        const aTime = a.pet.profileUpdatedAt?.trim() ?? ''
+        const bTime = b.pet.profileUpdatedAt?.trim() ?? ''
+        if (aTime && bTime) {
+          return bTime.localeCompare(aTime) || a.index - b.index
+        }
+        if (aTime && !bTime) return -1
+        if (!aTime && bTime) return 1
+        // Stabilní fallback: původní pořadí v seznamu
+        return a.index - b.index
       }
     }
   })

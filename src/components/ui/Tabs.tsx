@@ -25,7 +25,7 @@ export function Tabs({
     return (
       <div
         className={cn(
-          'inline-flex p-1 rounded-xl bg-[#EFECE6] border border-[#E8E4DC] gap-1',
+          'inline-flex max-w-full p-1 rounded-xl bg-[#EFECE6] border border-[#E8E4DC] gap-1 shrink-0',
           className,
         )}
       >
@@ -36,13 +36,13 @@ export function Tabs({
               key={tab.id}
               onClick={() => onChange(tab.id)}
               className={cn(
-                'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5',
+                'px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0',
                 isActive
                   ? 'bg-white text-[#191E1B] shadow-sm'
                   : 'text-[#4A564F] hover:text-[#191E1B] hover:bg-white/50',
               )}
             >
-              <span>{tab.label}</span>
+              <span className="whitespace-nowrap">{tab.label}</span>
               {typeof tab.count === 'number' && (
                 <span
                   className={cn(

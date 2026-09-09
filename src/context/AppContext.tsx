@@ -148,6 +148,10 @@ function loadPets(): Pet[] {
             ? pet.qrContactEnabled
             : (seed?.qrContactEnabled ?? true),
         foundPublic: pet.foundPublic ?? seed?.foundPublic,
+        profileUpdatedAt:
+          typeof pet.profileUpdatedAt === 'string' && pet.profileUpdatedAt.trim()
+            ? pet.profileUpdatedAt.trim()
+            : seed?.profileUpdatedAt,
       }
     }).map((pet) => ({
       ...pet,

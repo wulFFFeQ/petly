@@ -110,10 +110,11 @@ export function MyPetsPage() {
               activeTab={activeTypeTab}
               onChange={setActiveTypeTab}
               variant="pills"
+              className="shrink-0"
             />
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2 sm:w-56">
+              <div className="flex items-center gap-2">
                 <span className="hidden shrink-0 text-[11px] font-medium text-[#7D8B82] lg:inline">
                   Řadit podle
                 </span>
@@ -123,7 +124,7 @@ export function MyPetsPage() {
                   onChange={(value) => setSortBy(value as PetListSort)}
                   options={PET_LIST_SORT_OPTIONS}
                   placeholder="Řadit podle…"
-                  className="min-w-0 flex-1"
+                  className="w-[220px] shrink-0"
                 />
               </div>
               <SearchInput

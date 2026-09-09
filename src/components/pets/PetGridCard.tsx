@@ -1,4 +1,6 @@
 import { ArrowUpRight, CalendarClock, MapPin, Scale, Stethoscope } from 'lucide-react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { petTypeLabel } from '../../data/mockData'
 import type { CalendarEvent, HealthRecord, LostPetAnnouncement, LostPetReport, Pet } from '../../types'
@@ -24,6 +26,100 @@ import { Card } from '../ui/Card'
 import { IconBox } from '../ui/IconBox'
 import { PetPhotoCard } from '../ui/PetPhotoCard'
 import { PetGridCardMenu } from './PetGridCardMenu'
+
+/** Single-line ellipsis + hover tooltip (desktop) / tap to reveal (touch). */
+function TruncatedTermLabel({ text }: { text: string }) {
+  const tooltipId = useId()
+  const rootRef = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+
+  const visible = open || hovered
+
+  useLayoutEffect(() => {
+    if (!visible || !rootRef.current) return
+    const update = () => {
+      const rect = rootRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setPos({ top: rect.top, left: rect.left })
+    }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [visible, text])
+
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (rootRef.current?.contains(target)) return
+      if ((target as Element).closest?.(`[data-term-tooltip="${tooltipId}"]`)) return
+      setOpen(false)
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open, tooltipId])
+
+  return (
+    <>
+      <button
+        ref={rootRef}
+        type="button"
+        className="relative block w-full min-w-0 cursor-default text-left"
+        aria-describedby={tooltipId}
+        aria-expanded={open}
+        onMouseEnter={() => {
+          if (window.matchMedia('(hover: hover)').matches) setHovered(true)
+        }}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => {
+          if (window.matchMedia('(hover: hover)').matches) setHovered(true)
+        }}
+        onBlur={() => setHovered(false)}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setOpen((value) => !value)
+        }}
+      >
+        <span className="block truncate text-sm font-semibold text-[#234B54]">{text}</span>
+      </button>
+      {visible &&
+        createPortal(
+          <span
+            id={tooltipId}
+            role="tooltip"
+            data-term-tooltip={tooltipId}
+            className="pointer-events-none fixed z-[80] max-w-[min(16rem,calc(100vw-2rem))] -translate-y-full rounded-lg border border-[#E8E4DC] bg-[#191E1B] px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug text-white shadow-[0_8px_24px_rgba(25,30,27,0.18)]"
+            style={{
+              top: Math.max(8, pos.top - 6),
+              left: Math.min(pos.left, window.innerWidth - 16 - 160),
+            }}
+          >
+            {text}
+          </span>,
+          document.body,
+        )}
+    </>
+  )
+}
 
 interface PetGridCardProps {
   pet: Pet
@@ -183,11 +279,13 @@ export function PetGridCard({
                 <p className="text-[11px] font-medium text-[#7D8B82]">
                   Příští důležitý termín
                 </p>
-                <p className="truncate text-sm font-semibold text-[#234B54]">
-                  {nextTerm
-                    ? `${nextTerm.label} · ${nextTerm.dateLabel}`
-                    : formatOptionalText(null)}
-                </p>
+                {nextTerm ? (
+                  <TruncatedTermLabel text={`${nextTerm.label} · ${nextTerm.dateLabel}`} />
+                ) : (
+                  <p className="truncate text-sm font-semibold text-[#234B54]">
+                    {formatOptionalText(null)}
+                  </p>
+                )}
               </div>
             </div>
           </div>

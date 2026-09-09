@@ -50,6 +50,7 @@ export const myPets: Pet[] = [
     likes: ['Aport u vody', 'Dlouhé procházky', 'Psí hřiště', 'Rodinné výlety'],
     dislikes: ['Samota přes den', 'Bouřky'],
     lookingFor: 'Parťáka na procházky, plavání a víkendové výlety',
+    profileUpdatedAt: '2026-09-08T18:30:00.000Z',
   },
   {
     id: 'milo',
@@ -72,6 +73,7 @@ export const myPets: Pet[] = [
     healthScore: 94,
     favoriteToy: ['Peříčková hůlka'],
     diet: ['Hill’s Science Plan Optimal Care'],
+    profileUpdatedAt: '2026-09-05T10:00:00.000Z',
   },
   {
     id: 'bella',
@@ -95,6 +97,7 @@ export const myPets: Pet[] = [
     healthScore: 92,
     favoriteToy: ['Létající disk', 'Provaz'],
     diet: ['Acana Grasslands Heritage'],
+    profileUpdatedAt: '2026-09-07T14:15:00.000Z',
   },
 ]
 
