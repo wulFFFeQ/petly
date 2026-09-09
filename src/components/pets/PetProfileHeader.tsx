@@ -18,7 +18,7 @@ import {
   Home,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { importantContacts, petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
@@ -99,6 +99,7 @@ function buildDetailsForm(pet: Pet): DetailsForm {
 
 export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [copied, setCopied] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
@@ -119,6 +120,14 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   useEffect(() => {
     if (!detailsOpen) setDetailsForm(buildDetailsForm(pet))
   }, [pet, detailsOpen])
+
+  useEffect(() => {
+    if (searchParams.get('edit') !== 'details') return
+    setDetailsOpen(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('edit')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const statusVariant =
     pet.healthStatus === 'excellent'

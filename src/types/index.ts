@@ -166,6 +166,8 @@ export interface Pet {
   lostStatus?: LostPetLifecycle
   /** Active announcement id when `lostStatus === 'lost'`. */
   activeLostAnnouncementId?: string
+  /** ISO timestamp of last owner-facing profile edit (list sorting). */
+  profileUpdatedAt?: string
 }
 
 export interface HealthAssessmentSnapshot {

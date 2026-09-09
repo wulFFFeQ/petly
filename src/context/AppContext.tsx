@@ -669,6 +669,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       coverColor: pickRandomCoverColor(),
       foundContactToken: createFoundContactToken(),
       qrContactEnabled: true,
+      profileUpdatedAt: new Date().toISOString(),
       ...(form.age != null && form.age > 0 ? { age: form.age } : {}),
       ...(form.gender
         ? { gender: normalizeGenderForType(form.gender, form.type) ?? form.gender }
@@ -813,6 +814,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           else delete next.lookingFor
         }
 
+        if (!('profileUpdatedAt' in updates)) {
+          next.profileUpdatedAt = new Date().toISOString()
+        }
+
         return next
       }),
     )
@@ -820,13 +825,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updatePetImage = (petId: string, image: string) => {
     setPets((prev) =>
-      prev.map((pet) => (pet.id === petId ? { ...pet, image } : pet)),
+      prev.map((pet) =>
+        pet.id === petId
+          ? { ...pet, image, profileUpdatedAt: new Date().toISOString() }
+          : pet,
+      ),
     )
   }
 
   const updatePetCoverImage = (petId: string, coverImage: string) => {
     setPets((prev) =>
-      prev.map((pet) => (pet.id === petId ? { ...pet, coverImage } : pet)),
+      prev.map((pet) =>
+        pet.id === petId
+          ? { ...pet, coverImage, profileUpdatedAt: new Date().toISOString() }
+          : pet,
+      ),
     )
   }
 
