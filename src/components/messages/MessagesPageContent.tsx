@@ -105,7 +105,8 @@ export function MessagesPageContent() {
           continue
         }
         if (
-          existing.contactType === 'lost_finder' &&
+          (existing.contactType === 'lost_finder' ||
+            existing.contactType === 'emergency_finder') &&
           (existing.messages.length !== lost.messages.length ||
             existing.lastMessage !== lost.lastMessage)
         ) {
@@ -118,7 +119,9 @@ export function MessagesPageContent() {
         }
       }
       if (!changed) return prev
-      const rest = prev.filter((c) => c.contactType !== 'lost_finder')
+      const rest = prev.filter(
+        (c) => c.contactType !== 'lost_finder' && c.contactType !== 'emergency_finder',
+      )
       const lostMerged = lostConversations.map((c) => byId.get(c.id) ?? c)
       return [...lostMerged, ...rest]
     })
@@ -242,7 +245,10 @@ export function MessagesPageContent() {
     if (!message.trim() || !activeId) return
 
     const activeConv = conversations.find((c) => c.id === activeId)
-    if (activeConv?.contactType === 'lost_finder') {
+    if (
+      activeConv?.contactType === 'lost_finder' ||
+      activeConv?.contactType === 'emergency_finder'
+    ) {
       sendLostFinderMessage(activeId, message.trim(), 'owner')
       setMessage('')
       return
@@ -368,7 +374,7 @@ export function MessagesPageContent() {
           onRestoreConversation={handleRestoreConversation}
         />
 
-        {active?.contactType === 'lost_finder' ? (
+        {active?.contactType === 'lost_finder' || active?.contactType === 'emergency_finder' ? (
           <div
             className={`flex min-w-0 flex-1 flex-col overflow-y-auto bg-[#FAF8F5] p-4 ${
               mobileShowChat ? 'flex' : 'hidden lg:flex'
@@ -427,7 +433,9 @@ export function MessagesPageContent() {
         )}
       </Card>
 
-      {active && active.contactType !== 'lost_finder' && (
+      {active &&
+        active.contactType !== 'lost_finder' &&
+        active.contactType !== 'emergency_finder' && (
         <ContactProfileModal
           conversation={active}
           contactPet={contactPet}

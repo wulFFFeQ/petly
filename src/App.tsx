@@ -12,6 +12,7 @@ import { DiscoverPage } from './pages/DiscoverPage'
 import { DiscoverPetPage } from './pages/DiscoverPetPage'
 import { FoundPetPage } from './pages/FoundPetPage'
 import { LostPetPage } from './pages/LostPetPage'
+import { EmergencyPetPage } from './pages/EmergencyPetPage'
 import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
 import { MessagesPage } from './pages/MessagesPage'
@@ -39,6 +40,15 @@ function LostPetLayout() {
   )
 }
 
+function EmergencyPetLayout() {
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]">
+      <EmergencyPetPage />
+      <ToastContainer />
+    </div>
+  )
+}
+
 function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
 
@@ -49,6 +59,7 @@ function App() {
         <Routes>
           <Route path="found/:token" element={<FoundPetLayout />} />
           <Route path="lost/:token" element={<LostPetLayout />} />
+          <Route path="pet/:slug/emergency" element={<EmergencyPetLayout />} />
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="pets" element={<MyPetsPage />} />

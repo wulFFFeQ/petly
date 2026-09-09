@@ -38,11 +38,13 @@ import {
   ensurePetsFoundContactFields,
   findPetByFoundToken,
 } from '../lib/foundPet'
+import { ensurePetEmergencyCard } from '../lib/emergencyCard'
 import {
   createLostAnnouncementToken,
   findAnnouncementByToken,
   foundSafetyLabel,
   formatRelativeCzech,
+  getOrCreateReporterAnonymousId,
   loadLostAnnouncements,
   loadLostConversations,
   loadLostReports,
@@ -148,16 +150,19 @@ function loadPets(): Pet[] {
             ? pet.qrContactEnabled
             : (seed?.qrContactEnabled ?? true),
         foundPublic: pet.foundPublic ?? seed?.foundPublic,
+        emergencyCard: pet.emergencyCard ?? seed?.emergencyCard,
         profileUpdatedAt:
           typeof pet.profileUpdatedAt === 'string' && pet.profileUpdatedAt.trim()
             ? pet.profileUpdatedAt.trim()
             : seed?.profileUpdatedAt,
       }
-    }).map((pet) => ({
-      ...pet,
-      foundContactToken: pet.foundContactToken || createFoundContactToken(),
-      qrContactEnabled: pet.qrContactEnabled ?? true,
-    }))
+    }).map((pet) =>
+      ensurePetEmergencyCard({
+        ...pet,
+        foundContactToken: pet.foundContactToken || createFoundContactToken(),
+        qrContactEnabled: pet.qrContactEnabled ?? true,
+      }),
+    )
   } catch {
     return initialPets
   }
@@ -332,6 +337,14 @@ interface AppContextValue {
   setMedicationReminderDays: (recordId: string, days: number) => void
   markNotificationsRead: () => void
   submitFoundPetContact: (token: string, message: string) => boolean
+  /**
+   * Opens a SafeContact channel from the public emergency card (no owner phone revealed).
+   * Demo persistence via existing safe-contact storage — not a production backend.
+   */
+  submitEmergencySafeContact: (
+    petId: string,
+    input: { kind: 'contact' | 'sighting' | 'found'; message?: string },
+  ) => { conversationId: string; channelId: string } | null
   lostAnnouncements: LostPetAnnouncement[]
   lostReports: LostPetReport[]
   lostConversations: Conversation[]
@@ -664,7 +677,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '') || 'pet'
 
-    const newPet: Pet = {
+    const newPet: Pet = ensurePetEmergencyCard({
       id: `${slug}-${Date.now()}`,
       name: form.name,
       type: form.type,
@@ -679,7 +692,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? { gender: normalizeGenderForType(form.gender, form.type) ?? form.gender }
         : {}),
       ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
-    }
+    })
     setPets((prev) => [...prev, newPet])
     setActiveModal(null)
     showToast(
@@ -1209,6 +1222,123 @@ export function AppProvider({ children }: { children: ReactNode }) {
       'gold',
     )
     return true
+  }
+
+  const submitEmergencySafeContact = (
+    petId: string,
+    input: { kind: 'contact' | 'sighting' | 'found'; message?: string },
+  ): { conversationId: string; channelId: string } | null => {
+    const pet = pets.find((item) => item.id === petId)
+    if (!pet || pet.qrContactEnabled === false) {
+      showToast('Kontakt je vypnutý', 'Majitel momentálně nepřijímá zprávy přes aplikaci.', 'info')
+      return null
+    }
+
+    const finderAnonymousId = getOrCreateReporterAnonymousId()
+    const existing = safeContactChannels.find(
+      (channel) =>
+        channel.source === 'emergency_card' &&
+        channel.petId === petId &&
+        channel.finderAnonymousId === finderAnonymousId &&
+        channel.status === 'active',
+    )
+    if (existing) {
+      showToast(
+        'Bezpečný kontakt je aktivní',
+        'Komunikace probíhá anonymně přes LOVED & KNOWN.',
+        'info',
+      )
+      return { conversationId: existing.conversationId, channelId: existing.id }
+    }
+
+    const conversationId = `em-conv-${Date.now()}`
+    const channelId = `em-sc-${Date.now()}`
+    const now = new Date().toISOString()
+    const openerRaw =
+      input.message?.trim() ||
+      (input.kind === 'found'
+        ? `Nálezce hlásí, že našel/a ${pet.name} (nouzová karta).`
+        : input.kind === 'sighting'
+          ? `Nálezce hlásí spatření ${pet.name} (nouzová karta).`
+          : `Někdo se pokusil kontaktovat vás kvůli ${pet.name}.`)
+    const opener = scrubPersonalData(openerRaw).text
+
+    const systemIntro = {
+      id: `cm-sys-${Date.now()}`,
+      sender: 'system' as const,
+      kind: 'system' as const,
+      text: 'Kontakt s majitelem je zprostředkován bezpečně přes LOVED & KNOWN. Osobní telefony se nezobrazují automaticky.',
+      createdAt: now,
+    }
+    const openerMsg = {
+      id: `cm-${Date.now()}`,
+      sender: 'finder' as const,
+      kind: 'text' as const,
+      text: opener,
+      createdAt: now,
+    }
+
+    const conversation: Conversation = {
+      id: conversationId,
+      name: `Nouzová karta · ${pet.name}`,
+      avatar: pet.image,
+      role: 'Anonymní nálezce · bezpečný kontakt',
+      petContext: pet.name,
+      petId: pet.id,
+      contactType: 'emergency_finder',
+      online: true,
+      lastMessage: opener,
+      time: 'právě teď',
+      unread: 1,
+      messages: [
+        {
+          id: `m-sys-${Date.now()}`,
+          sender: 'them',
+          text: systemIntro.text,
+          time: 'právě teď',
+        },
+        {
+          id: `m-${Date.now()}`,
+          sender: 'them',
+          text: opener,
+          time: 'právě teď',
+        },
+      ],
+      finderAnonymousId,
+    }
+
+    const channel: SafeContactChannel = {
+      id: channelId,
+      conversationId,
+      source: 'emergency_card',
+      petId: pet.id,
+      petName: pet.name,
+      finderAnonymousId,
+      status: 'active',
+      createdAt: now,
+      messages: [systemIntro, openerMsg],
+    }
+
+    setLostConversations((prev) => [conversation, ...prev])
+    setSafeContactChannels((prev) => [channel, ...prev])
+    setNotifications((prev) => [
+      {
+        id: `em-contact-${Date.now()}`,
+        title: `Někdo se pokusil kontaktovat vás kvůli ${pet.name}.`,
+        time: 'právě teď',
+        unread: true,
+        kind: 'system',
+        href: `/messages?conversationId=${conversationId}`,
+      },
+      ...prev,
+    ])
+
+    showToast(
+      'Bezpečný kontakt navázán',
+      'Majitel byl informován. Telefon ani e-mail se druhé straně nezobrazí automaticky.',
+      'gold',
+    )
+    return { conversationId, channelId }
   }
 
   const createLostAnnouncement = (
@@ -2028,9 +2158,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         thread.finderAnonymousId === finderAnonymousId,
     )
 
-  // Ensure QR tokens exist for pets loaded before this feature.
+  // Ensure QR tokens + emergency card shells exist for pets loaded before this feature.
   useEffect(() => {
-    setPets((prev) => ensurePetsFoundContactFields(prev))
+    setPets((prev) => ensurePetsFoundContactFields(prev).map(ensurePetEmergencyCard))
   }, [])
 
   // Sync pet.lostStatus badges from persisted announcements.
@@ -2352,6 +2482,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMedicationReminderDays,
         markNotificationsRead,
         submitFoundPetContact,
+        submitEmergencySafeContact,
         lostAnnouncements,
         lostReports,
         lostConversations,

@@ -1,7 +1,14 @@
 import type { PetType } from '../lib/petTypes'
 import type { LostPetLifecycle } from './lostPet'
+import type { EmergencyCardSettings } from './emergencyCard'
 
 export type { PetType } from '../lib/petTypes'
+export type {
+  EmergencyCardSettings,
+  EmergencyCardVisibility,
+  EmergencyCardHealthContent,
+  EmergencyCardVetContent,
+} from './emergencyCard'
 export type {
   LostPetLifecycle,
   PublicBehavior,
@@ -142,6 +149,12 @@ export interface Pet {
     showUrgentNote?: boolean
     urgentNote?: string
   }
+  /**
+   * Emergency card settings — data-separated from the private profile.
+   * Public emergency surfaces must only expose fields opted in via visibility
+   * (defaults: all sensitive fields OFF).
+   */
+  emergencyCard?: EmergencyCardSettings
   neutered?: boolean
   /** When true, breeding calendar events (Chov) are available for this pet. */
   breedingProfile?: boolean
@@ -444,7 +457,7 @@ export interface Conversation {
   petId?: string
   /** Discover pet belonging to the contact (their animal's public profile). */
   contactPetId?: string
-  contactType: 'vet' | 'trainer' | 'community' | 'lost_finder'
+  contactType: 'vet' | 'trainer' | 'community' | 'lost_finder' | 'emergency_finder'
   online?: boolean
   lastMessage: string
   time: string

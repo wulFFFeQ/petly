@@ -39,6 +39,37 @@ export const myPets: Pet[] = [
       approximateArea: 'Kolín a okolí',
       showUrgentNote: false,
     },
+    /**
+     * Emergency card content is authored here; visibility defaults to private.
+     * Luna demo opts in only age + one acute health line for the finder preview.
+     */
+    emergencyCard: {
+      publicSlug: 'luna',
+      health: {
+        allergies: 'Žádné známé',
+        regularMedication: 'Preventivní antiparazitika dle plánu',
+      },
+      vet: {
+        label: 'Hlavní veterinář',
+        clinicOrName: 'PetCare Central Praha · MUDr. Martin Novák',
+        phone: '+420 222 333 444',
+        navigateQuery: 'PetCare Central Praha',
+      },
+      visibility: {
+        showAge: true,
+        showGender: false,
+        showMaskedMicrochip: false,
+        showHealthAllergies: true,
+        showHealthChronic: false,
+        showHealthMedication: false,
+        showHealthRestrictions: false,
+        showHealthOther: false,
+        showVet: false,
+        showVetPhone: false,
+        showVetNavigate: false,
+        showOwnerPhoneOnPrint: false,
+      },
+    },
     neutered: true,
     lastVetVisit: '3. 7. 2026',
     nextVaccination: '24. 9. 2026',

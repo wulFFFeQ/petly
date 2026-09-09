@@ -14,7 +14,6 @@ import {
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { importantContacts } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import { BRAND_NAME } from '../../lib/brand'
 import { markPetProfileShared } from '../../lib/badges/badgeData'
@@ -22,10 +21,8 @@ import { copyTextToClipboard } from '../../lib/clipboard'
 import { maskMicrochip } from '../../lib/microchip'
 import {
   EMPTY_PROFILE_LABEL,
-  formatOptionalText,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
-import { petTypeLabel } from '../../lib/petTypes'
 import { cn } from '../../lib/utils'
 import type { Pet } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -33,6 +30,7 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { FoundQrModal } from './found/PetFoundQrCard'
 import { MarkLostModal } from './lost/MarkLostModal'
+import { EmergencyCardModal } from './emergency/EmergencyCardModal'
 
 interface PetGridCardMenuProps {
   pet: Pet
@@ -67,10 +65,6 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
   const qrAvailable = Boolean(pet.foundContactToken) && pet.qrContactEnabled !== false
   const isLost = pet.lostStatus === 'lost'
   const microchipValue = pet.microchip?.trim() ?? ''
-
-  const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
-  const mainVet = importantContacts.find((c) => c.type === 'vet')
-  const emergencyPerson = importantContacts.find((c) => c.type === 'emergency_person')
 
   useEffect(() => {
     if (!open || !triggerRef.current) return
@@ -285,70 +279,11 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
         </div>
       </Modal>
 
-      <Modal
+      <EmergencyCardModal
+        pet={pet}
         open={emergencyOpen}
         onClose={() => setEmergencyOpen(false)}
-        title="Nouzová karta"
-        subtitle="Soukromý přehled pro majitele — není veřejný"
-        maxWidth="lg"
-      >
-        <div className="space-y-4">
-          <div className="rounded-xl border-2 border-[#234B54]/20 bg-[#E0EAEC]/40 p-4">
-            <div className="flex items-start gap-4">
-              <img
-                src={pet.image}
-                alt={pet.name}
-                className="h-20 w-20 rounded-xl border-2 border-white object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-bold text-[#191E1B]">{pet.name}</p>
-                <p className="text-sm text-[#4A564F]">
-                  {pet.breed} · {petTypeLabel[pet.type]}
-                </p>
-                <p className="mt-1 font-mono text-xs font-bold text-[#234B54]">
-                  Čip:{' '}
-                  {hasMicrochip(microchipValue)
-                    ? maskMicrochip(microchipValue)
-                    : EMPTY_PROFILE_LABEL}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {emergencyVet && (
-              <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                  {emergencyVet.label}
-                </p>
-                <p className="text-sm font-bold text-[#191E1B]">{emergencyVet.phone}</p>
-              </div>
-            )}
-            {mainVet && (
-              <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                  {mainVet.label}
-                </p>
-                <p className="text-sm font-bold text-[#191E1B]">{mainVet.name}</p>
-                <p className="text-xs text-[#7D8B82]">{mainVet.phone}</p>
-              </div>
-            )}
-            {emergencyPerson && (
-              <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 sm:col-span-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                  {emergencyPerson.label}
-                </p>
-                <p className="text-sm font-bold text-[#191E1B]">
-                  {emergencyPerson.name} · {emergencyPerson.phone}
-                </p>
-              </div>
-            )}
-          </div>
-          <p className="text-xs leading-relaxed text-[#5A6660]">
-            Další očkování: {formatOptionalText(pet.nextVaccination)}. Kontakt s nálezcem vždy
-            probíhá přes bezpečný chat {BRAND_NAME}.
-          </p>
-        </div>
-      </Modal>
+      />
 
       <Modal
         open={privacyOpen}

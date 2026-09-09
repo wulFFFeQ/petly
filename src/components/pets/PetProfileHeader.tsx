@@ -2,10 +2,8 @@ import {
   ArrowLeft,
   Check,
   Copy,
-  AlertTriangle,
   Camera,
   ImagePlus,
-  Phone,
   Share2,
   ShieldAlert,
   Sparkles,
@@ -19,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { importantContacts, petTypeLabel } from '../../data/mockData'
+import { petTypeLabel } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
@@ -51,6 +49,7 @@ import { OptionSelect } from '../ui/OptionSelect'
 import { VerifyMicrochipModal } from './microchip/VerifyMicrochipModal'
 import { MarkLostModal } from './lost/MarkLostModal'
 import { LostPetStatusBadge } from './lost/LostPetStatusBadge'
+import { EmergencyCardModal } from './emergency/EmergencyCardModal'
 
 interface PetProfileHeaderProps {
   pet: Pet
@@ -145,9 +144,6 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const chipVerifiedFound = chipVerification?.status === 'found'
   const coverColor = getPetCoverColor(pet)
 
-  const emergencyVet = importantContacts.find((c) => c.type === 'emergency')
-  const mainVet = importantContacts.find((c) => c.type === 'vet')
-  const emergencyPerson = importantContacts.find((c) => c.type === 'emergency_person')
   const shareLink = `https://lovedandknown.app/pets/${pet.id}?share=verified`
 
   const openDetailsEditor = () => {
@@ -865,95 +861,11 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         </div>
       </Modal>
 
-      <Modal
+      <EmergencyCardModal
+        pet={pet}
         open={emergencyOpen}
         onClose={() => setEmergencyOpen(false)}
-        title="Nouzová karta"
-        subtitle="Rychlý přístup k identifikaci a kontaktům při ztrátě nebo akutní situaci"
-        maxWidth="lg"
-      >
-        <div className="space-y-4">
-          <div className="rounded-xl border-2 border-[#234B54]/20 bg-[#E0EAEC]/40 p-4">
-            <div className="flex items-start gap-4">
-              <img src={pet.image} alt={pet.name} className="h-20 w-20 rounded-xl object-cover border-2 border-white" />
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-bold text-[#191E1B]">{pet.name}</p>
-                <p className="text-sm text-[#4A564F]">{pet.breed} · {petTypeLabel[pet.type]}</p>
-                <p className="text-xs font-mono font-bold text-[#234B54] mt-1">
-                  Čip: {hasMicrochip(microchipValue) ? microchipValue : EMPTY_PROFILE_LABEL}
-                </p>
-                <p className="text-xs text-[#5A6660] mt-1">Majitel: Tereza V. · Kolín</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {emergencyVet && (
-              <a
-                href={`tel:${emergencyVet.phone.replace(/\s/g, '')}`}
-                className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 hover:bg-white transition-colors"
-              >
-                <AlertTriangle size={18} className="text-[#B8934A] shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                    {emergencyVet.label}
-                  </p>
-                  <p className="text-sm font-bold text-[#191E1B]">{emergencyVet.phone}</p>
-                </div>
-              </a>
-            )}
-            {mainVet && (
-              <a
-                href={`tel:${mainVet.phone.replace(/\s/g, '')}`}
-                className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 hover:bg-white transition-colors"
-              >
-                <Stethoscope size={18} className="text-[#234B54] shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                    {mainVet.label}
-                  </p>
-                  <p className="text-sm font-bold text-[#191E1B]">{mainVet.name}</p>
-                  <p className="text-xs text-[#7D8B82]">{mainVet.phone}</p>
-                </div>
-              </a>
-            )}
-            {emergencyPerson && (
-              <a
-                href={`tel:${emergencyPerson.phone.replace(/\s/g, '')}`}
-                className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 hover:bg-white transition-colors sm:col-span-2"
-              >
-                <Phone size={18} className="text-[#234B54] shrink-0" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                    {emergencyPerson.label}
-                  </p>
-                  <p className="text-sm font-bold text-[#191E1B]">
-                    {emergencyPerson.name} · {emergencyPerson.phone}
-                  </p>
-                </div>
-              </a>
-            )}
-          </div>
-
-          <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3 text-xs text-[#5A6660] leading-relaxed">
-            <p className="font-bold text-[#191E1B] mb-1">Zdravotní poznámky</p>
-            <p>
-              Alergie: žádné známé · Aktivní léky: dle profilu · Další očkování:{' '}
-              {formatOptionalText(pet.nextVaccination)}
-            </p>
-          </div>
-
-          <Button
-            variant="gold"
-            fullWidth
-            onClick={() => {
-              showToast('Nouzová karta sdílena', 'Odkaz s identifikací a kontakty je připraven.', 'gold')
-            }}
-          >
-            Sdílet nouzovou kartu
-          </Button>
-        </div>
-      </Modal>
+      />
 
       <Modal
         open={deleteOpen}

@@ -185,11 +185,17 @@ export interface SafeContactExchange {
  * Secure contact channel — 1:1 with a found report.
  * Personal phone is never shown automatically; only via mutual consent exchange.
  */
+export type SafeContactSource = 'lost_found' | 'emergency_card'
+
 export interface SafeContactChannel {
   id: string
   conversationId: string
-  announcementId: string
-  reportId: string
+  /** Present for lost-pet found reports; omitted for emergency-card channels. */
+  announcementId?: string
+  /** Present for lost-pet found reports; omitted for emergency-card channels. */
+  reportId?: string
+  /** Origin of the secure channel. Defaults to lost_found when omitted. */
+  source?: SafeContactSource
   petId: string
   petName: string
   finderAnonymousId: string
