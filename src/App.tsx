@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ToastContainer } from './components/ui/Toast'
 import { AppProvider } from './context/AppContext'
 import { CalendarPage } from './pages/CalendarPage'
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <BrowserRouter basename={basename}>
+      <ScrollToTop />
       <AppProvider>
         <Routes>
           <Route path="found/:token" element={<FoundPetLayout />} />
