@@ -96,6 +96,7 @@ function migrateLegacyThreads(raw: unknown): SafeContactChannel[] {
       closedReason: legacy.closedReason,
       thankYouSentAt: legacy.thankYouSentAt,
       messages: Array.isArray(legacy.messages) ? legacy.messages : [],
+      contactExchange: legacy.contactExchange,
     }
   })
 }
