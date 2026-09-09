@@ -369,7 +369,7 @@ export function averageWeightLabel(
     }
     return {
       value: trackedPetsLabel(petsWithWeight.length),
-      subtext: 'Hmotnost dle mazlíčka',
+      subtext: 'Hmotnost dle měření',
     }
   }
 
@@ -383,7 +383,7 @@ export function averageWeightLabel(
     )[0]
     return {
       value: formatWeightKg(latest.weight),
-      subtext: 'Aktuální hmotnost',
+      subtext: `Poslední měření ${latest.date}`,
     }
   }
 

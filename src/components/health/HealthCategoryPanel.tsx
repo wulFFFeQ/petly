@@ -115,7 +115,7 @@ export function HealthCategoryPanel({
           <WeightChart
             variant="detail"
             lockedPetId={petFilter === 'all' ? undefined : petFilter}
-            onPetChange={(petId) => onPetFilterChange?.(petId)}
+            onSelectPet={(petId) => onPetFilterChange?.(petId)}
           />
         ) : (
           <>

@@ -85,13 +85,14 @@ export function HealthPage() {
           detail={activeDetail}
           petFilter={petFilter}
           onBack={() => setActiveDetail(null)}
-          onPetFilterChange={(id) => setPetFilter(id)}
+          onPetFilterChange={setPetFilter}
         />
       ) : (
         <>
           <HealthSummary petFilter={petFilter} onOpenDetail={setActiveDetail} />
           <WeightChart
             lockedPetId={petFilter === 'all' ? undefined : petFilter}
+            onSelectPet={(id) => setPetFilter(id)}
           />
 
           <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">

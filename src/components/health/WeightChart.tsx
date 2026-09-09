@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   getWeightMeasurementsForPet,
@@ -19,7 +19,7 @@ import {
 } from '../../lib/healthDashboard'
 import { parseCzechDate, todayIsoDate, formatIsoDateToCzech } from '../../lib/petProfileUtils'
 import { useApp } from '../../context/AppContext'
-import type { WeightMeasurement } from '../../types'
+import type { Pet, WeightMeasurement } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -59,48 +59,51 @@ function chartLabel(date: string): string {
   return months[monthIdx] ?? match[2]
 }
 
+function usePetMeasurements(petId: string | undefined) {
+  const [measurements, setMeasurements] = useState<WeightMeasurement[]>([])
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!petId) {
+      setMeasurements([])
+      return
+    }
+    setMeasurements(getWeightMeasurementsForPet(petId))
+  }, [petId, tick])
+
+  const reload = () => setTick((n) => n + 1)
+  return { measurements, reload }
+}
+
 type WeightChartProps = {
   variant?: 'overview' | 'detail'
-  /** When set, hide pet switcher and lock to this pet. */
+  /** Main page pet filter: when unset, show multi-pet compact summary. */
   lockedPetId?: string
-  onPetChange?: (petId: string) => void
+  /** Called when user picks a pet from the all-pets summary. */
+  onSelectPet?: (petId: string) => void
   className?: string
 }
 
 export function WeightChart({
   variant = 'overview',
   lockedPetId,
-  onPetChange,
+  onSelectPet,
   className,
 }: WeightChartProps) {
   const { pets, refreshBadges } = useApp()
-  const [selectedPetId, setSelectedPetId] = useState(
-    () => lockedPetId ?? pets[0]?.id ?? 'luna',
-  )
-  const [measurements, setMeasurements] = useState<WeightMeasurement[]>([])
+  const petId = lockedPetId
+  const { measurements, reload } = usePetMeasurements(petId)
   const [newWeight, setNewWeight] = useState('')
   const [newWeightNote, setNewWeightNote] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
 
   useEffect(() => {
-    if (lockedPetId) setSelectedPetId(lockedPetId)
-  }, [lockedPetId])
+    setNewWeight('')
+    setNewWeightNote('')
+    setShowAddForm(false)
+  }, [petId])
 
-  useEffect(() => {
-    if (!pets.some((pet) => pet.id === selectedPetId) && pets[0]) {
-      setSelectedPetId(pets[0].id)
-    }
-  }, [pets, selectedPetId])
-
-  const reloadMeasurements = () => {
-    setMeasurements(getWeightMeasurementsForPet(selectedPetId))
-  }
-
-  useEffect(() => {
-    reloadMeasurements()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when pet changes
-  }, [selectedPetId])
-
-  const selectedPet = pets.find((pet) => pet.id === selectedPetId)
+  const selectedPet = pets.find((pet) => pet.id === petId)
   const sortedAsc = useMemo(
     () => [...measurements].sort((a, b) => parseCzechDate(a.date) - parseCzechDate(b.date)),
     [measurements],
@@ -108,7 +111,9 @@ export function WeightChart({
   const sortedDesc = useMemo(() => [...sortedAsc].reverse(), [sortedAsc])
   const latest = sortedDesc[0]
   const trend = computeWeightTrend(measurements)
-  const hasEnoughForTrend = measurements.length >= 2
+  const hasChart = measurements.length >= 2
+  const hasAnyMeasurement = measurements.length > 0
+  const measurementLimit = variant === 'detail' ? 12 : 5
 
   const chartData = useMemo(
     () =>
@@ -125,19 +130,15 @@ export function WeightChart({
     [chartData],
   )
 
-  const handleSelectPet = (petId: string) => {
-    setSelectedPetId(petId)
-    onPetChange?.(petId)
-  }
-
   const handleAddWeight = () => {
+    if (!petId) return
     const normalized = newWeight.trim().replace(',', '.')
     const value = Number(normalized)
     if (!Number.isFinite(value) || value <= 0) return
 
     const entry: WeightMeasurement = {
-      id: `wm_${selectedPetId}_${Date.now()}`,
-      petId: selectedPetId,
+      id: `wm_${petId}_${Date.now()}`,
+      petId,
       date: formatIsoDateToCzech(todayIsoDate()),
       weight: Math.round(value * 10) / 10,
       note: newWeightNote.trim() || undefined,
@@ -146,139 +147,180 @@ export function WeightChart({
     refreshBadges()
     setNewWeight('')
     setNewWeightNote('')
-    reloadMeasurements()
+    setShowAddForm(false)
+    reload()
   }
 
-  const showPetSwitcher = !lockedPetId && pets.length > 0
-  const measurementLimit = variant === 'detail' ? 12 : 5
+  const addForm = (
+    <div className="flex flex-wrap gap-2">
+      <input
+        type="text"
+        inputMode="decimal"
+        placeholder="Hmotnost (kg)"
+        value={newWeight}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/[^\d.,]/g, '')
+          const sepMatch = raw.match(/[.,]/)
+          if (!sepMatch) {
+            setNewWeight(raw)
+            return
+          }
+          const sep = sepMatch[0]
+          const [whole, ...fractionParts] = raw.split(/[.,]/)
+          setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
+        }}
+        className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+      />
+      <input
+        type="text"
+        placeholder="Poznámka (volitelné)"
+        value={newWeightNote}
+        onChange={(e) => setNewWeightNote(e.target.value)}
+        className="h-9 min-w-[140px] flex-1 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+      />
+      <Button size="sm" variant="primary" onClick={handleAddWeight} disabled={!newWeight.trim()}>
+        <Plus size={14} />
+        Přidat měření
+      </Button>
+    </div>
+  )
 
-  const inner = (
-    <>
-      <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0">
-          {variant === 'overview' && (
-            <>
-              <h3 className="text-lg font-bold text-[#191E1B]">Vývoj hmotnosti</h3>
-              <p className="mt-0.5 text-xs text-[#5A6660]">
-                Měření a trend pro vybraného mazlíčka
-              </p>
-            </>
-          )}
+  // —— All pets: compact summary (no chart) ——
+  if (!petId) {
+    const content = (
+      <>
+        {variant === 'overview' && (
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-[#191E1B]">Vývoj hmotnosti</h3>
+            <p className="mt-0.5 text-xs text-[#5A6660]">
+              Přehled posledních měření všech mazlíčků
+            </p>
+          </div>
+        )}
 
-          {hasEnoughForTrend && latest ? (
-            <div
-              className={cn(
-                'flex flex-wrap items-end gap-x-5 gap-y-2',
-                variant === 'overview' ? 'mt-4' : 'mt-1',
-              )}
-            >
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Aktuální hmotnost
-                </p>
-                <p className="mt-0.5 text-2xl font-bold tabular-nums text-[#191E1B]">
-                  {formatWeightKg(latest.weight)}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Poslední měření
-                </p>
-                <p className="mt-0.5 text-sm font-semibold text-[#234B54]">
-                  měřeno {latest.date}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                  Trend
-                </p>
-                <div className="mt-0.5 text-sm font-semibold text-[#234B54]">
-                  {trend.label}
-                </div>
-              </div>
-            </div>
+        <ul className="divide-y divide-[#F0EDE6]">
+          {pets.map((pet) => (
+            <AllPetsWeightRow
+              key={pet.id}
+              pet={pet}
+              onSelect={() => onSelectPet?.(pet.id)}
+            />
+          ))}
+        </ul>
+      </>
+    )
+
+    if (variant === 'detail') {
+      return <div className={className}>{content}</div>
+    }
+
+    return (
+      <Card variant="elevated" padding="lg" className={className}>
+        {content}
+      </Card>
+    )
+  }
+
+  // —— Single pet: empty state (no measurements) ——
+  if (!hasAnyMeasurement) {
+    const empty = (
+      <>
+        {variant === 'overview' && (
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-[#191E1B]">Vývoj hmotnosti</h3>
+            <p className="mt-0.5 text-xs text-[#5A6660]">
+              {selectedPet ? `Měření · ${selectedPet.name}` : 'Měření hmotnosti'}
+            </p>
+          </div>
+        )}
+        <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] px-4 py-5">
+          <p className="text-sm font-semibold text-[#191E1B]">Zatím nemáme žádné měření</p>
+          <p className="mt-1 text-xs leading-relaxed text-[#5A6660]">
+            Přidejte první hodnotu hmotnosti a začněte sledovat vývoj.
+          </p>
+          {showAddForm ? (
+            <div className="mt-3">{addForm}</div>
           ) : (
-            <div
-              className={cn(
-                'rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] px-4 py-4',
-                variant === 'overview' ? 'mt-4' : 'mt-2',
-              )}
+            <Button
+              size="sm"
+              variant="primary"
+              className="mt-3"
+              onClick={() => setShowAddForm(true)}
             >
-              <p className="text-sm font-semibold text-[#191E1B]">
-                Zatím nemáme dost měření pro zobrazení trendu.
-              </p>
-              <p className="mt-1 text-xs text-[#5A6660]">
-                Přidejte alespoň dvě měření pro {selectedPet?.name ?? 'mazlíčka'}.
-              </p>
-              {variant === 'overview' && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Hmotnost (kg)"
-                    value={newWeight}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d.,]/g, '')
-                      const sepMatch = raw.match(/[.,]/)
-                      if (!sepMatch) {
-                        setNewWeight(raw)
-                        return
-                      }
-                      const sep = sepMatch[0]
-                      const [whole, ...fractionParts] = raw.split(/[.,]/)
-                      setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
-                    }}
-                    className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-                  />
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={handleAddWeight}
-                    disabled={!newWeight.trim()}
-                  >
-                    <Plus size={14} />
-                    Přidat měření
-                  </Button>
-                </div>
-              )}
-            </div>
+              <Plus size={14} />
+              Přidat měření
+            </Button>
           )}
         </div>
+      </>
+    )
 
-        {showPetSwitcher && (
-          <div className="inline-flex max-w-full flex-wrap self-start gap-1 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-1">
-            {pets.map((pet) => {
-              const latestForPet = getWeightMeasurementsForPet(pet.id).sort(
-                (a, b) => parseCzechDate(b.date) - parseCzechDate(a.date),
-              )[0]
-              const weightLabel =
-                latestForPet?.weight ?? pet.weight
-              return (
-                <button
-                  key={pet.id}
-                  type="button"
-                  onClick={() => handleSelectPet(pet.id)}
-                  className={cn(
-                    'rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer',
-                    selectedPetId === pet.id
-                      ? 'bg-white text-[#234B54] shadow-xs'
-                      : 'text-[#7D8B82] hover:text-[#191E1B]',
-                  )}
-                >
-                  {pet.name}
-                  {weightLabel != null ? ` (${formatWeightKg(weightLabel).replace(' kg', '')} kg)` : ''}
-                </button>
-              )
-            })}
+    if (variant === 'detail') {
+      return <div className={className}>{empty}</div>
+    }
+
+    return (
+      <Card variant="elevated" padding="lg" className={className}>
+        {empty}
+      </Card>
+    )
+  }
+
+  // —— Single pet: full chart (or compact stats if only 1 measurement) ——
+  const single = (
+    <>
+      <div className="mb-5">
+        {variant === 'overview' && (
+          <>
+            <h3 className="text-lg font-bold text-[#191E1B]">Vývoj hmotnosti</h3>
+            <p className="mt-0.5 text-xs text-[#5A6660]">
+              {selectedPet
+                ? `Měření a trend · ${selectedPet.name}`
+                : 'Měření a trend pro vybraného mazlíčka'}
+            </p>
+          </>
+        )}
+
+        {latest && (
+          <div
+            className={cn(
+              'flex flex-wrap items-end gap-x-5 gap-y-2',
+              variant === 'overview' ? 'mt-4' : 'mt-1',
+            )}
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Aktuální hmotnost
+              </p>
+              <p className="mt-0.5 text-2xl font-bold tabular-nums text-[#191E1B]">
+                {formatWeightKg(latest.weight)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Poslední měření
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-[#234B54]">
+                měřeno {latest.date}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Trend
+              </p>
+              <div className="mt-0.5 text-sm font-semibold text-[#234B54]">
+                {hasChart ? trend.label : '→ Potřeba dalšího měření'}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {hasEnoughForTrend && (
+      {hasChart && (
         <div className="h-64 w-full pt-1 sm:h-72">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              key={selectedPetId}
+              key={petId}
               data={chartData}
               margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
@@ -333,90 +375,118 @@ export function WeightChart({
         </div>
       )}
 
-      {(variant === 'detail' || hasEnoughForTrend) && (
-        <div className="mt-5 border-t border-[#F0EDE6] pt-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-              Časová osa měření
-            </p>
-            {hasEnoughForTrend && (
-              <Badge variant="gold" size="sm">
-                {trend.label}
-              </Badge>
-            )}
-          </div>
-
-          {variant === 'detail' && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Hmotnost (kg)"
-                value={newWeight}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^\d.,]/g, '')
-                  const sepMatch = raw.match(/[.,]/)
-                  if (!sepMatch) {
-                    setNewWeight(raw)
-                    return
-                  }
-                  const sep = sepMatch[0]
-                  const [whole, ...fractionParts] = raw.split(/[.,]/)
-                  setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
-                }}
-                className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-              />
-              <input
-                type="text"
-                placeholder="Poznámka (volitelné)"
-                value={newWeightNote}
-                onChange={(e) => setNewWeightNote(e.target.value)}
-                className="h-9 min-w-[140px] flex-1 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-              />
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={handleAddWeight}
-                disabled={!newWeight.trim()}
-              >
-                <Plus size={14} />
-                Přidat měření
-              </Button>
-            </div>
-          )}
-
-          {sortedDesc.length === 0 ? (
-            <p className="py-2 text-sm text-[#7D8B82]">Zatím žádná měření.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {sortedDesc.slice(0, measurementLimit).map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-xl px-1 py-1.5 text-[12px] text-[#5A6660]"
-                >
-                  <span className="min-w-0 truncate">
-                    {item.date}
-                    {item.note ? ` · ${item.note}` : ''}
-                  </span>
-                  <span className="shrink-0 font-bold tabular-nums text-[#191E1B]">
-                    {formatWeightKg(item.weight)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+      {!hasChart && (
+        <div className="rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] px-4 py-4">
+          <p className="text-sm font-semibold text-[#191E1B]">
+            Zatím nemáme dost měření pro zobrazení grafu.
+          </p>
+          <p className="mt-1 text-xs text-[#5A6660]">
+            Přidejte další měření pro zobrazení vývoje.
+          </p>
+          <div className="mt-3">{addForm}</div>
         </div>
       )}
+
+      <div className="mt-5 border-t border-[#F0EDE6] pt-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+            Časová osa měření
+          </p>
+          {hasChart && (
+            <Badge variant="gold" size="sm">
+              {trend.label}
+            </Badge>
+          )}
+        </div>
+
+        {(variant === 'detail') && (
+          <div className="mb-3">{addForm}</div>
+        )}
+
+        <ul className="space-y-1.5">
+          {sortedDesc.slice(0, measurementLimit).map((item) => (
+            <li
+              key={item.id}
+              className="flex items-center justify-between gap-3 rounded-xl px-1 py-1.5 text-[12px] text-[#5A6660]"
+            >
+              <span className="min-w-0 truncate">
+                {item.date}
+                {item.note ? ` · ${item.note}` : ''}
+              </span>
+              <span className="shrink-0 font-bold tabular-nums text-[#191E1B]">
+                {formatWeightKg(item.weight)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </>
   )
 
   if (variant === 'detail') {
-    return <div className={className}>{inner}</div>
+    return <div className={className}>{single}</div>
   }
 
   return (
     <Card variant="elevated" padding="lg" className={className}>
-      {inner}
+      {single}
     </Card>
+  )
+}
+
+function AllPetsWeightRow({ pet, onSelect }: { pet: Pet; onSelect: () => void }) {
+  const list = getWeightMeasurementsForPet(pet.id)
+  const sorted = [...list].sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))
+  const latest = sorted[0]
+  const trend = computeWeightTrend(list)
+  const hasData = list.length > 0
+  const weight =
+    latest?.weight ?? (typeof pet.weight === 'number' ? pet.weight : undefined)
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 py-3.5 text-left transition-colors hover:bg-[#FAF8F5] -mx-2 px-2 rounded-xl sm:mx-0 sm:px-1"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src={pet.image}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white shadow-sm"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[#191E1B]">{pet.name}</p>
+            {hasData && latest ? (
+              <>
+                <p className="mt-0.5 text-base font-bold tabular-nums text-[#234B54]">
+                  {formatWeightKg(latest.weight)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#5A6660]">měřeno {latest.date}</p>
+                {list.length >= 2 && (
+                  <p className="mt-0.5 text-[11px] font-semibold text-[#234B54]">
+                    {trend.label}
+                  </p>
+                )}
+              </>
+            ) : weight != null ? (
+              <>
+                <p className="mt-0.5 text-base font-bold tabular-nums text-[#234B54]">
+                  {formatWeightKg(weight)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[#5A6660]">Bez záznamu měření</p>
+              </>
+            ) : (
+              <>
+                <p className="mt-0.5 text-sm font-semibold text-[#5A6660]">Bez měření</p>
+                <p className="mt-0.5 text-[11px] text-[#7D8B82]">Přidejte první měření</p>
+              </>
+            )}
+          </div>
+        </div>
+        <ChevronRight size={16} className="shrink-0 text-[#C5CDC8]" />
+      </button>
+    </li>
   )
 }
