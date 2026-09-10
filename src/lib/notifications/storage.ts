@@ -4,9 +4,9 @@ import { migrateNotificationList } from './upsert'
 export const NOTIFICATIONS_STORAGE_KEY = 'lovedandknown.notifications'
 
 export function loadNotifications(): AppNotification[] | null {
-  if (typeof window === 'undefined') return null
+  if (typeof localStorage === 'undefined') return null
   try {
-    const raw = window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY)
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY)
     if (raw == null) return null
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
@@ -17,9 +17,9 @@ export function loadNotifications(): AppNotification[] | null {
 }
 
 export function saveNotifications(items: AppNotification[]): void {
-  if (typeof window === 'undefined') return
+  if (typeof localStorage === 'undefined') return
   try {
-    window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(items))
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(items))
   } catch {
     // best-effort
   }

@@ -18,6 +18,7 @@ import {
   requestPetProfessionalAccess,
   toPublicProfessionalProfile,
 } from '../lib/professional'
+import { emitProfessionalAccessNotification } from '../lib/notifications'
 import { loadVerifications } from '../lib/verification'
 import { useApp } from '../context/AppContext'
 import { BadgeCheck, MapPin } from 'lucide-react'
@@ -25,7 +26,7 @@ import { BadgeCheck, MapPin } from 'lucide-react'
 export function ProfessionalPublicPage() {
   const { professionalId } = useParams()
   const navigate = useNavigate()
-  const { pets, showToast } = useApp()
+  const { pets, showToast, upsertNotification } = useApp()
   const [connectOpen, setConnectOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -87,11 +88,18 @@ export function ProfessionalPublicPage() {
       return
     }
     try {
-      requestPetProfessionalAccess({
+      const { access } = requestPetProfessionalAccess({
         petId: pet.id,
         professionalId: profile.id,
         grantedByAccountId: getSelfAccount()?.id || 'owner_self',
         permissions: [],
+      })
+      emitProfessionalAccessNotification(upsertNotification, {
+        access,
+        event: 'requested',
+        petName: pet.name,
+        professional: profile,
+        roleLabel,
       })
       showToast('Žádost odeslána', `${pet.name} · čeká na schválení majitele`, 'success')
       setRefreshKey((k) => k + 1)

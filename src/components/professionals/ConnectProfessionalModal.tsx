@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { getSelfAccount } from '../../lib/account'
+import { emitProfessionalAccessNotification } from '../../lib/notifications'
 import {
   getOpenAccessForPair,
   getRoleMeta,
@@ -34,7 +35,7 @@ export function ConnectProfessionalModal({
   initialPetId,
   onCompleted,
 }: ConnectProfessionalModalProps) {
-  const { pets, showToast } = useApp()
+  const { pets, showToast, upsertNotification } = useApp()
   const [step, setStep] = useState<Step>('form')
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>(
     initialPetId ? [initialPetId] : pets[0] ? [pets[0].id] : [],
@@ -108,12 +109,20 @@ export function ConnectProfessionalModal({
     const accountId = getSelfAccount()?.id || 'owner_self'
     try {
       for (const petId of selectedPetIds) {
-        grantOwnerPetAccess({
+        const { access } = grantOwnerPetAccess({
           petId,
           professionalId: professional.id,
           permissions,
           grantedByAccountId: accountId,
           status: 'active',
+        })
+        const pet = pets.find((p) => p.id === petId)
+        emitProfessionalAccessNotification(upsertNotification, {
+          access,
+          event: 'approved',
+          petName: pet?.name,
+          professional,
+          roleLabel,
         })
       }
       showToast(

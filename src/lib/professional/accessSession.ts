@@ -1,6 +1,8 @@
 import {
   activateAccess,
   cancelPendingAccess,
+  expireAccess,
+  expireDueAccesses,
   findOpenAccess,
   grantPetAccess,
   listAccessForPet,
@@ -86,6 +88,32 @@ export function cancelPetProfessionalAccessRequest(accessId: string): AccessMuta
   const result = cancelPendingAccess(accessList, logs, accessId)
   if (result.access) persist(result.accessList, result.logs)
   return result
+}
+
+export function expirePetProfessionalAccess(accessId: string): AccessMutationResult {
+  const { accessList, logs } = loadAccessState()
+  const result = expireAccess(accessList, logs, accessId)
+  if (result.access && result.access.status === 'expired') {
+    persist(result.accessList, result.logs)
+  }
+  return result
+}
+
+/** Persist all due expiries; returns newly expired access rows. */
+export function reconcileExpiredPetProfessionalAccess(
+  nowIso: string = new Date().toISOString(),
+): AccessMutationResult & { expired: PetProfessionalAccess[] } {
+  const { accessList, logs } = loadAccessState()
+  const result = expireDueAccesses(accessList, logs, nowIso)
+  if (result.expired.length > 0) {
+    persist(result.accessList, result.logs)
+  }
+  return {
+    access: result.expired[0] ?? null,
+    accessList: result.accessList,
+    logs: result.logs,
+    expired: result.expired,
+  }
 }
 
 export function updatePetProfessionalAccessPermissions(

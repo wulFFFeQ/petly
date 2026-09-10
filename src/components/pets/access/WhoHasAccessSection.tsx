@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../../../context/AppContext'
 import { findProfessionalProfileById } from '../../../lib/account'
+import { emitProfessionalAccessNotification } from '../../../lib/notifications'
 import {
   approvePetProfessionalAccess,
   cancelPetProfessionalAccessRequest,
@@ -91,7 +92,7 @@ interface WhoHasAccessSectionProps {
 }
 
 export function WhoHasAccessSection({ petId, petName }: WhoHasAccessSectionProps) {
-  const { showToast } = useApp()
+  const { showToast, upsertNotification } = useApp()
   const [tick, setTick] = useState(0)
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
@@ -126,7 +127,16 @@ export function WhoHasAccessSection({ petId, petName }: WhoHasAccessSectionProps
   const saveManage = () => {
     if (!manageId || !manageAccess) return
     if (manageAccess.status === 'pending') {
-      approvePetProfessionalAccess(manageId, editPerms)
+      const { access } = approvePetProfessionalAccess(manageId, editPerms)
+      if (access) {
+        emitProfessionalAccessNotification(upsertNotification, {
+          access,
+          event: 'approved',
+          petName,
+          professional: managePro,
+          roleLabel: managePro ? getRoleMeta(managePro.type).label : null,
+        })
+      }
       showToast('Přístup schválen', managePro?.displayName ?? 'Profesionál', 'success')
     } else {
       updatePetProfessionalAccessPermissions(manageId, editPerms)
@@ -138,7 +148,17 @@ export function WhoHasAccessSection({ petId, petName }: WhoHasAccessSectionProps
 
   const confirmRevoke = () => {
     if (!revokeId) return
-    revokePetProfessionalAccess(revokeId)
+    const { access } = revokePetProfessionalAccess(revokeId)
+    if (access) {
+      const pro = findProfessionalProfileById(access.professionalId)
+      emitProfessionalAccessNotification(upsertNotification, {
+        access,
+        event: 'revoked',
+        petName,
+        professional: pro,
+        roleLabel: pro ? getRoleMeta(pro.type).label : null,
+      })
+    }
     showToast('Přístup odebrán', petName, 'info')
     setRevokeId(null)
     setManageId(null)
@@ -146,14 +166,24 @@ export function WhoHasAccessSection({ petId, petName }: WhoHasAccessSectionProps
   }
 
   const cancelPending = (accessId: string) => {
-    cancelPetProfessionalAccessRequest(accessId)
+    const { access } = cancelPetProfessionalAccessRequest(accessId)
+    if (access) {
+      const pro = findProfessionalProfileById(access.professionalId)
+      emitProfessionalAccessNotification(upsertNotification, {
+        access,
+        event: 'revoked',
+        petName,
+        professional: pro,
+        roleLabel: pro ? getRoleMeta(pro.type).label : null,
+      })
+    }
     showToast('Žádost zrušena', petName, 'info')
     refresh()
   }
 
   return (
     <>
-      <Card variant="elevated" data-testid={`who-has-access-${petId}`}>
+      <Card variant="elevated" id="who-has-access" data-testid={`who-has-access-${petId}`}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EBF2EE] text-[#2C4A3E]">

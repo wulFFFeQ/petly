@@ -670,6 +670,11 @@ export type NotificationType =
   | 'breeding'
   | 'system'
   | 'community'
+  | 'professional_access_requested'
+  | 'professional_access_approved'
+  | 'professional_access_rejected'
+  | 'professional_access_revoked'
+  | 'professional_access_expired'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 
@@ -692,6 +697,12 @@ export interface AppNotification {
   conversationId?: string
   lostAnnouncementId?: string
   lostReportId?: string
+  /** Account that should see this notification (KROK 19). */
+  recipientAccountId?: string
+  relatedProfessionalId?: string
+  relatedAccessId?: string
+  /** Set when marked read; `unread` remains the UI source of truth. */
+  readAt?: string
   /**
    * Legacy display helper. Prefer formatting from `createdAt` / `message`.
    * @deprecated

@@ -7,7 +7,7 @@ import {
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
-import { ensureDefaultSelfAccount } from '../lib/account'
+import { ensureDefaultSelfAccount, findProfessionalProfileById } from '../lib/account'
 import {
   normalizeImportantContact,
   normalizeImportantContacts,
@@ -119,6 +119,7 @@ import {
 import {
   buildCalendarNotificationDrafts,
   buildHealthNotificationDrafts,
+  buildProfessionalAccessNotification,
   buildSeedNotifications,
   loadNotifications,
   markAllNotificationsRead as markAllReadInList,
@@ -129,6 +130,7 @@ import {
   pruneStaleDerivedNotifications,
   type NotificationDraft,
 } from '../lib/notifications'
+import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -3087,6 +3089,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return changed ? next : prev
     })
   }, [calendarEvents, healthRecords, pets])
+
+  // Persist expired professional access + emit one notification per accessId
+  useEffect(() => {
+    const { expired } = reconcileExpiredPetProfessionalAccess()
+    if (expired.length === 0) return
+    setNotifications((prev) => {
+      let next = prev
+      let changed = false
+      for (const access of expired) {
+        const professional = findProfessionalProfileById(access.professionalId)
+        const pet = pets.find((p) => p.id === access.petId)
+        const draft = buildProfessionalAccessNotification({
+          access,
+          event: 'expired',
+          petName: pet?.name,
+          professional,
+          roleLabel: professional ? getRoleMeta(professional.type).label : null,
+        })
+        if (!draft) continue
+        const before = next
+        next = upsertNotificationInList(next, draft)
+        if (next !== before) changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [pets])
 
   const toggleLike = (postId: string) => {
     setPosts((prev) =>

@@ -1,17 +1,22 @@
 import {
   Bell,
   CheckCheck,
+  Clock,
+  Link2,
+  UserCheck,
+  UserX,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import { getSelfAccount } from '../../lib/account'
 import { petCountLabel } from '../../lib/dashboardDates'
 import {
   formatNotificationTime,
   notificationHrefFallback,
   sortNotificationsNewestFirst,
 } from '../../lib/notifications'
-import type { AppNotification } from '../../types'
+import type { AppNotification, NotificationType } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { SearchInput } from '../ui/SearchInput'
 
@@ -31,6 +36,86 @@ function priorityAccentClass(item: AppNotification): string {
   return 'border-l-2 border-l-transparent'
 }
 
+function isVisibleForAccount(
+  item: AppNotification,
+  accountId: string | undefined,
+): boolean {
+  if (!item.recipientAccountId) return true
+  if (!accountId) return false
+  return item.recipientAccountId === accountId
+}
+
+function notificationTypeIcon(type: NotificationType) {
+  switch (type) {
+    case 'professional_access_requested':
+      return Link2
+    case 'professional_access_approved':
+      return UserCheck
+    case 'professional_access_revoked':
+    case 'professional_access_rejected':
+      return UserX
+    case 'professional_access_expired':
+      return Clock
+    default:
+      return Bell
+  }
+}
+
+function NotificationRow({
+  item,
+  onOpen,
+}: {
+  item: AppNotification
+  onOpen: (item: AppNotification) => void
+}) {
+  const Icon = notificationTypeIcon(item.type)
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      data-testid={`notification-row-${item.id}`}
+      className={`-mx-2 flex cursor-pointer items-start gap-3 rounded-xl px-2 py-3 transition-colors first:pt-2 last:pb-2 ${
+        item.unread ? 'bg-[#F7F3EA]/70' : 'hover:bg-[#FAF8F5]'
+      } ${priorityAccentClass(item)}`}
+      onClick={() => onOpen(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen(item)
+        }
+      }}
+    >
+      <span
+        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+          item.unread ? 'bg-[#EBF2EE] text-[#2C4A3E]' : 'bg-[#F0EDE6] text-[#7D8B82]'
+        }`}
+      >
+        <Icon size={14} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`text-xs text-[#191E1B] ${
+            item.unread ? 'font-bold' : 'font-semibold'
+          }`}
+        >
+          {item.title}
+        </p>
+        <p className="mt-0.5 text-[11px] text-[#7D8B82]">
+          {item.message || item.time || formatNotificationTime(item.createdAt)}
+        </p>
+        <p className="mt-0.5 text-[10px] text-[#A3AFA7]">
+          {[formatNotificationTime(item.createdAt), item.petName].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+      <span
+        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+          item.unread ? 'bg-[#B8934A]' : 'bg-transparent'
+        }`}
+      />
+    </div>
+  )
+}
+
 export function Header() {
   const { greeting, emoji } = getGreetingData()
   const {
@@ -45,16 +130,25 @@ export function Header() {
   const [showAllNotifications, setShowAllNotifications] = useState(false)
   const [searchInput, setSearchInput] = useState('')
 
-  const sortedNotifications = useMemo(
-    () => sortNotificationsNewestFirst(notifications),
-    [notifications],
+  const accountId = getSelfAccount()?.id
+
+  const sortedNotifications = useMemo(() => {
+    const visible = notifications.filter((item) => isVisibleForAccount(item, accountId))
+    return sortNotificationsNewestFirst(visible)
+  }, [notifications, accountId])
+
+  const unreadNotifications = useMemo(
+    () => sortedNotifications.filter((item) => item.unread),
+    [sortedNotifications],
   )
-  const unreadCount = sortedNotifications.filter((item) => item.unread).length
+  const unreadCount = unreadNotifications.length
+
+  const previewPool = showAllNotifications
+    ? sortedNotifications
+    : sortedNotifications.slice(0, NOTIFICATION_PREVIEW_LIMIT)
+  const visibleUnread = previewPool.filter((item) => item.unread)
+  const visibleRead = previewPool.filter((item) => !item.unread)
   const hasMoreThanPreview = sortedNotifications.length > NOTIFICATION_PREVIEW_LIMIT
-  const visibleNotifications =
-    showAllNotifications || !hasMoreThanPreview
-      ? sortedNotifications
-      : sortedNotifications.slice(0, NOTIFICATION_PREVIEW_LIMIT)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,10 +211,16 @@ export function Header() {
               onClick={toggleDropdown}
               className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#E8E4DC] bg-white text-[#4A564F] transition-all hover:bg-[#FAF8F5] hover:text-[#191E1B] hover:border-[#D1E0D8] cursor-pointer"
               aria-label="Notifikace"
+              data-testid="notifications-bell"
             >
               <Bell size={17} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#B8934A]" />
+                <span
+                  className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#B8934A] px-1 text-[9px] font-bold leading-none text-white"
+                  data-testid="notifications-unread-badge"
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
               )}
             </button>
 
@@ -130,7 +230,10 @@ export function Header() {
                   className="fixed inset-0 z-30"
                   onClick={closeDropdown}
                 />
-                <div className="absolute right-0 top-11 z-40 flex max-h-[min(28rem,70vh)] w-80 flex-col overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_15px_35px_rgba(25,30,27,0.1)] animate-in fade-in zoom-in-95 duration-150 sm:w-96">
+                <div
+                  className="absolute right-0 top-11 z-40 flex max-h-[min(28rem,70vh)] w-80 flex-col overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_15px_35px_rgba(25,30,27,0.1)] animate-in fade-in zoom-in-95 duration-150 sm:w-96"
+                  data-testid="notifications-dropdown"
+                >
                   <div className="flex shrink-0 items-center justify-between border-b border-[#F0EDE6] px-4 pb-3 pt-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-[#191E1B]">Notifikace</span>
@@ -148,7 +251,7 @@ export function Header() {
                       Označit jako přečtené
                     </button>
                   </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto px-4 divide-y divide-[#F0EDE6]">
+                  <div className="min-h-0 flex-1 overflow-y-auto px-4">
                     {sortedNotifications.length === 0 ? (
                       <div className="py-8 text-center">
                         <p className="text-sm font-semibold text-[#191E1B]">Vše je v pořádku</p>
@@ -157,49 +260,43 @@ export function Header() {
                         </p>
                       </div>
                     ) : (
-                      visibleNotifications.map((item) => (
-                        <div
-                          key={item.id}
-                          role="button"
-                          tabIndex={0}
-                          className={`-mx-2 flex cursor-pointer items-start gap-3 rounded-xl px-2 py-3 transition-colors first:pt-2 last:pb-2 ${
-                            item.unread ? 'bg-[#F7F3EA]/70' : 'hover:bg-[#FAF8F5]'
-                          } ${priorityAccentClass(item)}`}
-                          onClick={() => openNotification(item)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              openNotification(item)
-                            }
-                          }}
-                        >
-                          <span
-                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                              item.unread ? 'bg-[#B8934A]' : 'bg-transparent'
-                            }`}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={`text-xs text-[#191E1B] ${
-                                item.unread ? 'font-bold' : 'font-semibold'
-                              }`}
-                            >
-                              {item.title}
+                      <>
+                        {visibleUnread.length > 0 && (
+                          <div className="pt-3" data-testid="notifications-section-new">
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#7D8B82]">
+                              Nové
                             </p>
-                            <p className="mt-0.5 text-[11px] text-[#7D8B82]">
-                              {item.message || item.time || formatNotificationTime(item.createdAt)}
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-[#A3AFA7]">
-                              {[
-                                formatNotificationTime(item.createdAt),
-                                item.petName,
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
+                            <div className="divide-y divide-[#F0EDE6]">
+                              {visibleUnread.map((item) => (
+                                <NotificationRow
+                                  key={item.id}
+                                  item={item}
+                                  onOpen={openNotification}
+                                />
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        )}
+                        {visibleRead.length > 0 && (
+                          <div
+                            className={visibleUnread.length > 0 ? 'pt-3' : 'pt-3'}
+                            data-testid="notifications-section-older"
+                          >
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#7D8B82]">
+                              Starší
+                            </p>
+                            <div className="divide-y divide-[#F0EDE6]">
+                              {visibleRead.map((item) => (
+                                <NotificationRow
+                                  key={item.id}
+                                  item={item}
+                                  onOpen={openNotification}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   {sortedNotifications.length > 0 && (

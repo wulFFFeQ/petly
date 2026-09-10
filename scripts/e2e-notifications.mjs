@@ -30,7 +30,8 @@ async function openBell(page) {
     await overlay.first().click({ force: true })
     await page.waitForTimeout(150)
   }
-  await page.getByRole('button', { name: 'Notifikace' }).click()
+  const bell = page.getByTestId('notifications-bell').or(page.getByRole('button', { name: 'Notifikace' }))
+  await bell.first().click()
   await page.waitForTimeout(200)
 }
 
@@ -61,6 +62,10 @@ async function main() {
   const context = await browser.newContext()
   const page = await context.newPage()
 
+  await page.goto(BASE, { waitUntil: 'networkidle' })
+  await page.evaluate(() => {
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
+  })
   await page.goto(BASE, { waitUntil: 'networkidle' })
   await page.waitForTimeout(800)
 
@@ -335,6 +340,260 @@ async function main() {
     '3/9: unique dedupeKeys after full reload',
   )
   void beforeReloadKeys
+
+  // --- KROK 22: professional access notifications ---
+  await page.evaluate(() => {
+    window.__LK_NOTIFICATIONS__.set([])
+  })
+  await page.waitForTimeout(150)
+
+  const proAccessSeed = await page.evaluate(() => {
+    const ownerId = 'owner_self'
+    const proAccountId = 'acct_e2e_pro_notif'
+    const proId = 'pro_e2e_notif_vet'
+    const now = new Date().toISOString()
+    const accounts = [
+      {
+        id: ownerId,
+        kind: 'consumer',
+        roles: ['owner'],
+        displayName: 'Tereza',
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: proAccountId,
+        kind: 'professional',
+        roles: ['veterinarian'],
+        displayName: 'MUDr. Martin Novák',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]
+    const profiles = [
+      {
+        id: proId,
+        accountId: proAccountId,
+        type: 'veterinarian',
+        displayName: 'MUDr. Martin Novák',
+        verificationStatus: 'unverified',
+        publicVisibility: 'public',
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]
+    localStorage.setItem('lovedandknown.accounts', JSON.stringify(accounts))
+    localStorage.setItem('lovedandknown.professionalProfiles', JSON.stringify(profiles))
+    localStorage.setItem('lovedandknown.petProfessionalAccess', JSON.stringify([]))
+    localStorage.setItem('lovedandknown.professionalAccessLogs', JSON.stringify([]))
+    return { ownerId, proAccountId, proId }
+  })
+
+  // Simulate request → owner notification via upsert (mirrors UI emit + dedupe)
+  const accessId = `ppa_e2e_${Date.now().toString(36)}`
+  await page.evaluate(
+    ({ accessId, proId, ownerId, petId }) => {
+      const access = {
+        id: accessId,
+        petId,
+        professionalId: proId,
+        permissions: [],
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+        grantedAt: new Date().toISOString(),
+        grantedByAccountId: ownerId,
+      }
+      localStorage.setItem('lovedandknown.petProfessionalAccess', JSON.stringify([access]))
+      window.__LK_NOTIFICATIONS__.upsert({
+        type: 'professional_access_requested',
+        title: 'Nová žádost o propojení',
+        message: 'MUDr. Martin Novák žádá o propojení s mazlíčkem Luna.',
+        priority: 'important',
+        dedupeKey: `pro-access:requested:${accessId}`,
+        sourceEventId: `pro-access:requested:${accessId}`,
+        petId,
+        petName: 'Luna',
+        href: `/pets/${petId}?tab=overview#who-has-access`,
+        recipientAccountId: ownerId,
+        relatedProfessionalId: proId,
+        relatedAccessId: accessId,
+        unread: true,
+      })
+      // Duplicate upsert must not create a second row
+      window.__LK_NOTIFICATIONS__.upsert({
+        type: 'professional_access_requested',
+        title: 'Nová žádost o propojení',
+        message: 'MUDr. Martin Novák žádá o propojení s mazlíčkem Luna.',
+        priority: 'important',
+        dedupeKey: `pro-access:requested:${accessId}`,
+        sourceEventId: `pro-access:requested:${accessId}`,
+        petId,
+        petName: 'Luna',
+        href: `/pets/${petId}?tab=overview#who-has-access`,
+        recipientAccountId: ownerId,
+        relatedProfessionalId: proId,
+        relatedAccessId: accessId,
+        unread: true,
+      })
+    },
+    {
+      accessId,
+      proId: proAccessSeed.proId,
+      ownerId: proAccessSeed.ownerId,
+      petId: 'luna',
+    },
+  )
+  await page.waitForTimeout(200)
+
+  let proNotifs = await page.evaluate((accessId) => {
+    const list = window.__LK_NOTIFICATIONS__.get()
+    const matching = list.filter((n) => n.dedupeKey === `pro-access:requested:${accessId}`)
+    return {
+      count: matching.length,
+      unread: matching[0]?.unread,
+      recipient: matching[0]?.recipientAccountId,
+      message: matching[0]?.message || '',
+    }
+  }, accessId)
+  assert(proNotifs.count === 1, 'K22-A/C: exactly 1 request notification after duplicate upsert')
+  assert(proNotifs.unread === true, 'K22-A: request notification unread')
+  assert(proNotifs.recipient === proAccessSeed.ownerId, 'K22-M: recipient is owner account')
+  assert(!/microchip|ownerContacts|\+420/i.test(proNotifs.message), 'K22-H/I: no sensitive text')
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(600)
+  proNotifs = await page.evaluate((accessId) => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]')
+    return {
+      count: list.filter((n) => n.dedupeKey === `pro-access:requested:${accessId}`).length,
+    }
+  }, accessId)
+  assert(proNotifs.count === 1, 'K22-B: request notification survives reload once')
+
+  // Keep only the pro-access notification so it stays in the preview list
+  await page.evaluate((accessId) => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]')
+    const keep = list.filter((n) => String(n.dedupeKey || '').startsWith('pro-access:'))
+    window.__LK_NOTIFICATIONS__.set(keep)
+  }, accessId)
+  await page.waitForTimeout(200)
+
+  await openBell(page)
+  const badgeText = await page.locator('[data-testid="notifications-unread-badge"]').textContent()
+  assert(badgeText && Number(badgeText) >= 1, 'K22: unread badge shows count')
+  assert(await page.getByText('Nová žádost o propojení').count() > 0, 'K22: request title visible')
+  assert(await page.getByText(/^Nové$/i).count() > 0, 'K22: NOVÉ section present')
+  await page.getByText('Nová žádost o propojení').first().click()
+  await page.waitForTimeout(500)
+  assert(page.url().includes('/pets/luna'), 'K22: click opens pet access view')
+
+  const afterRead = await page.evaluate((accessId) => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]')
+    const n = list.find((x) => x.dedupeKey === `pro-access:requested:${accessId}`)
+    return { unread: n?.unread, readAt: n?.readAt }
+  }, accessId)
+  assert(afterRead.unread === false, 'K22-F: marked read after click')
+  assert(Boolean(afterRead.readAt), 'K22-F: readAt set')
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(500)
+  const afterReadReload = await page.evaluate((accessId) => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]')
+    const n = list.find((x) => x.dedupeKey === `pro-access:requested:${accessId}`)
+    return { unread: n?.unread, readAt: n?.readAt }
+  }, accessId)
+  assert(afterReadReload.unread === false, 'K22-G: read state persists')
+
+  // Approve + revoke notifications (pro recipient)
+  await page.evaluate(
+    ({ accessId, proId, proAccountId, petId }) => {
+      const list = JSON.parse(localStorage.getItem('lovedandknown.petProfessionalAccess') || '[]')
+      const access = list.find((a) => a.id === accessId) || {
+        id: accessId,
+        petId,
+        professionalId: proId,
+        permissions: ['viewHealth'],
+        status: 'active',
+        grantedAt: new Date().toISOString(),
+        grantedByAccountId: 'owner_self',
+      }
+      access.status = 'active'
+      access.permissions = ['viewHealth']
+      localStorage.setItem('lovedandknown.petProfessionalAccess', JSON.stringify([access]))
+      window.__LK_NOTIFICATIONS__.upsert({
+        type: 'professional_access_approved',
+        title: 'Přístup schválen',
+        message: 'Přístup k mazlíčkovi Luna byl schválen.',
+        priority: 'normal',
+        dedupeKey: `pro-access:approved:${accessId}`,
+        petId,
+        petName: 'Luna',
+        href: `/professionals/${proId}/pets/${petId}`,
+        recipientAccountId: proAccountId,
+        relatedProfessionalId: proId,
+        relatedAccessId: accessId,
+        unread: true,
+      })
+      window.__LK_NOTIFICATIONS__.upsert({
+        type: 'professional_access_approved',
+        title: 'Přístup schválen',
+        message: 'Přístup k mazlíčkovi Luna byl schválen.',
+        priority: 'normal',
+        dedupeKey: `pro-access:approved:${accessId}`,
+        petId,
+        petName: 'Luna',
+        href: `/professionals/${proId}/pets/${petId}`,
+        recipientAccountId: proAccountId,
+        relatedProfessionalId: proId,
+        relatedAccessId: accessId,
+        unread: true,
+      })
+      access.status = 'revoked'
+      access.revokedAt = new Date().toISOString()
+      localStorage.setItem('lovedandknown.petProfessionalAccess', JSON.stringify([access]))
+      window.__LK_NOTIFICATIONS__.upsert({
+        type: 'professional_access_revoked',
+        title: 'Přístup odebrán',
+        message: 'Přístup k mazlíčkovi Luna byl odebrán.',
+        priority: 'normal',
+        dedupeKey: `pro-access:revoked:${accessId}`,
+        petId,
+        petName: 'Luna',
+        href: `/professionals/${proId}`,
+        recipientAccountId: proAccountId,
+        relatedProfessionalId: proId,
+        relatedAccessId: accessId,
+        unread: true,
+      })
+    },
+    {
+      accessId,
+      proId: proAccessSeed.proId,
+      proAccountId: proAccessSeed.proAccountId,
+      petId: 'luna',
+    },
+  )
+  await page.waitForTimeout(200)
+
+  const approveRevoke = await page.evaluate((accessId) => {
+    const list = window.__LK_NOTIFICATIONS__.get()
+    const approved = list.filter((n) => n.dedupeKey === `pro-access:approved:${accessId}`)
+    const revoked = list.filter((n) => n.dedupeKey === `pro-access:revoked:${accessId}`)
+    const access = JSON.parse(localStorage.getItem('lovedandknown.petProfessionalAccess') || '[]')[0]
+    return {
+      approvedCount: approved.length,
+      revokedCount: revoked.length,
+      revokeHref: revoked[0]?.href,
+      accessStatus: access?.status,
+    }
+  }, accessId)
+  assert(approveRevoke.approvedCount === 1, 'K22-D: exactly 1 approval notification')
+  assert(approveRevoke.revokedCount === 1, 'K22-E: exactly 1 revoke notification')
+  assert(approveRevoke.accessStatus === 'revoked', 'K22-K: access remains revoked')
+  assert(
+    approveRevoke.revokeHref === `/professionals/${proAccessSeed.proId}`,
+    'K22-K: revoke href does not deep-link into pet data',
+  )
 
   await browser.close()
 

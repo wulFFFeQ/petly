@@ -57,6 +57,10 @@ export function upsertNotification(
       conversationId: draft.conversationId ?? existing.conversationId,
       lostAnnouncementId: draft.lostAnnouncementId ?? existing.lostAnnouncementId,
       lostReportId: draft.lostReportId ?? existing.lostReportId,
+      recipientAccountId: draft.recipientAccountId ?? existing.recipientAccountId,
+      relatedProfessionalId: draft.relatedProfessionalId ?? existing.relatedProfessionalId,
+      relatedAccessId: draft.relatedAccessId ?? existing.relatedAccessId,
+      readAt: existing.readAt ?? draft.readAt,
       time: draft.time ?? existing.time,
       // Preserve unread; never force back to unread
       unread: existing.unread,
@@ -74,6 +78,10 @@ export function upsertNotification(
       updated.conversationId === existing.conversationId &&
       updated.lostAnnouncementId === existing.lostAnnouncementId &&
       updated.lostReportId === existing.lostReportId &&
+      updated.recipientAccountId === existing.recipientAccountId &&
+      updated.relatedProfessionalId === existing.relatedProfessionalId &&
+      updated.relatedAccessId === existing.relatedAccessId &&
+      updated.readAt === existing.readAt &&
       updated.time === existing.time
     ) {
       return list
@@ -101,6 +109,10 @@ export function upsertNotification(
     conversationId: draft.conversationId,
     lostAnnouncementId: draft.lostAnnouncementId,
     lostReportId: draft.lostReportId,
+    recipientAccountId: draft.recipientAccountId,
+    relatedProfessionalId: draft.relatedProfessionalId,
+    relatedAccessId: draft.relatedAccessId,
+    readAt: draft.readAt,
     time: draft.time,
   }
 
@@ -115,12 +127,40 @@ export function upsertNotifications(
   return drafts.reduce((acc, draft) => upsertNotification(acc, draft), list)
 }
 
-export function markNotificationRead(list: AppNotification[], id: string): AppNotification[] {
-  return list.map((item) => (item.id === id ? { ...item, unread: false } : item))
+export function markNotificationRead(
+  list: AppNotification[],
+  id: string,
+  nowIso: string = new Date().toISOString(),
+): AppNotification[] {
+  let changed = false
+  const next = list.map((item) => {
+    if (item.id !== id) return item
+    if (!item.unread && item.readAt) return item
+    changed = true
+    return {
+      ...item,
+      unread: false,
+      readAt: item.readAt ?? nowIso,
+    }
+  })
+  return changed ? next : list
 }
 
-export function markAllNotificationsRead(list: AppNotification[]): AppNotification[] {
-  return list.map((item) => ({ ...item, unread: false }))
+export function markAllNotificationsRead(
+  list: AppNotification[],
+  nowIso: string = new Date().toISOString(),
+): AppNotification[] {
+  let changed = false
+  const next = list.map((item) => {
+    if (!item.unread && item.readAt) return item
+    changed = true
+    return {
+      ...item,
+      unread: false,
+      readAt: item.readAt ?? nowIso,
+    }
+  })
+  return changed ? next : list
 }
 
 export function removeNotificationsBySourceRecord(

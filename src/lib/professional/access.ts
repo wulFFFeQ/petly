@@ -168,6 +168,75 @@ export function revokeAccess(
   return { accessList: next, logs: appendAccessLog(logs, entry), access: updated }
 }
 
+/**
+ * Persist time-based expiry: active → expired when expiresAt has passed.
+ * Idempotent for already-expired rows. Does not auto-renew.
+ */
+export function expireAccess(
+  accessList: PetProfessionalAccess[],
+  logs: ProfessionalAccessLog[],
+  accessId: string,
+  nowIso: string = new Date().toISOString(),
+): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
+  const target = accessList.find((a) => a.id === accessId)
+  if (!target) return { accessList, logs, access: null }
+  if (target.status === 'expired') return { accessList, logs, access: target }
+  if (target.status === 'revoked' || target.status === 'pending') {
+    return { accessList, logs, access: null }
+  }
+
+  const nowMs = Date.parse(nowIso)
+  const expMs = target.expiresAt ? Date.parse(target.expiresAt) : Number.NaN
+  if (!target.expiresAt || Number.isNaN(expMs) || Number.isNaN(nowMs) || expMs > nowMs) {
+    return { accessList, logs, access: null }
+  }
+
+  let updated: PetProfessionalAccess | null = null
+  const next = accessList.map((a) => {
+    if (a.id !== accessId) return a
+    updated = {
+      ...a,
+      status: 'expired',
+    }
+    return updated
+  })
+  if (!updated) return { accessList, logs, access: null }
+
+  const entry = createAccessLogEntry({
+    petId: updated.petId,
+    professionalId: updated.professionalId,
+    action: 'access_revoked',
+    timestamp: nowIso,
+    metadata: { accessId, expired: true, status: 'expired' },
+  })
+  return { accessList: next, logs: appendAccessLog(logs, entry), access: updated }
+}
+
+/** Expire all active grants past expiresAt. Returns only newly expired rows. */
+export function expireDueAccesses(
+  accessList: PetProfessionalAccess[],
+  logs: ProfessionalAccessLog[],
+  nowIso: string = new Date().toISOString(),
+): {
+  accessList: PetProfessionalAccess[]
+  logs: ProfessionalAccessLog[]
+  expired: PetProfessionalAccess[]
+} {
+  let list = accessList
+  let nextLogs = logs
+  const expired: PetProfessionalAccess[] = []
+  for (const access of accessList) {
+    if (access.status !== 'active' || !access.expiresAt) continue
+    const result = expireAccess(list, nextLogs, access.id, nowIso)
+    if (result.access && result.access.status === 'expired' && access.status === 'active') {
+      expired.push(result.access)
+      list = result.accessList
+      nextLogs = result.logs
+    }
+  }
+  return { accessList: list, logs: nextLogs, expired }
+}
+
 export function listAccessForOwner(
   accessList: PetProfessionalAccess[],
   ownerAccountId: string,

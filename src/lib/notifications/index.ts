@@ -25,4 +25,12 @@ export {
   buildCalendarNotificationDrafts,
   buildHealthNotificationDrafts,
 } from './fromCalendar'
+export {
+  buildProfessionalAccessNotification,
+  emitProfessionalAccessNotification,
+  isSafeProfessionalAccessNotificationPayload,
+  professionalAccessDedupeKey,
+  type ProfessionalAccessNotificationContext,
+  type ProfessionalAccessNotificationEvent,
+} from './fromProfessionalAccess'
 export { buildSeedNotifications } from './seed'

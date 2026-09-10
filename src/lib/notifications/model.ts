@@ -25,23 +25,29 @@ function asBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
+export const NOTIFICATION_TYPES: NotificationType[] = [
+  'medication',
+  'vaccination',
+  'vet',
+  'health',
+  'calendar',
+  'message',
+  'lost_pet',
+  'lost_sighting',
+  'lost_found',
+  'breeding',
+  'system',
+  'community',
+  'professional_access_requested',
+  'professional_access_approved',
+  'professional_access_rejected',
+  'professional_access_revoked',
+  'professional_access_expired',
+]
+
 function resolveType(raw: Record<string, unknown>): NotificationType {
   const type = asString(raw.type)
-  const allowed: NotificationType[] = [
-    'medication',
-    'vaccination',
-    'vet',
-    'health',
-    'calendar',
-    'message',
-    'lost_pet',
-    'lost_sighting',
-    'lost_found',
-    'breeding',
-    'system',
-    'community',
-  ]
-  if ((allowed as string[]).includes(type)) return type as NotificationType
+  if ((NOTIFICATION_TYPES as string[]).includes(type)) return type as NotificationType
 
   const kind = asString(raw.kind) as LegacyKind
   if (kind && kind in LEGACY_KIND_TO_TYPE) return LEGACY_KIND_TO_TYPE[kind]
@@ -123,6 +129,14 @@ export function normalizeNotification(raw: unknown): AppNotification | null {
   if (lostAnnouncementId) notification.lostAnnouncementId = lostAnnouncementId
   const lostReportId = asString(raw.lostReportId)
   if (lostReportId) notification.lostReportId = lostReportId
+  const recipientAccountId = asString(raw.recipientAccountId)
+  if (recipientAccountId) notification.recipientAccountId = recipientAccountId
+  const relatedProfessionalId = asString(raw.relatedProfessionalId)
+  if (relatedProfessionalId) notification.relatedProfessionalId = relatedProfessionalId
+  const relatedAccessId = asString(raw.relatedAccessId)
+  if (relatedAccessId) notification.relatedAccessId = relatedAccessId
+  const readAt = asString(raw.readAt)
+  if (readAt) notification.readAt = readAt
   if (legacyTime) notification.time = legacyTime
 
   return notification
@@ -170,6 +184,21 @@ export function notificationHrefFallback(item: AppNotification): string | null {
   if (item.type === 'message') return '/messages'
   if (item.type === 'lost_pet' || item.type === 'lost_sighting' || item.type === 'lost_found') {
     return '/pets'
+  }
+  if (item.type === 'professional_access_requested' && item.petId) {
+    return `/pets/${item.petId}?tab=overview#who-has-access`
+  }
+  if (
+    (item.type === 'professional_access_approved' ||
+      item.type === 'professional_access_revoked' ||
+      item.type === 'professional_access_expired' ||
+      item.type === 'professional_access_rejected') &&
+    item.relatedProfessionalId
+  ) {
+    if (item.type === 'professional_access_approved' && item.petId) {
+      return `/professionals/${item.relatedProfessionalId}/pets/${item.petId}`
+    }
+    return `/professionals/${item.relatedProfessionalId}`
   }
   return null
 }
