@@ -228,6 +228,22 @@ export interface Pet {
   /** What they are looking for (walk buddy, playdates…). */
   lookingFor?: string
   /**
+   * When true, this pet may appear in Objevovat as a public Discover profile.
+   * Opt-in only — default false / undefined.
+   */
+  publicDiscover?: boolean
+  /**
+   * Optional seeded engagement for Discover popularity (views, favorites…).
+   * Runtime bumps also live in localStorage discoverEngagement map.
+   */
+  discoverEngagement?: {
+    profileViews?: number
+    favorites?: number
+    connections?: number
+    communityInteractions?: number
+    activityPoints?: number
+  }
+  /**
    * Derived lost-pet lifecycle for badges.
    * Synced from LostPetAnnouncement — do not store the full announcement here.
    */
@@ -432,7 +448,23 @@ export interface DiscoverPet {
   age: number
   location: string
   image: string
+  /**
+   * Derived from popularity score — do not treat as a manual authoring flag.
+   * True when score ≥ popular threshold (Populární filter).
+   */
   popular?: boolean
+  /** Derived — true when score ≥ community-favorite threshold (Oblíbenec badge). */
+  communityFavorite?: boolean
+  /** Computed popularity score (extensible engagement model). */
+  popularityScore?: number
+  /** Engagement metrics used for scoring (views, favorites, connections…). */
+  engagement?: {
+    profileViews?: number
+    favorites?: number
+    connections?: number
+    communityInteractions?: number
+    activityPoints?: number
+  }
   distance?: string
   verified?: boolean
   ownerName?: string

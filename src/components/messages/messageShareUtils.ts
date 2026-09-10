@@ -1,5 +1,9 @@
 import { conversations as initialConversations } from '../../data/mockData'
 import { loadConversationPrefs } from '../../lib/archivedConversations'
+import {
+  loadPersistedInboxConversations,
+  mergeInboxConversations,
+} from '../../lib/messages/inboxStorage'
 import type { Conversation, DiscoverPet, HealthRecord } from '../../types'
 import {
   Syringe,
@@ -50,16 +54,21 @@ export function buildHealthShareMessage(record: HealthRecord, index: number) {
 }
 
 export function buildInitialConversations(): Conversation[] {
-  const prefs = loadConversationPrefs()
-  const archivedIds = new Set(prefs.archivedIds)
-  return initialConversations.map((conversation) => ({
-    ...conversation,
-    archived: archivedIds.has(conversation.id),
-    unread:
-      conversation.id in prefs.unreadById
-        ? prefs.unreadById[conversation.id]
-        : conversation.unread,
-  }))
+  const seed = initialConversations.map((conversation) => ({ ...conversation }))
+  const persisted = loadPersistedInboxConversations()
+  if (persisted.length === 0) {
+    const prefs = loadConversationPrefs()
+    const archivedIds = new Set(prefs.archivedIds)
+    return seed.map((conversation) => ({
+      ...conversation,
+      archived: archivedIds.has(conversation.id),
+      unread:
+        conversation.id in prefs.unreadById
+          ? prefs.unreadById[conversation.id]
+          : conversation.unread,
+    }))
+  }
+  return mergeInboxConversations(seed, persisted)
 }
 
 /** Start (or describe) a community chat from a Discover pet profile. */

@@ -34,7 +34,7 @@ function resolvePetHref(
 ): string | null {
   if (petId) {
     if (pets.some((pet) => pet.id === petId)) return `/pets/${petId}`
-    if (discoverCatalogHasPetId(petId)) return `/discover/${petId}`
+    if (discoverCatalogHasPetId(petId, pets)) return `/discover/${petId}`
   }
 
   const name = petTag?.split('·')[0]?.trim()
@@ -43,7 +43,7 @@ function resolvePetHref(
   const ownPet = pets.find((pet) => pet.name === name)
   if (ownPet) return `/pets/${ownPet.id}`
 
-  const discoverPet = findDiscoverPetByName(name)
+  const discoverPet = findDiscoverPetByName(name, pets)
   if (discoverPet) return `/discover/${discoverPet.id}`
 
   return null

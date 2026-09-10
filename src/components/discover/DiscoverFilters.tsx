@@ -259,7 +259,6 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
             type="button"
             onClick={() => {
               resetDiscoverCriteria()
-              setDiscoverSearch('')
             }}
             className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#7D8B82] hover:text-[#2C4A3E] hover:bg-[#FAF8F5] cursor-pointer"
           >

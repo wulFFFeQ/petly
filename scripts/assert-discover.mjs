@@ -38,6 +38,9 @@ const ALLOWED_DISCOVER_KEYS = new Set([
   'location',
   'image',
   'popular',
+  'communityFavorite',
+  'popularityScore',
+  'engagement',
   'distance',
   'verified',
   'ownerName',
@@ -169,6 +172,61 @@ check(!(km <= 30 + 0.05), 'Praha is outside 30 km nearby of Kolín')
 const kutna = { latitude: 49.9484, longitude: 15.2682 }
 const kmNearby = haversineKm(kolin, kutna)
 check(kmNearby <= 30 + 0.05, `Kutná Hora is nearby Kolín (${kmNearby.toFixed(1)} km)`)
+
+// Popularity score — not a hardcoded boolean
+function computeScore(pet) {
+  let score = 0
+  if (pet.verified) score += 15
+  for (const badge of pet.publicBadges ?? []) {
+    score += 8 + Math.max(0, (badge.level ?? 1) - 1) * 2
+  }
+  for (const event of pet.publicTimeline ?? []) {
+    score += event.category === 'award' || event.category === 'show' ? 12 : 2
+  }
+  if (pet.breedingProfile) score += 8
+  score += Math.min(10, (pet.gallery?.length ?? 0) * 2)
+  const eng = pet.engagement ?? {}
+  score += Math.min(40, (eng.profileViews ?? 0) * 0.15)
+  score += (eng.favorites ?? 0) * 6
+  score += (eng.connections ?? 0) * 12
+  score += (eng.communityInteractions ?? 0) * 3
+  score += (eng.activityPoints ?? 0) * 1
+  return Math.round(score * 10) / 10
+}
+
+const popularDemo = {
+  verified: true,
+  publicBadges: [{ level: 1 }, { level: 1 }],
+  publicTimeline: [{ category: 'adoption' }],
+  gallery: [1, 2],
+  engagement: { profileViews: 100, favorites: 8, connections: 3, communityInteractions: 10 },
+}
+const quietDemo = { verified: false, publicBadges: [], engagement: {} }
+const popularScore = computeScore(popularDemo)
+const quietScore = computeScore(quietDemo)
+check(popularScore >= 40, `engagement-based score reaches popular threshold (${popularScore})`)
+check(quietScore < 40, `low-engagement pet is not popular (${quietScore})`)
+check(popularScore !== true && typeof popularScore === 'number', 'popularity is numeric score, not boolean')
+
+const leakyOwned = {
+  id: 'luna',
+  name: 'Luna',
+  type: 'dog',
+  breed: 'Zlatý retriever',
+  age: 4,
+  location: 'Kolín',
+  image: 'https://example.com/luna.jpg',
+  bio: 'Public bio',
+  microchip: '985112004567890',
+  weight: 28,
+  phone: '+420111',
+  healthStatus: 'excellent',
+}
+const ownedClean = sanitizeDiscoverPet(leakyOwned)
+check(ownedClean && !('microchip' in ownedClean), 'H: owned projection strips microchip')
+check(ownedClean && !('weight' in ownedClean), 'H: owned projection strips weight')
+check(ownedClean && !('phone' in ownedClean), 'H: owned projection strips phone')
+check(ownedClean && !('healthStatus' in ownedClean), 'H: owned projection strips healthStatus')
 
 if (failures.length) {
   console.error(`\n${failures.length} assertion(s) failed`)

@@ -62,6 +62,11 @@ import {
   DEFAULT_DISCOVER_CRITERIA,
   type DiscoverCriteria,
 } from '../lib/discoverCriteria'
+import {
+  clearDiscoverFiltersSession,
+  loadDiscoverFiltersFromSession,
+  saveDiscoverFiltersToSession,
+} from '../lib/discover/filterStorage'
 import { normalizeMicrochipInput } from '../lib/microchip'
 import {
   createFoundContactToken,
@@ -188,6 +193,11 @@ function loadPets(): Pet[] {
               ? pet.lookingFor.trim()
               : undefined
             : seed?.lookingFor,
+        publicDiscover:
+          typeof pet.publicDiscover === 'boolean'
+            ? pet.publicDiscover
+            : (seed?.publicDiscover ?? false),
+        discoverEngagement: pet.discoverEngagement ?? seed?.discoverEngagement,
         foundContactToken:
           typeof pet.foundContactToken === 'string' && pet.foundContactToken.trim()
             ? pet.foundContactToken.trim()
@@ -482,13 +492,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const badgesHydratedRef = useRef(false)
   const [activeModal, setActiveModalState] = useState<ModalType>(null)
   const [modalPetId, setModalPetId] = useState<string | null>(null)
-  const [discoverSearch, setDiscoverSearch] = useState('')
-  const [discoverCriteria, setDiscoverCriteria] = useState<DiscoverCriteria>(
-    DEFAULT_DISCOVER_CRITERIA,
-  )
-  const resetDiscoverCriteria = useCallback(() => {
-    setDiscoverCriteria(DEFAULT_DISCOVER_CRITERIA)
+  const [discoverSearch, setDiscoverSearchState] = useState(() => {
+    return loadDiscoverFiltersFromSession()?.search ?? ''
+  })
+  const [discoverCriteria, setDiscoverCriteriaState] = useState<DiscoverCriteria>(() => {
+    return loadDiscoverFiltersFromSession()?.criteria ?? DEFAULT_DISCOVER_CRITERIA
+  })
+
+  const setDiscoverSearch = useCallback((query: string) => {
+    setDiscoverSearchState(query)
   }, [])
+
+  const setDiscoverCriteria = useCallback(
+    (value: DiscoverCriteria | ((prev: DiscoverCriteria) => DiscoverCriteria)) => {
+      setDiscoverCriteriaState(value)
+    },
+    [],
+  )
+
+  const resetDiscoverCriteria = useCallback(() => {
+    setDiscoverCriteriaState(DEFAULT_DISCOVER_CRITERIA)
+    setDiscoverSearchState('')
+    clearDiscoverFiltersSession()
+  }, [])
+
+  useEffect(() => {
+    const isDefault =
+      discoverSearch === '' &&
+      JSON.stringify(discoverCriteria) === JSON.stringify(DEFAULT_DISCOVER_CRITERIA)
+    if (isDefault) {
+      clearDiscoverFiltersSession()
+      return
+    }
+    saveDiscoverFiltersToSession({ search: discoverSearch, criteria: discoverCriteria })
+  }, [discoverSearch, discoverCriteria])
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)

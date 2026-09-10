@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { healthRecords } from '../../data/mockData'
-import { getDiscoverPetById } from '../../lib/discover/catalog'
+import { bumpDiscoverEngagement, getDiscoverPetById } from '../../lib/discover'
 import { saveConversationPrefs } from '../../lib/archivedConversations'
+import { savePersistedInboxConversations } from '../../lib/messages/inboxStorage'
 import { useApp } from '../../context/AppContext'
 import type { Conversation } from '../../types'
 import { Card } from '../ui/Card'
@@ -17,7 +18,8 @@ import {
 } from './messageShareUtils'
 
 export function MessagesPageContent() {
-  const { showToast, lostConversations, sendLostFinderMessage, upsertNotification } = useApp()
+  const { showToast, lostConversations, sendLostFinderMessage, upsertNotification, pets } =
+    useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
   const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
@@ -76,7 +78,11 @@ export function MessagesPageContent() {
         )
       }
 
-      const pet = getDiscoverPetById(contactPetId)
+      if (pets.some((owned) => owned.id === contactPetId)) {
+        return prev
+      }
+
+      const pet = getDiscoverPetById(contactPetId, pets)
       if (!pet) return prev
 
       const created = buildConversationFromDiscoverPet(pet)
@@ -91,7 +97,8 @@ export function MessagesPageContent() {
       setMobileShowChat(true)
 
       if (createdNewDiscoverThread && contactPetId) {
-        const pet = getDiscoverPetById(contactPetId)
+        const pet = getDiscoverPetById(contactPetId, pets)
+        bumpDiscoverEngagement(contactPetId, { connections: 1, communityInteractions: 1 })
         upsertNotification({
           type: 'community',
           title: pet ? `Propojeno s ${pet.name}` : 'Nové propojení',
@@ -110,7 +117,7 @@ export function MessagesPageContent() {
     }
 
     setSearchParams({}, { replace: true })
-  }, [searchParams, setSearchParams, lostConversations, upsertNotification])
+  }, [searchParams, setSearchParams, lostConversations, upsertNotification, pets])
 
   // Merge lost-pet finder threads into inbox without wiping local edits.
   useEffect(() => {
@@ -150,7 +157,7 @@ export function MessagesPageContent() {
 
   const active = conversations.find((c) => c.id === activeId)
   const contactPet = active?.contactPetId
-    ? getDiscoverPetById(active.contactPetId)
+    ? getDiscoverPetById(active.contactPetId, pets)
     : undefined
   const archivedCount = conversations.filter((c) => c.archived).length
 
@@ -163,6 +170,7 @@ export function MessagesPageContent() {
       archivedIds: conversations.filter((c) => c.archived).map((c) => c.id),
       unreadById,
     })
+    savePersistedInboxConversations(conversations)
   }, [conversations])
 
   useEffect(() => {

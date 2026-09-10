@@ -2,6 +2,7 @@ import { MapPin, Sparkles, MessageCircle, ShieldCheck, User } from 'lucide-react
 import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import { isOwnDiscoverPet } from '../../lib/discover'
 import type { DiscoverPet } from '../../types'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -13,13 +14,23 @@ interface DiscoverCardProps {
 }
 
 export function DiscoverCard({ pet }: DiscoverCardProps) {
-  const { showToast } = useApp()
+  const { showToast, pets } = useApp()
   const navigate = useNavigate()
   const profilePath = `/discover/${pet.id}`
+  const isOwn = isOwnDiscoverPet(pet.id, pets)
+  const showFavoriteBadge = Boolean(pet.communityFavorite || pet.popular)
 
   const handleConnect = (e: MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (isOwn) {
+      showToast(
+        'Tohle je váš mazlíček',
+        'Nemůžete oslovit sami sebe.',
+        'info',
+      )
+      return
+    }
     showToast(
       `Propojeno s ${pet.name} a ${pet.ownerName || 'majitelem'}`,
       'Otevíráme konverzaci ve zprávách.',
@@ -46,7 +57,7 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
           ageLabel={`${pet.age} let`}
           aspect="square"
           topLeft={
-            pet.popular ? (
+            showFavoriteBadge ? (
               <Badge variant="gold" size="sm" className="bg-white/95 backdrop-blur-md shadow-xs">
                 <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
                 Oblíbenec komunity
@@ -88,16 +99,18 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
       </Link>
 
       <div className="flex flex-col gap-2 px-4 pb-4 pt-0">
-        <Button
-          variant="outline"
-          fullWidth
-          size="sm"
-          onClick={handleConnect}
-          className="group-hover:bg-[#2C4A3E] group-hover:text-white group-hover:border-[#2C4A3E] transition-all gap-1.5"
-        >
-          <MessageCircle size={14} />
-          <span>Oslovit a propojit se</span>
-        </Button>
+        {!isOwn && (
+          <Button
+            variant="outline"
+            fullWidth
+            size="sm"
+            onClick={handleConnect}
+            className="group-hover:bg-[#2C4A3E] group-hover:text-white group-hover:border-[#2C4A3E] transition-all gap-1.5"
+          >
+            <MessageCircle size={14} />
+            <span>Oslovit a propojit se</span>
+          </Button>
+        )}
         <Link
           to={profilePath}
           className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium text-[#5A6660] hover:bg-[#EBF2EE] hover:text-[#2C4A3E] transition-colors"

@@ -1,22 +1,60 @@
 import { Compass } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { DiscoverCard } from '../components/discover/DiscoverCard'
 import { DiscoverFilters } from '../components/discover/DiscoverFilters'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
-import { getDiscoverPets } from '../lib/discover/catalog'
+import {
+  getDiscoverPets,
+  getDiscoverPetsIncludingOwn,
+  SELF_OWNER_ID,
+} from '../lib/discover'
 import { petMatchesDiscoverCriteria } from '../lib/discoverCriteria'
 
 export function DiscoverPage() {
-  const { discoverSearch, discoverCriteria } = useApp()
-  const catalog = useMemo(() => getDiscoverPets(), [])
+  const { discoverSearch, discoverCriteria, pets } = useApp()
+
+  const catalog = useMemo(() => {
+    const ownIds = pets.map((pet) => pet.id)
+    return getDiscoverPets({
+      ownedPets: pets,
+      excludePetIds: ownIds,
+      excludeOwnerIds: [SELF_OWNER_ID],
+    })
+  }, [pets])
 
   const filtered = useMemo(() => {
     return catalog.filter((pet) =>
       petMatchesDiscoverCriteria(pet, discoverCriteria, discoverSearch),
     )
   }, [catalog, discoverSearch, discoverCriteria])
+
+  const totalPublic = useMemo(
+    () => getDiscoverPets({ ownedPets: pets, excludePetIds: pets.map((p) => p.id) }).length,
+    [pets],
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const api = {
+      getCatalogIncludingOwn: () => getDiscoverPetsIncludingOwn(pets),
+      getVisibleForOwner: () =>
+        getDiscoverPets({
+          ownedPets: pets,
+          excludePetIds: pets.map((p) => p.id),
+          excludeOwnerIds: [SELF_OWNER_ID],
+        }),
+      popularityScore: (petId: string) => {
+        const pet = getDiscoverPetsIncludingOwn(pets).find((p) => p.id === petId)
+        return pet?.popularityScore ?? null
+      },
+    }
+    ;(window as Window & { __LK_DISCOVER__?: typeof api }).__LK_DISCOVER__ = api
+    return () => {
+      delete (window as Window & { __LK_DISCOVER__?: typeof api }).__LK_DISCOVER__
+    }
+  }, [pets])
 
   return (
     <div className="space-y-8">
@@ -33,7 +71,7 @@ export function DiscoverPage() {
         <p className="text-xs font-medium text-[#7D8B82]">
           {filtered.length === 0
             ? 'Žádné výsledky'
-            : `Zobrazeno ${filtered.length} z ${catalog.length} profilů`}
+            : `Zobrazeno ${filtered.length} z ${totalPublic} profilů`}
         </p>
       </div>
 

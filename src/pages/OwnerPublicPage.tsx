@@ -5,12 +5,14 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { getDiscoverOwnerById, getDiscoverPetsByOwnerId } from '../lib/discover/catalog'
 import { petTypeLabel } from '../lib/petTypes'
+import { useApp } from '../context/AppContext'
 
 export function OwnerPublicPage() {
   const { ownerId } = useParams()
   const navigate = useNavigate()
-  const owner = getDiscoverOwnerById(ownerId)
-  const pets = getDiscoverPetsByOwnerId(ownerId)
+  const { pets: ownedPets } = useApp()
+  const owner = getDiscoverOwnerById(ownerId, ownedPets)
+  const pets = getDiscoverPetsByOwnerId(ownerId, ownedPets)
 
   if (!owner) {
     return (

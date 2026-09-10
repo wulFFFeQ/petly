@@ -1,4 +1,5 @@
 import { ArrowLeft, MessageCircle } from 'lucide-react'
+import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DiscoverAboutSection } from '../components/discover/profile/DiscoverAboutSection'
 import { DiscoverActivitiesSection } from '../components/discover/profile/DiscoverActivitiesSection'
@@ -11,17 +12,36 @@ import { DiscoverTimelineSection } from '../components/discover/profile/Discover
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { useApp } from '../context/AppContext'
-import { getDiscoverOwnerById, getDiscoverPetById } from '../lib/discover/catalog'
+import {
+  bumpDiscoverEngagement,
+  getDiscoverOwnerById,
+  getDiscoverPetById,
+  isOwnDiscoverPet,
+} from '../lib/discover'
 
 export function DiscoverPetPage() {
   const { petId } = useParams()
   const navigate = useNavigate()
-  const { showToast } = useApp()
-  const pet = getDiscoverPetById(petId)
-  const owner = pet?.ownerId ? getDiscoverOwnerById(pet.ownerId) : undefined
+  const { showToast, pets } = useApp()
+  const pet = getDiscoverPetById(petId, pets)
+  const owner = pet?.ownerId ? getDiscoverOwnerById(pet.ownerId, pets) : undefined
+  const isOwn = pet ? isOwnDiscoverPet(pet.id, pets) : false
+
+  useEffect(() => {
+    if (!pet || isOwn) return
+    bumpDiscoverEngagement(pet.id, { profileViews: 1 })
+  }, [pet?.id, isOwn])
 
   const handleConnect = () => {
     if (!pet) return
+    if (isOwn) {
+      showToast(
+        'Tohle je váš mazlíček',
+        'Nemůžete oslovit sami sebe. Upravte veřejný profil v kartě mazlíčka.',
+        'info',
+      )
+      return
+    }
     showToast(
       `Propojeno s ${pet.name}`,
       pet.ownerName
@@ -63,10 +83,17 @@ export function DiscoverPetPage() {
       <DiscoverProfileHero pet={pet} />
 
       <Card variant="elevated" padding="md" className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
-          <MessageCircle size={15} />
-          Oslovit a propojit se
-        </Button>
+        {!isOwn && (
+          <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
+            <MessageCircle size={15} />
+            Oslovit a propojit se
+          </Button>
+        )}
+        {isOwn && (
+          <p className="text-xs font-medium text-[#7D8B82]">
+            Toto je váš veřejný profil — ostatní vás mohou najít v Objevovat.
+          </p>
+        )}
         <Link
           to="/discover"
           className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-4 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
@@ -97,20 +124,22 @@ export function DiscoverPetPage() {
         <DiscoverBreedingSection breeding={pet.breeding} />
       )}
 
-      {owner && <DiscoverOwnerSection owner={owner} />}
+      {owner && !isOwn && <DiscoverOwnerSection owner={owner} />}
 
-      <Card variant="elevated" padding="md" className="flex flex-wrap items-center gap-2">
-        <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
-          <MessageCircle size={15} />
-          Oslovit a propojit se
-        </Button>
-        <Link
-          to="/discover"
-          className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-4 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
-        >
-          Zpět na Objevovat
-        </Link>
-      </Card>
+      {!isOwn && (
+        <Card variant="elevated" padding="md" className="flex flex-wrap items-center gap-2">
+          <Button variant="primary" size="md" className="gap-1.5" onClick={handleConnect}>
+            <MessageCircle size={15} />
+            Oslovit a propojit se
+          </Button>
+          <Link
+            to="/discover"
+            className="inline-flex items-center rounded-xl border border-[#E8E4DC] px-4 py-2 text-xs font-semibold text-[#5A6660] hover:bg-[#FAF8F5] transition-colors"
+          >
+            Zpět na Objevovat
+          </Link>
+        </Card>
+      )}
     </div>
   )
 }

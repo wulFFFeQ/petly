@@ -254,14 +254,153 @@ async function main() {
   assert(afterSecond === beforeSecond, `J: reopen Coco keeps single notification (${beforeSecond}→${afterSecond})`)
   assert(beforeSecond >= 1 || keysAfter.includes('discover:connect:d4'), 'J: prior Coco notification still one')
 
-  // Reload list: filters not persistent (session) — intentional
+  // F) filters survive reload (sessionStorage)
   await gotoDiscover(page)
   await page.getByRole('button', { name: 'Psi', exact: true }).click()
-  await page.waitForTimeout(150)
+  await page.waitForTimeout(200)
+  const storedFilters = await page.evaluate(() =>
+    sessionStorage.getItem('lovedandknown.discoverFilters'),
+  )
+  assert(Boolean(storedFilters), 'F: filters written to sessionStorage')
   await page.reload({ waitUntil: 'networkidle' })
   await page.waitForTimeout(400)
   names = await cardNames(page)
-  assert(names.length === 6, `reload clears session filters → 6 profiles (got ${names.length})`)
+  assert(
+    names.length === 3 && names.every((n) => ['Max', 'Rocky', 'Charlie'].includes(n)),
+    `F: Psi filter survives reload (got ${names.join(',')})`,
+  )
+
+  // G) Reset clears sessionStorage
+  await page.getByRole('button', { name: 'Reset', exact: true }).click()
+  await page.waitForTimeout(200)
+  const afterReset = await page.evaluate(() =>
+    sessionStorage.getItem('lovedandknown.discoverFilters'),
+  )
+  assert(afterReset == null, 'G: Reset clears discoverFilters from sessionStorage')
+  names = await cardNames(page)
+  assert(names.length === 6, `G: reset restores 6 profiles (got ${names.length})`)
+
+  // --- Decision suite A–I ---
+
+  // A/B) publicDiscover owned pet in catalog vs not
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.pets')
+    const list = raw ? JSON.parse(raw) : []
+    const next = list.map((p) =>
+      p.id === 'luna' ? { ...p, publicDiscover: true } : { ...p, publicDiscover: false },
+    )
+    localStorage.setItem('lovedandknown.pets', JSON.stringify(next))
+  })
+  await gotoDiscover(page)
+  await page.waitForTimeout(500)
+  const catalogA = await page.evaluate(() => {
+    const api = window.__LK_DISCOVER__
+    if (!api) return null
+    return {
+      including: api.getCatalogIncludingOwn().map((p) => p.id),
+      visible: api.getVisibleForOwner().map((p) => p.id),
+    }
+  })
+  assert(catalogA != null, 'A: __LK_DISCOVER__ test API available')
+  assert(catalogA.including.includes('luna'), 'A: public Luna appears in full Discover catalog')
+  assert(!catalogA.visible.includes('luna'), 'C: owner does not see Luna in Objevovat results')
+  names = await cardNames(page)
+  assert(!names.includes('Luna'), 'C: Luna not on Discover cards for owner')
+
+  await page.goto(`${BASE}/discover/luna`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(400)
+  assert(await page.getByRole('heading', { name: 'Luna' }).isVisible(), 'A: /discover/luna opens public owned profile')
+  assert(
+    !(await page.getByRole('button', { name: /Oslovit a propojit se/ }).count()),
+    'D: no connect button on own public profile',
+  )
+  const lunaBody = await page.locator('body').innerText()
+  assert(!lunaBody.includes('985112'), 'H: Luna public profile hides microchip')
+  assert(!/\+420/.test(lunaBody), 'H: Luna public profile hides phone-like PII')
+
+  // B) neveřejný — turn off and profile disappears from catalog
+  await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.pets') || '[]')
+    localStorage.setItem(
+      'lovedandknown.pets',
+      JSON.stringify(list.map((p) => (p.id === 'luna' ? { ...p, publicDiscover: false } : p))),
+    )
+  })
+  await gotoDiscover(page)
+  await page.waitForTimeout(400)
+  const catalogB = await page.evaluate(() => {
+    const api = window.__LK_DISCOVER__
+    return api ? api.getCatalogIncludingOwn().map((p) => p.id) : []
+  })
+  assert(!catalogB.includes('luna'), 'B: non-public Luna not in Discover catalog')
+  await page.goto(`${BASE}/discover/luna`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  assert(
+    await page.getByText('Profil mazlíčka nenalezen').isVisible(),
+    'B: non-public Luna profile not found',
+  )
+
+  // D) self-connect via messages query must not create thread
+  await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.pets') || '[]')
+    localStorage.setItem(
+      'lovedandknown.pets',
+      JSON.stringify(list.map((p) => (p.id === 'luna' ? { ...p, publicDiscover: true } : p))),
+    )
+  })
+  await page.goto(`${BASE}/messages?contactPetId=luna`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(600)
+  const inboxAfterSelf = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.inboxConversations')
+    if (!raw) return []
+    return JSON.parse(raw).filter((c) => c.contactPetId === 'luna')
+  })
+  assert(inboxAfterSelf.length === 0, 'D: no self-connect conversation persisted for luna')
+
+  // E) Discover conversation survives reload
+  await page.evaluate(() => localStorage.removeItem('lovedandknown.inboxConversations'))
+  await page.goto(`${BASE}/discover/d5`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
+  await page.waitForTimeout(800)
+  const persistedBeforeReload = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.inboxConversations')
+    if (!raw) return null
+    return JSON.parse(raw).find((c) => c.contactPetId === 'd5')
+  })
+  assert(Boolean(persistedBeforeReload), 'E: Charlie Discover conversation saved to inbox storage')
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(600)
+  const persistedAfterReload = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.inboxConversations')
+    if (!raw) return null
+    return JSON.parse(raw).find((c) => c.contactPetId === 'd5')
+  })
+  assert(Boolean(persistedAfterReload), 'E: Charlie conversation survives reload')
+  assert(
+    (await page.locator('body').innerText()).includes('Charlie') ||
+      (await page.locator('body').innerText()).includes('Matěj'),
+    'E: Charlie/Matěj thread visible after reload',
+  )
+
+  // I) Popular/Oblíbenec from score, not hardcoded boolean
+  await gotoDiscover(page)
+  const scoreInfo = await page.evaluate(() => {
+    const api = window.__LK_DISCOVER__
+    if (!api) return null
+    const max = api.getCatalogIncludingOwn().find((p) => p.id === 'd1')
+    return {
+      score: max?.popularityScore,
+      popular: max?.popular,
+      favorite: max?.communityFavorite,
+      hasEngagement: Boolean(max?.engagement),
+    }
+  })
+  assert(scoreInfo != null, 'I: score API available')
+  assert(typeof scoreInfo.score === 'number' && scoreInfo.score >= 40, `I: Max has computed score (${scoreInfo.score})`)
+  assert(scoreInfo.popular === true, 'I: Max popular derived from score')
+  assert(scoreInfo.hasEngagement, 'I: Max uses engagement metrics')
+  assert(await page.getByText('Oblíbenec komunity').first().isVisible(), 'I: Oblíbenec badge visible from score')
 
   await browser.close()
 

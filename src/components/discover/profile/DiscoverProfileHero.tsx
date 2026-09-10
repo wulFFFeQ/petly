@@ -25,12 +25,12 @@ export function DiscoverProfileHero({ pet }: DiscoverProfileHeroProps) {
                 <ShieldCheck size={15} />
               </span>
             )}
-            {pet.popular && (
+            {pet.communityFavorite || pet.popular ? (
               <Badge variant="gold" size="sm" className="bg-white/95 text-[#191E1B]">
                 <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
                 Oblíbenec
               </Badge>
-            )}
+            ) : null}
             {pet.breedingProfile && (
               <Badge variant="outline" size="sm" className="border-white/40 bg-white/15 text-white backdrop-blur-sm">
                 Chovný profil

@@ -55,7 +55,19 @@ export function OverviewTab({
   openLifestyleEditor,
   openAboutEditor,
 }: OverviewTabProps) {
-  const { earnedBadges } = useApp()
+  const { earnedBadges, updatePet, showToast } = useApp()
+
+  const togglePublicDiscover = () => {
+    const next = !pet.publicDiscover
+    updatePet(pet.id, { publicDiscover: next })
+    showToast(
+      next ? 'Profil je veřejný v Objevovat' : 'Profil skryt z Objevovat',
+      next
+        ? 'Ostatní vás mohou najít. Vy sami sebe ve výsledcích neuvidíte.'
+        : 'Mazlíček se v Objevovat nezobrazí.',
+      next ? 'gold' : 'success',
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -200,6 +212,35 @@ export function OverviewTab({
             <Pencil size={13} />
             Upravit
           </Button>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3.5 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[#191E1B]">Veřejný profil v Objevovat</p>
+            <p className="mt-0.5 text-[11px] text-[#7D8B82]">
+              {pet.publicDiscover
+                ? 'Zapnuto — bez zdravotních údajů, mikročipu a kontaktů.'
+                : 'Vypnuto — mazlíček se v Objevovat nezobrazí.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(pet.publicDiscover)}
+            aria-label="Veřejný profil v Objevovat"
+            onClick={togglePublicDiscover}
+            className={cn(
+              'relative h-7 w-12 shrink-0 rounded-full transition-colors cursor-pointer',
+              pet.publicDiscover ? 'bg-[#2C4A3E]' : 'bg-[#D1D5D0]',
+            )}
+          >
+            <span
+              className={cn(
+                'absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform',
+                pet.publicDiscover && 'translate-x-5',
+              )}
+            />
+          </button>
         </div>
 
         {pet.bio ||
