@@ -209,19 +209,51 @@ export function documentIdsLabel(count: number): string {
 
 /**
  * Ensure at most one sire and one dam in the pedigree list.
- * Replaces any existing ancestor with the same parental role (keeps history of other roles).
+ * Updating the same record (same id) is allowed; adding a second parent of the same role is refused.
  */
+export type PedigreeUpsertResult =
+  | { ok: true; list: BreedingAncestor[] }
+  | { ok: false; existing: BreedingAncestor }
+
 export function upsertPedigreeAncestor(
   list: BreedingAncestor[] | undefined,
   ancestor: BreedingAncestor,
-): BreedingAncestor[] {
+): PedigreeUpsertResult {
   const current = list ?? []
   const withoutSelf = current.filter((row) => row.id !== ancestor.id)
-  const withoutConflictingRole =
-    ancestor.role === 'sire' || ancestor.role === 'dam'
-      ? withoutSelf.filter((row) => row.role !== ancestor.role)
-      : withoutSelf
-  return [...withoutConflictingRole, ancestor]
+
+  if (ancestor.role === 'sire' || ancestor.role === 'dam') {
+    const existing = withoutSelf.find((row) => row.role === ancestor.role)
+    if (existing) {
+      return { ok: false, existing }
+    }
+  }
+
+  return { ok: true, list: [...withoutSelf, ancestor] }
+}
+
+export function findParentByRole(
+  list: BreedingAncestor[] | undefined,
+  role: 'sire' | 'dam',
+): BreedingAncestor | undefined {
+  return (list ?? []).find((row) => row.role === role)
+}
+
+/** Pull name / breed / registration from a linked L&K pet when available. */
+export function ancestorFieldsFromPet(pet: Pet): {
+  name: string
+  breed: string
+  registrationNumber: string
+} {
+  const registration =
+    pet.breeding?.info?.registrationNumber?.trim() ||
+    pet.breeding?.info?.pedigreeNumber?.trim() ||
+    ''
+  return {
+    name: pet.name?.trim() || '',
+    breed: pet.breed?.trim() || '',
+    registrationNumber: registration,
+  }
 }
 
 /**

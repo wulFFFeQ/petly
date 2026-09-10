@@ -11,6 +11,7 @@ import type {
   PetDocument,
 } from '../../../../types'
 import {
+  ancestorFieldsFromPet,
   canManageLitters,
   newBreedingRecordId,
   pruneEmptyStrings,
@@ -84,6 +85,7 @@ export function BreedingPedigreeSection({
   const list = pet.breeding?.pedigree ?? []
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<BreedingAncestor | null>(null)
+  const [parentConflict, setParentConflict] = useState<BreedingAncestor | null>(null)
   const [form, setForm] = useState({
     role: 'sire' as BreedingAncestor['role'],
     name: '',
@@ -93,12 +95,28 @@ export function BreedingPedigreeSection({
   })
 
   const openNew = (role: BreedingAncestor['role'] = 'sire') => {
+    if ((role === 'sire' || role === 'dam') && list.some((a) => a.role === role)) {
+      const existing = list.find((a) => a.role === role)!
+      setParentConflict(existing)
+      setEditing(null)
+      setForm({
+        role,
+        name: '',
+        breed: '',
+        registrationNumber: '',
+        linkedPetId: undefined,
+      })
+      setOpen(true)
+      return
+    }
+    setParentConflict(null)
     setEditing(null)
     setForm({ role, name: '', breed: '', registrationNumber: '', linkedPetId: undefined })
     setOpen(true)
   }
 
   const openEdit = (row: BreedingAncestor) => {
+    setParentConflict(null)
     setEditing(row)
     setForm({
       role: row.role,
@@ -208,7 +226,10 @@ export function BreedingPedigreeSection({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false)
+          setParentConflict(null)
+        }}
         title={editing ? 'Upravit předka' : 'Přidat předka'}
         maxWidth="md"
       >
@@ -216,6 +237,7 @@ export function BreedingPedigreeSection({
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault()
+            if (parentConflict) return
             const base: BreedingAncestor = {
               id: editing?.id ?? newBreedingRecordId('anc'),
               role: form.role,
@@ -231,13 +253,13 @@ export function BreedingPedigreeSection({
                 linkedPetId: form.linkedPetId,
               }) as Partial<BreedingAncestor>),
             }
-            onSave(
-              setBreedingList(
-                pet.breeding,
-                'pedigree',
-                upsertPedigreeAncestor(list, base),
-              ),
-            )
+            const result = upsertPedigreeAncestor(list, base)
+            if (!result.ok) {
+              setParentConflict(result.existing)
+              return
+            }
+            onSave(setBreedingList(pet.breeding, 'pedigree', result.list))
+            setParentConflict(null)
             setOpen(false)
           }}
         >
@@ -245,59 +267,102 @@ export function BreedingPedigreeSection({
             id="anc-role"
             label="Role"
             value={form.role}
-            onChange={(value) =>
-              setForm((prev) => ({ ...prev, role: value as BreedingAncestor['role'] }))
-            }
+            onChange={(value) => {
+              const role = value as BreedingAncestor['role']
+              setForm((prev) => ({ ...prev, role }))
+              if (role === 'sire' || role === 'dam') {
+                const existing = list.find(
+                  (a) => a.role === role && a.id !== editing?.id,
+                )
+                setParentConflict(existing ?? null)
+              } else {
+                setParentConflict(null)
+              }
+            }}
             options={[
               { value: 'sire', label: 'Otec' },
               { value: 'dam', label: 'Matka' },
               { value: 'other', label: 'Další předek' },
             ]}
           />
-          {(form.role === 'sire' || form.role === 'dam') &&
-            list.some(
-              (a) =>
-                a.role === form.role && a.id !== editing?.id,
-            ) && (
-              <p className="text-[11px] text-[#7D8B82]">
-                U tohoto profilu už {form.role === 'sire' ? 'otec' : 'matka'} existuje — uložením
-                se nahradí (nebude možné mít dva).
+          {parentConflict && (
+            <div
+              role="alert"
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950"
+            >
+              <p className="font-medium">
+                {parentConflict.role === 'sire' ? 'Otec' : 'Matka'} u tohoto profilu už existuje
+                {parentConflict.name ? ` (${parentConflict.name})` : ''}. Nelze přidat druhého.
               </p>
-            )}
-          <Input
-            id="anc-name"
-            label="Jméno"
-            value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <Input
-            id="anc-breed"
-            label="Plemeno"
-            value={form.breed}
-            onChange={(e) => setForm((prev) => ({ ...prev, breed: e.target.value }))}
-          />
-          <Input
-            id="anc-reg"
-            label="Číslo PP / registrace"
-            value={form.registrationNumber}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, registrationNumber: e.target.value }))
-            }
-          />
-          <PetLinkPicker
-            pets={pets}
-            excludePetId={pet.id}
-            selectedPetId={form.linkedPetId}
-            onSelectPetId={(id) => setForm((prev) => ({ ...prev, linkedPetId: id }))}
-            onSelectName={(name) => setForm((prev) => ({ ...prev, name: prev.name || name }))}
-          />
+              <button
+                type="button"
+                className="mt-2 font-semibold text-[#234B54] hover:underline cursor-pointer"
+                onClick={() => openEdit(parentConflict)}
+              >
+                Upravit existující záznam
+              </button>
+            </div>
+          )}
+          {!parentConflict && (
+            <>
+              <Input
+                id="anc-name"
+                label="Jméno"
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <Input
+                id="anc-breed"
+                label="Plemeno"
+                value={form.breed}
+                onChange={(e) => setForm((prev) => ({ ...prev, breed: e.target.value }))}
+              />
+              <Input
+                id="anc-reg"
+                label="Číslo PP / registrace"
+                value={form.registrationNumber}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, registrationNumber: e.target.value }))
+                }
+              />
+              <PetLinkPicker
+                pets={pets}
+                excludePetId={pet.id}
+                selectedPetId={form.linkedPetId}
+                onSelectPetId={(id) => setForm((prev) => ({ ...prev, linkedPetId: id }))}
+                onSelectPet={(linked) => {
+                  if (!linked) {
+                    setForm((prev) => ({ ...prev, linkedPetId: undefined }))
+                    return
+                  }
+                  const fields = ancestorFieldsFromPet(linked)
+                  setForm((prev) => ({
+                    ...prev,
+                    linkedPetId: linked.id,
+                    name: fields.name,
+                    breed: fields.breed,
+                    registrationNumber: fields.registrationNumber || prev.registrationNumber,
+                  }))
+                }}
+              />
+            </>
+          )}
           <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpen(false)
+                setParentConflict(null)
+              }}
+            >
               Zrušit
             </Button>
-            <Button type="submit" variant="primary">
-              Uložit
-            </Button>
+            {!parentConflict && (
+              <Button type="submit" variant="primary">
+                Uložit
+              </Button>
+            )}
           </div>
         </form>
       </Modal>
@@ -1107,7 +1172,12 @@ export function BreedingLittersSection({
             partnerPetId={form.sirePetId}
             onPartnerNameChange={(sireName) => setForm((prev) => ({ ...prev, sireName }))}
             onPartnerPetIdChange={(sirePetId) => setForm((prev) => ({ ...prev, sirePetId }))}
-            nameLabel="Otec vrhu"
+            sourceLabel="Otec vrhu"
+            externalOptionLabel="Externí otec (ručně)"
+            linkedOptionLabel="Existující profil v LOVED & KNOWN"
+            externalNameLabel="Jméno externího otce"
+            externalNamePlaceholder="Jméno externího otce"
+            linkedSelectLabel="Vybrat otce vrhu"
           />
           <Textarea
             id="lit-notes"

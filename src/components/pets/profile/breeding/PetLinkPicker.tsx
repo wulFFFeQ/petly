@@ -10,6 +10,8 @@ interface PetLinkPickerProps {
   onSelectPetId: (petId: string | undefined) => void
   /** When a pet is selected, optionally sync a display name field. */
   onSelectName?: (name: string) => void
+  /** Full pet callback for autofilling pedigree / partner fields. */
+  onSelectPet?: (pet: Pet | undefined) => void
   label?: string
   allowNoneLabel?: string
   id?: string
@@ -21,6 +23,7 @@ export function PetLinkPicker({
   selectedPetId,
   onSelectPetId,
   onSelectName,
+  onSelectPet,
   label = 'Propojit s profilem v LOVED & KNOWN',
   allowNoneLabel = 'Bez propojení',
   id,
@@ -41,11 +44,13 @@ export function PetLinkPicker({
       onChange={(value) => {
         if (!value) {
           onSelectPetId(undefined)
+          onSelectPet?.(undefined)
           return
         }
         onSelectPetId(value)
         const match = pets.find((pet) => pet.id === value)
         if (match && onSelectName) onSelectName(match.name)
+        onSelectPet?.(match)
       }}
       options={[{ value: '', label: allowNoneLabel }, ...options]}
       placeholder={allowNoneLabel}
@@ -62,6 +67,15 @@ interface PartnerFieldsProps {
   partnerPetId?: string
   onPartnerNameChange: (name: string) => void
   onPartnerPetIdChange: (petId: string | undefined) => void
+  /** Top label above the source switch (e.g. „Otec vrhu“). */
+  sourceLabel?: string
+  externalOptionLabel?: string
+  linkedOptionLabel?: string
+  /** Label for the external name input. */
+  externalNameLabel?: string
+  externalNamePlaceholder?: string
+  linkedSelectLabel?: string
+  /** @deprecated Prefer externalNameLabel — kept for mating default copy. */
   nameLabel?: string
 }
 
@@ -76,18 +90,26 @@ export function PartnerFields({
   partnerPetId,
   onPartnerNameChange,
   onPartnerPetIdChange,
+  sourceLabel = 'Zdroj partnera',
+  externalOptionLabel = 'Externí partner (ručně)',
+  linkedOptionLabel = 'Existující profil v LOVED & KNOWN',
+  externalNameLabel,
+  externalNamePlaceholder = 'Jméno externího partnera',
+  linkedSelectLabel,
   nameLabel = 'Partner / partnerka',
 }: PartnerFieldsProps) {
   const sourceId = useId()
   const [source, setSource] = useState<PartnerSource>(() =>
     partnerPetId ? 'linked' : 'external',
   )
+  const resolvedExternalLabel = externalNameLabel ?? nameLabel
+  const resolvedLinkedLabel = linkedSelectLabel ?? `Vybrat ${nameLabel.toLowerCase()}`
 
   return (
     <div className="space-y-3">
       <OptionSelect
         id={sourceId}
-        label="Zdroj partnera"
+        label={sourceLabel}
         value={source}
         onChange={(value) => {
           const next = value as PartnerSource
@@ -100,18 +122,18 @@ export function PartnerFields({
           }
         }}
         options={[
-          { value: 'external', label: 'Externí partner (ručně)' },
-          { value: 'linked', label: 'Existující profil v LOVED & KNOWN' },
+          { value: 'external', label: externalOptionLabel },
+          { value: 'linked', label: linkedOptionLabel },
         ]}
       />
 
       {source === 'external' ? (
         <Input
           id={`${sourceId}-name`}
-          label={nameLabel}
+          label={resolvedExternalLabel}
           value={partnerName}
           onChange={(e) => onPartnerNameChange(e.target.value)}
-          placeholder="Jméno externího partnera"
+          placeholder={externalNamePlaceholder}
           hint="Profil v aplikaci se nevytváří."
         />
       ) : (
@@ -126,7 +148,7 @@ export function PartnerFields({
             const match = pets.find((pet) => pet.id === id)
             if (match) onPartnerNameChange(match.name)
           }}
-          label={`Vybrat ${nameLabel.toLowerCase()}`}
+          label={resolvedLinkedLabel}
           allowNoneLabel="Vyberte mazlíčka…"
         />
       )}

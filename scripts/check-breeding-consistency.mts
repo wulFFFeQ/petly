@@ -42,19 +42,29 @@ function baseFemaleDog(overrides: Partial<Pet> = {}): Pet {
   const other: BreedingAncestor = { id: 'a4', role: 'other', name: 'Děd' }
 
   let list = upsertPedigreeAncestor([], sire1)
-  list = upsertPedigreeAncestor(list, dam)
-  list = upsertPedigreeAncestor(list, other)
-  list = upsertPedigreeAncestor(list, sire2)
-
-  assert.equal(list.filter((a) => a.role === 'sire').length, 1)
-  assert.equal(list.find((a) => a.role === 'sire')?.name, 'Otec B')
-  assert.equal(list.filter((a) => a.role === 'dam').length, 1)
-  assert.equal(list.filter((a) => a.role === 'other').length, 1)
+  assert.equal(list.ok, true)
+  if (!list.ok) throw new Error('expected ok')
+  let rows = list.list
+  list = upsertPedigreeAncestor(rows, dam)
+  assert.equal(list.ok, true)
+  if (!list.ok) throw new Error('expected ok')
+  rows = list.list
+  list = upsertPedigreeAncestor(rows, other)
+  assert.equal(list.ok, true)
+  if (!list.ok) throw new Error('expected ok')
+  rows = list.list
+  const dup = upsertPedigreeAncestor(rows, sire2)
+  assert.equal(dup.ok, false)
+  if (dup.ok) throw new Error('expected conflict')
+  assert.equal(dup.existing.name, 'Otec A')
+  assert.equal(rows.filter((a) => a.role === 'sire').length, 1)
 
   // Edit existing sire in place
-  list = upsertPedigreeAncestor(list, { ...sire2, name: 'Otec B upraven' })
-  assert.equal(list.filter((a) => a.role === 'sire').length, 1)
-  assert.equal(list.find((a) => a.role === 'sire')?.name, 'Otec B upraven')
+  list = upsertPedigreeAncestor(rows, { id: 'a1', role: 'sire', name: 'Otec A upraven' })
+  assert.equal(list.ok, true)
+  if (!list.ok) throw new Error('expected ok')
+  assert.equal(list.list.filter((a) => a.role === 'sire').length, 1)
+  assert.equal(list.list.find((a) => a.role === 'sire')?.name, 'Otec A upraven')
 }
 
 // ——— Litter counts ———
