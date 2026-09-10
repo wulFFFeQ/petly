@@ -4,6 +4,7 @@ import type {
   Pet,
   PetBreedingData,
 } from '../../types'
+import { toPublicConnectionPreferences } from '../connections'
 import { getUserHomeCity } from '../userProfile'
 import { resolveEngagement } from './engagement'
 import { SELF_OWNER_ID, getUserDisplayName } from './owner'
@@ -95,6 +96,11 @@ export function projectOwnedPetToDiscover(pet: Pet): DiscoverPet | null {
     lookingFor: pet.lookingFor?.trim() || undefined,
     engagement: resolveEngagement(pet.id, pet.discoverEngagement),
     ...breeding,
+  }
+
+  const connectionPreferences = toPublicConnectionPreferences(pet.connectionPreferences)
+  if (connectionPreferences) {
+    projected.connectionPreferences = connectionPreferences
   }
 
   return projected

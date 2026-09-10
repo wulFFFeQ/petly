@@ -52,6 +52,29 @@ export type HealthStatus =
   | 'vet_check'
   | 'urgent'
 
+/** Stable IDs for pet-buddy connection activities (see CONNECTION_ACTIVITY_REGISTRY). */
+export type ConnectionActivityId =
+  | 'walks'
+  | 'trips'
+  | 'play'
+  | 'socialization'
+  | 'activities'
+  | 'training'
+  | 'travel'
+
+/** Owner-private connection prefs persisted on Pet. */
+export interface PetConnectionPreferences {
+  enabled: boolean
+  lookingFor: ConnectionActivityId[]
+  activityTypes: ConnectionActivityId[]
+}
+
+/** Safe public subset projected to Discover (only when enabled + lookingFor non-empty). */
+export interface PublicConnectionPreferences {
+  lookingFor: ConnectionActivityId[]
+  activityTypes: ConnectionActivityId[]
+}
+
 /** Top-level calendar categories (modal: category → type). */
 export type CalendarEventCategory =
   | 'health'
@@ -225,8 +248,13 @@ export interface Pet {
   personality?: string
   likes?: string[]
   dislikes?: string[]
-  /** What they are looking for (walk buddy, playdates…). */
+  /** What they are looking for (walk buddy, playdates…). Free-text About field. */
   lookingFor?: string
+  /**
+   * Structured pet-buddy connection preferences („Najděte svého pet parťáka“).
+   * Separate from free-text `lookingFor`. Opt-in via `enabled`.
+   */
+  connectionPreferences?: PetConnectionPreferences
   /**
    * When true, this pet may appear in Objevovat as a public Discover profile.
    * Opt-in only — default false / undefined.
@@ -475,8 +503,12 @@ export interface DiscoverPet {
   personality?: string
   likes?: string[]
   dislikes?: string[]
-  /** What they are looking for (walk buddy, playdates…). */
+  /** What they are looking for (walk buddy, playdates…). Free-text About field. */
   lookingFor?: string
+  /**
+   * Structured pet-buddy prefs. Public subset only when enabled + lookingFor filled.
+   */
+  connectionPreferences?: PublicConnectionPreferences
   activities?: DiscoverActivityPreference[]
   publicBadges?: DiscoverPublicBadge[]
   gallery?: DiscoverPublicPhoto[]

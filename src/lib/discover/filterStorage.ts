@@ -20,7 +20,8 @@ function isDiscoverCriteria(value: unknown): value is DiscoverCriteria {
     Array.isArray(c.locations) &&
     Array.isArray(c.locationAnchors) &&
     Array.isArray(c.activities) &&
-    Array.isArray(c.seeking)
+    Array.isArray(c.seeking) &&
+    (c.connectionActivities === undefined || Array.isArray(c.connectionActivities))
   )
 }
 
@@ -35,6 +36,9 @@ export function loadDiscoverFiltersFromSession(): PersistedDiscoverFilters | nul
       ? {
           ...DEFAULT_DISCOVER_CRITERIA,
           ...parsed.criteria,
+          connectionActivities: Array.isArray(parsed.criteria.connectionActivities)
+            ? parsed.criteria.connectionActivities
+            : [],
           locationRadiusKm:
             parsed.criteria.locationRadiusKm === null ||
             parsed.criteria.locationRadiusKm === 10 ||

@@ -32,6 +32,7 @@ import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
 import { normalizeLifestyleList } from '../lib/petProfileDisplay'
+import { normalizePetConnectionPreferences } from '../lib/connections'
 import { getBadgeDefinition } from '../lib/badges/catalog'
 import {
   computeBadgeProgress,
@@ -203,6 +204,10 @@ function loadPets(): Pet[] {
               ? pet.lookingFor.trim()
               : undefined
             : seed?.lookingFor,
+        connectionPreferences:
+          'connectionPreferences' in pet
+            ? normalizePetConnectionPreferences(pet.connectionPreferences)
+            : normalizePetConnectionPreferences(seed?.connectionPreferences),
         publicDiscover:
           typeof pet.publicDiscover === 'boolean'
             ? pet.publicDiscover
@@ -1100,6 +1105,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const value = safeUpdates.lookingFor?.trim()
           if (value) next.lookingFor = value
           else delete next.lookingFor
+        }
+        if ('connectionPreferences' in safeUpdates) {
+          const normalized = normalizePetConnectionPreferences(
+            safeUpdates.connectionPreferences,
+          )
+          if (normalized) next.connectionPreferences = normalized
+          else delete next.connectionPreferences
         }
 
         if (!('profileUpdatedAt' in safeUpdates)) {

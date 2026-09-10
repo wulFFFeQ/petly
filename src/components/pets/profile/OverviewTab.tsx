@@ -15,6 +15,11 @@ import {
 } from 'lucide-react'
 import { BadgesSection } from '../../badges/BadgesSection'
 import { useApp } from '../../../context/AppContext'
+import {
+  buildConnectionPreferencesUpdate,
+  CONNECTION_ACTIVITY_REGISTRY,
+  type ConnectionActivityId,
+} from '../../../lib/connections'
 import { formatTodayHeader } from '../../../lib/dashboardDates'
 import {
   formatHealthStatus,
@@ -67,6 +72,47 @@ export function OverviewTab({
         : 'Mazlíček se v Objevovat nezobrazí.',
       next ? 'gold' : 'success',
     )
+  }
+
+  const connectionEnabled = Boolean(pet.connectionPreferences?.enabled)
+  const connectionLookingFor = pet.connectionPreferences?.lookingFor ?? []
+
+  const toggleConnectionOffer = () => {
+    const nextEnabled = !connectionEnabled
+    const lookingFor = connectionLookingFor
+    updatePet(pet.id, {
+      connectionPreferences: buildConnectionPreferencesUpdate({
+        enabled: nextEnabled,
+        lookingFor,
+      }),
+    })
+    if (nextEnabled && !pet.publicDiscover) {
+      showToast(
+        'Propojení zapnuto',
+        'Aby se mazlíček objevil v Objevovat, zapněte také veřejný profil.',
+        'info',
+      )
+    } else {
+      showToast(
+        nextEnabled ? 'Nabízíme k propojení' : 'Propojení vypnuto',
+        nextEnabled
+          ? 'Ostatní mohou vidět, že hledáte pet parťáka.'
+          : 'Mazlíček se v návrzích propojení nezobrazí.',
+        nextEnabled ? 'gold' : 'success',
+      )
+    }
+  }
+
+  const toggleConnectionActivity = (id: ConnectionActivityId) => {
+    const nextLooking = connectionLookingFor.includes(id)
+      ? connectionLookingFor.filter((item) => item !== id)
+      : [...connectionLookingFor, id]
+    updatePet(pet.id, {
+      connectionPreferences: buildConnectionPreferencesUpdate({
+        enabled: connectionEnabled,
+        lookingFor: nextLooking,
+      }),
+    })
   }
 
   return (
@@ -241,6 +287,65 @@ export function OverviewTab({
               )}
             />
           </button>
+        </div>
+
+        <div className="mb-4 space-y-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[#191E1B]">Propojení</p>
+              <p className="mt-0.5 text-[11px] text-[#7D8B82]">
+                Najděte svého pet parťáka — bez dating / swipe.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={connectionEnabled}
+              aria-label="Nabízet tohoto mazlíčka k propojení"
+              onClick={toggleConnectionOffer}
+              className={cn(
+                'relative h-7 w-12 shrink-0 rounded-full transition-colors cursor-pointer',
+                connectionEnabled ? 'bg-[#2C4A3E]' : 'bg-[#D1D5D0]',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform',
+                  connectionEnabled && 'translate-x-5',
+                )}
+              />
+            </button>
+          </div>
+          <p className="text-[11px] font-medium text-[#4A564F]">
+            {connectionEnabled
+              ? 'Nabízet tohoto mazlíčka k propojení'
+              : 'Nabízení k propojení je vypnuté'}
+          </p>
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+              Hledáme
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {CONNECTION_ACTIVITY_REGISTRY.map((item) => {
+                const active = connectionLookingFor.includes(item.id)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => toggleConnectionActivity(item.id)}
+                    className={cn(
+                      'rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors',
+                      active
+                        ? 'bg-[#EBF2EE] text-[#2C4A3E] ring-1 ring-[#2C4A3E]/25'
+                        : 'bg-white text-[#5A6660] ring-1 ring-[#E8E4DC] hover:bg-[#EBF2EE]',
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {pet.bio ||

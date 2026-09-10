@@ -32,6 +32,11 @@ export interface DiscoverCriteria {
   activities: string[]
   /** Keywords matched against lookingFor / bio / likes (case-insensitive). */
   seeking: string[]
+  /**
+   * Structured pet-buddy activity IDs (connectionPreferences.lookingFor).
+   * Separate from free-text `seeking`.
+   */
+  connectionActivities: string[]
 }
 
 export const DEFAULT_DISCOVER_CRITERIA: DiscoverCriteria = {
@@ -45,6 +50,7 @@ export const DEFAULT_DISCOVER_CRITERIA: DiscoverCriteria = {
   locationRadiusKm: null,
   activities: [],
   seeking: [],
+  connectionActivities: [],
 }
 
 /**
@@ -166,7 +172,22 @@ export function countActiveDiscoverCriteria(criteria: DiscoverCriteria): number 
   if (criteria.locationRadiusKm != null) count += 1
   if (criteria.activities.length > 0) count += 1
   if (criteria.seeking.length > 0) count += 1
+  if (criteria.connectionActivities.length > 0) count += 1
   return count
+}
+
+function petMatchesConnectionActivities(
+  pet: DiscoverPet,
+  activityIds: string[],
+): boolean {
+  if (activityIds.length === 0) return true
+  const prefs = pet.connectionPreferences
+  if (!prefs?.lookingFor?.length) return false
+  const offered = new Set<string>([
+    ...prefs.lookingFor,
+    ...(prefs.activityTypes ?? []),
+  ])
+  return activityIds.some((id) => offered.has(id))
 }
 
 function petMatchesSeeking(pet: DiscoverPet, seekingIds: string[]): boolean {
@@ -284,6 +305,7 @@ export function petMatchesDiscoverCriteria(
   }
 
   if (!petMatchesSeeking(pet, criteria.seeking)) return false
+  if (!petMatchesConnectionActivities(pet, criteria.connectionActivities)) return false
 
   return true
 }

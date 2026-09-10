@@ -72,12 +72,17 @@ export function buildInitialConversations(): Conversation[] {
 }
 
 /** Start (or describe) a community chat from a Discover pet profile. */
-export function buildConversationFromDiscoverPet(pet: DiscoverPet): Conversation {
+export function buildConversationFromDiscoverPet(
+  pet: DiscoverPet,
+  introText?: string,
+): Conversation {
   const now = new Date()
   const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-  const intro = pet.ownerName
-    ? `Ahoj ${pet.ownerName.split(' ')[0]}! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`
-    : `Ahoj! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`
+  const intro =
+    introText?.trim() ||
+    (pet.ownerName
+      ? `Ahoj ${pet.ownerName.split(' ')[0]}! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`
+      : `Ahoj! Viděla jsem profil ${pet.name} v Objevovat a ráda bych se propojila.`)
 
   return {
     id: `conv_discover_${pet.id}`,

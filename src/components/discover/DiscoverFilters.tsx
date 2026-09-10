@@ -22,6 +22,7 @@ import {
   upsertLocationAnchor,
   type DiscoverSpecies,
 } from '../../lib/discoverCriteria'
+import { CONNECTION_ACTIVITY_REGISTRY } from '../../lib/connections'
 import { searchCities, type PlaceSuggestion } from '../../lib/geolocation'
 import { getUserHomeCity } from '../../lib/userProfile'
 import { SearchInput } from '../ui/SearchInput'
@@ -495,6 +496,40 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
                     )}
                   >
                     {activity.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+              Pet parťák
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {CONNECTION_ACTIVITY_REGISTRY.map((item) => {
+                const active = discoverCriteria.connectionActivities.includes(item.id)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setDiscoverCriteria((prev) => ({
+                        ...prev,
+                        connectionActivities: toggleListValue(
+                          prev.connectionActivities,
+                          item.id,
+                        ),
+                      }))
+                    }
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors',
+                      active
+                        ? 'bg-[#EBF2EE] text-[#2C4A3E] ring-1 ring-[#2C4A3E]/25'
+                        : 'bg-[#F3F0EA] text-[#5A6660] hover:bg-[#EBF2EE]',
+                    )}
+                  >
+                    {item.label}
                   </button>
                 )
               })}

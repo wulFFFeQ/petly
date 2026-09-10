@@ -6,6 +6,13 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 import {
+  applyConnectionRanking,
+  CONNECTION_EMPTY_DESCRIPTION,
+  CONNECTION_EMPTY_TITLE,
+  shouldShowConnectionEmptyState,
+  type ConnectionActivityId,
+} from '../lib/connections'
+import {
   getDiscoverPets,
   getDiscoverPetsIncludingOwn,
   SELF_OWNER_ID,
@@ -24,15 +31,36 @@ export function DiscoverPage() {
     })
   }, [pets])
 
+  const contextPet = useMemo(() => {
+    return (
+      pets.find(
+        (pet) =>
+          pet.connectionPreferences?.enabled &&
+          (pet.connectionPreferences.lookingFor?.length ?? 0) > 0,
+      ) ?? null
+    )
+  }, [pets])
+
   const filtered = useMemo(() => {
-    return catalog.filter((pet) =>
+    const matched = catalog.filter((pet) =>
       petMatchesDiscoverCriteria(pet, discoverCriteria, discoverSearch),
     )
-  }, [catalog, discoverSearch, discoverCriteria])
+    const filterActivityIds =
+      discoverCriteria.connectionActivities.filter(Boolean) as ConnectionActivityId[]
+    return applyConnectionRanking(matched, {
+      contextPet,
+      filterActivityIds,
+    })
+  }, [catalog, discoverSearch, discoverCriteria, contextPet])
 
   const totalPublic = useMemo(
     () => getDiscoverPets({ ownedPets: pets, excludePetIds: pets.map((p) => p.id) }).length,
     [pets],
+  )
+
+  const connectionEmpty = shouldShowConnectionEmptyState(
+    filtered.length,
+    discoverCriteria.connectionActivities as ConnectionActivityId[],
   )
 
   useEffect(() => {
@@ -62,7 +90,7 @@ export function DiscoverPage() {
         badge="Prozkoumat síť"
         meta="Střední Čechy a Praha"
         title="Objevovat"
-        description="Poznávejte mazlíčky, lidi a místa ve vašem okolí."
+        description="Poznávejte mazlíčky, lidi a místa ve vašem okolí. Najděte svého pet parťáka."
       />
 
       <DiscoverFilters resultCount={filtered.length} />
@@ -79,8 +107,16 @@ export function DiscoverPage() {
         {filtered.length === 0 ? (
           <EmptyState
             icon={Compass}
-            title="Nenašli jsme mazlíčky odpovídající vašim kritériím"
-            description="Zkuste upravit kritéria, zvolit méně filtrů nebo vymazat hledané výrazy."
+            title={
+              connectionEmpty
+                ? CONNECTION_EMPTY_TITLE
+                : 'Nenašli jsme mazlíčky odpovídající vašim kritériím'
+            }
+            description={
+              connectionEmpty
+                ? CONNECTION_EMPTY_DESCRIPTION
+                : 'Zkuste upravit kritéria, zvolit méně filtrů nebo vymazat hledané výrazy.'
+            }
             cardClassName="col-span-full"
           />
         ) : (

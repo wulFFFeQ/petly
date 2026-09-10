@@ -62,6 +62,15 @@ async function notificationKeys(page) {
   })
 }
 
+async function confirmConnectCompose(page) {
+  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
+  await page.waitForTimeout(250)
+  const send = page.getByRole('button', { name: /Odeslat a otevřít zprávy/ })
+  assert(await send.isVisible().catch(() => false), 'connect compose modal visible')
+  await send.click()
+  await page.waitForTimeout(800)
+}
+
 async function main() {
   console.log('Starting Discover E2E against', BASE)
   const browser = await chromium.launch({ headless: true })
@@ -207,8 +216,7 @@ async function main() {
   const keysBefore = await notificationKeys(page)
   await page.goto(`${BASE}/discover/d4`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
-  await page.waitForTimeout(800)
+  await confirmConnectCompose(page)
   assert(page.url().includes('/messages'), 'I: navigates to messages')
   const cocoThread = page.getByText(/Majitel · Coco|Karolína/).first()
   assert(await cocoThread.isVisible().catch(() => false) || (await page.locator('body').innerText()).includes('Coco'), 'I: conversation shows Coco context')
@@ -221,12 +229,29 @@ async function main() {
     keysAfter.filter((k) => k === 'discover:connect:d4').length === 1,
     'I: connect notification created once',
   )
+  const cocoNotifTitle = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.notifications')
+    if (!raw) return null
+    const hit = JSON.parse(raw).find((n) => n.dedupeKey === 'discover:connect:d4')
+    return hit?.title ?? null
+  })
+  assert(
+    cocoNotifTitle === 'Nová žádost o propojení',
+    `I: notification title is connection request (got ${cocoNotifTitle})`,
+  )
+
+  // G/H) one conversation only; repeat click does not duplicate
+  const cocoConvCount = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.inboxConversations')
+    if (!raw) return 0
+    return JSON.parse(raw).filter((c) => c.contactPetId === 'd4').length
+  })
+  assert(cocoConvCount === 1, `G: Oslovit creates exactly one Coco conversation (got ${cocoConvCount})`)
 
   // J) existing conversation — no duplicate (Max d1 seed + reopen)
   await page.goto(`${BASE}/discover/d1`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
-  await page.waitForTimeout(800)
+  await confirmConnectCompose(page)
   const maxKeys = await notificationKeys(page)
   assert(
     !maxKeys.includes('discover:connect:d1') ||
@@ -248,12 +273,16 @@ async function main() {
   const beforeSecond = (await notificationKeys(page)).filter((k) => k === 'discover:connect:d4').length
   await page.goto(`${BASE}/discover/d4`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
-  await page.waitForTimeout(800)
+  await confirmConnectCompose(page)
   const afterSecond = (await notificationKeys(page)).filter((k) => k === 'discover:connect:d4').length
-  assert(afterSecond === beforeSecond, `J: reopen Coco keeps single notification (${beforeSecond}→${afterSecond})`)
-  assert(beforeSecond >= 1 || keysAfter.includes('discover:connect:d4'), 'J: prior Coco notification still one')
-
+  assert(afterSecond === beforeSecond, `H: reopen Coco keeps single notification (${beforeSecond}→${afterSecond})`)
+  assert(beforeSecond >= 1 || keysAfter.includes('discover:connect:d4'), 'H: prior Coco notification still one')
+  const cocoConvAfter = await page.evaluate(() => {
+    const raw = localStorage.getItem('lovedandknown.inboxConversations')
+    if (!raw) return 0
+    return JSON.parse(raw).filter((c) => c.contactPetId === 'd4').length
+  })
+  assert(cocoConvAfter === 1, `H: repeat Oslovit does not duplicate Coco conversation (got ${cocoConvAfter})`)
   // F) filters survive reload (sessionStorage)
   await gotoDiscover(page)
   await page.getByRole('button', { name: 'Psi', exact: true }).click()
@@ -361,8 +390,7 @@ async function main() {
   await page.evaluate(() => localStorage.removeItem('lovedandknown.inboxConversations'))
   await page.goto(`${BASE}/discover/d5`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: /Oslovit a propojit se/ }).first().click()
-  await page.waitForTimeout(800)
+  await confirmConnectCompose(page)
   const persistedBeforeReload = await page.evaluate(() => {
     const raw = localStorage.getItem('lovedandknown.inboxConversations')
     if (!raw) return null
@@ -382,6 +410,95 @@ async function main() {
       (await page.locator('body').innerText()).includes('Matěj'),
     'E: Charlie/Matěj thread visible after reload',
   )
+
+  // Connection prefs persist on owned pet + public card badge
+  await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.pets') || '[]')
+    localStorage.setItem(
+      'lovedandknown.pets',
+      JSON.stringify(
+        list.map((p) =>
+          p.id === 'luna'
+            ? {
+                ...p,
+                publicDiscover: true,
+                connectionPreferences: {
+                  enabled: true,
+                  lookingFor: ['walks', 'play'],
+                  activityTypes: ['walks', 'play'],
+                },
+              }
+            : p,
+        ),
+      ),
+    )
+  })
+  await page.goto(`${BASE}/discover`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(500)
+  const prefsAfterReload = await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.pets') || '[]')
+    const luna = list.find((p) => p.id === 'luna')
+    return luna?.connectionPreferences ?? null
+  })
+  assert(
+    prefsAfterReload?.enabled === true &&
+      Array.isArray(prefsAfterReload.lookingFor) &&
+      prefsAfterReload.lookingFor.includes('walks'),
+    'I-conn: connectionPreferences survive reload on owned pet',
+  )
+  const lunaPublicPrefs = await page.evaluate(() => {
+    const api = window.__LK_DISCOVER__
+    if (!api) return null
+    return api.getCatalogIncludingOwn().find((p) => p.id === 'luna')?.connectionPreferences ?? null
+  })
+  assert(
+    lunaPublicPrefs?.lookingFor?.includes('walks') && !('enabled' in (lunaPublicPrefs || {})),
+    'I-conn: public Luna exposes lookingFor without enabled flag',
+  )
+
+  await page.goto(`${BASE}/discover/d1`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  assert(
+    await page.getByText('Hledá svého parťáka').isVisible(),
+    'conn-profile: Max shows Hledá svého parťáka section',
+  )
+  await gotoDiscover(page)
+  assert(
+    (await page.getByText('Hledá parťáka').count()) > 0,
+    'conn-card: Discover cards show Hledá parťáka when prefs filled',
+  )
+
+  // Disabled offer excludes connection prefs from owned public projection
+  await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('lovedandknown.pets') || '[]')
+    localStorage.setItem(
+      'lovedandknown.pets',
+      JSON.stringify(
+        list.map((p) =>
+          p.id === 'luna'
+            ? {
+                ...p,
+                publicDiscover: true,
+                connectionPreferences: {
+                  enabled: false,
+                  lookingFor: ['walks'],
+                  activityTypes: ['walks'],
+                },
+              }
+            : p,
+        ),
+      ),
+    )
+  })
+  await gotoDiscover(page)
+  await page.waitForTimeout(400)
+  const lunaDisabledPrefs = await page.evaluate(() => {
+    const api = window.__LK_DISCOVER__
+    if (!api) return 'missing-api'
+    const luna = api.getCatalogIncludingOwn().find((p) => p.id === 'luna')
+    return luna ? luna.connectionPreferences ?? null : 'missing-luna'
+  })
+  assert(lunaDisabledPrefs === null, 'D-conn: disabled offer strips connection prefs from public Luna')
 
   // I) Popular/Oblíbenec from score, not hardcoded boolean
   await gotoDiscover(page)

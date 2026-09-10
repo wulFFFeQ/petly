@@ -1,10 +1,12 @@
 import { ArrowLeft, MessageCircle } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ConnectComposeModal } from '../components/discover/ConnectComposeModal'
 import { DiscoverAboutSection } from '../components/discover/profile/DiscoverAboutSection'
 import { DiscoverActivitiesSection } from '../components/discover/profile/DiscoverActivitiesSection'
 import { DiscoverBadgesSection } from '../components/discover/profile/DiscoverBadgesSection'
 import { DiscoverBreedingSection } from '../components/discover/profile/DiscoverBreedingSection'
+import { DiscoverConnectionSection } from '../components/discover/profile/DiscoverConnectionSection'
 import { DiscoverGallerySection } from '../components/discover/profile/DiscoverGallerySection'
 import { DiscoverOwnerSection } from '../components/discover/profile/DiscoverOwnerSection'
 import { DiscoverProfileHero } from '../components/discover/profile/DiscoverProfileHero'
@@ -23,6 +25,7 @@ export function DiscoverPetPage() {
   const { petId } = useParams()
   const navigate = useNavigate()
   const { showToast, pets } = useApp()
+  const [composeOpen, setComposeOpen] = useState(false)
   const pet = getDiscoverPetById(petId, pets)
   const owner = pet?.ownerId ? getDiscoverOwnerById(pet.ownerId, pets) : undefined
   const isOwn = pet ? isOwnDiscoverPet(pet.id, pets) : false
@@ -42,14 +45,7 @@ export function DiscoverPetPage() {
       )
       return
     }
-    showToast(
-      `Propojeno s ${pet.name}`,
-      pet.ownerName
-        ? `Otevíráme konverzaci s ${pet.ownerName}.`
-        : 'Otevíráme konverzaci ve zprávách.',
-      'gold',
-    )
-    navigate(`/messages?contactPetId=${encodeURIComponent(pet.id)}`)
+    setComposeOpen(true)
   }
 
   if (!pet) {
@@ -104,6 +100,8 @@ export function DiscoverPetPage() {
 
       <DiscoverAboutSection pet={pet} />
 
+      <DiscoverConnectionSection pet={pet} />
+
       {pet.publicBadges && pet.publicBadges.length > 0 && (
         <DiscoverBadgesSection badges={pet.publicBadges} />
       )}
@@ -139,6 +137,14 @@ export function DiscoverPetPage() {
             Zpět na Objevovat
           </Link>
         </Card>
+      )}
+
+      {pet && (
+        <ConnectComposeModal
+          open={composeOpen}
+          onClose={() => setComposeOpen(false)}
+          pet={pet}
+        />
       )}
     </div>
   )

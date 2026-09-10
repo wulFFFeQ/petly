@@ -539,6 +539,10 @@ export const discoverPets: DiscoverPet[] = [
     likes: ['Aport u vody', 'Dlouhé procházky', 'Pamlsky za aport', 'Psí hřiště'],
     dislikes: ['Samota přes den', 'Bouřky', 'Úzké výtahy'],
     lookingFor: 'Parťáka na procházky, plavání a víkendové výlety',
+    connectionPreferences: {
+      lookingFor: ['walks', 'trips', 'play', 'socialization'],
+      activityTypes: ['walks', 'trips', 'play', 'socialization'],
+    },
     activities: [
       { key: 'walks', label: 'Procházky', level: 5 },
       { key: 'play', label: 'Hraní', level: 5 },
@@ -668,6 +672,10 @@ export const discoverPets: DiscoverPet[] = [
     likes: ['Slunce na parapetu', 'Péče o srst', 'Hra s peříčkem'],
     dislikes: ['Hlasité děti', 'Cestování autem'],
     lookingFor: 'Klidné setkání s jinými kočkami nebo společné hraní doma',
+    connectionPreferences: {
+      lookingFor: ['play', 'socialization'],
+      activityTypes: ['play', 'socialization'],
+    },
     activities: [
       { key: 'play', label: 'Hraní', level: 3 },
       { key: 'cats', label: 'Kontakt s kočkami', level: 4 },
@@ -738,6 +746,10 @@ export const discoverPets: DiscoverPet[] = [
     likes: ['Agility', 'Hlavolamy', 'Lesní běh'],
     dislikes: ['Dlouhá nuda', 'Chaotické davy'],
     lookingFor: 'Partnery na trénink agility a dlouhé výlety',
+    connectionPreferences: {
+      lookingFor: ['training', 'trips', 'walks', 'activities'],
+      activityTypes: ['training', 'trips', 'walks', 'activities'],
+    },
     activities: [
       { key: 'training', label: 'Trénink', level: 5 },
       { key: 'walks', label: 'Procházky', level: 5 },
@@ -846,6 +858,10 @@ export const discoverPets: DiscoverPet[] = [
     personality: 'Společenská, klidná a mazlivá — ráda je středem pozornosti.',
     likes: ['Kartáčování', 'Návštěvy', 'Vysoká škrabadla'],
     lookingFor: 'Společenské setkání s jinými klidnými kočkami',
+    connectionPreferences: {
+      lookingFor: ['socialization', 'play'],
+      activityTypes: ['socialization', 'play'],
+    },
     activities: [
       { key: 'cats', label: 'Kontakt s kočkami', level: 5 },
       { key: 'play', label: 'Hraní', level: 3 },
@@ -892,6 +908,10 @@ export const discoverPets: DiscoverPet[] = [
     ownerName: 'Matěj K.',
     bio: 'Zvědavý lovec stop vždy na stopě. Skvělý s dětmi a štěňaty.',
     lookingFor: 'Parťáka na procházky v okolí Kolína',
+    connectionPreferences: {
+      lookingFor: ['walks', 'play', 'socialization'],
+      activityTypes: ['walks', 'play', 'socialization'],
+    },
     activities: [
       { key: 'walks', label: 'Procházky', level: 5 },
       { key: 'dogs', label: 'Kontakt se psy', level: 4 },

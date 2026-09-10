@@ -17,6 +17,7 @@ import {
   buildHealthShareMessage,
   buildInitialConversations,
 } from './messageShareUtils'
+import { takeConnectMessageDraft } from '../../lib/connections'
 
 export function MessagesPageContent() {
   const { showToast, lostConversations, sendLostFinderMessage, upsertNotification, pets } =
@@ -120,8 +121,15 @@ export function MessagesPageContent() {
       return
     }
 
+    if (!contactPetId) {
+      setSearchParams({}, { replace: true })
+      return
+    }
+
+    const petContactId = contactPetId
+
     setConversations((prev) => {
-      const existing = prev.find((c) => c.contactPetId === contactPetId)
+      const existing = prev.find((c) => c.contactPetId === petContactId)
       if (existing) {
         openedId = existing.id
         return prev.map((c) =>
@@ -129,14 +137,15 @@ export function MessagesPageContent() {
         )
       }
 
-      if (pets.some((owned) => owned.id === contactPetId)) {
+      if (pets.some((owned) => owned.id === petContactId)) {
         return prev
       }
 
-      const pet = getDiscoverPetById(contactPetId, pets)
+      const pet = getDiscoverPetById(petContactId, pets)
       if (!pet) return prev
 
-      const created = buildConversationFromDiscoverPet(pet)
+      const introDraft = takeConnectMessageDraft(petContactId) ?? undefined
+      const created = buildConversationFromDiscoverPet(pet, introDraft)
       openedId = created.id
       createdNewDiscoverThread = true
       return [created, ...prev]
@@ -147,18 +156,20 @@ export function MessagesPageContent() {
       setActiveId(openedId)
       setMobileShowChat(true)
 
-      if (createdNewDiscoverThread && contactPetId) {
-        const pet = getDiscoverPetById(contactPetId, pets)
-        bumpDiscoverEngagement(contactPetId, { connections: 1, communityInteractions: 1 })
+      if (createdNewDiscoverThread) {
+        const pet = getDiscoverPetById(petContactId, pets)
+        bumpDiscoverEngagement(petContactId, { connections: 1, communityInteractions: 1 })
         upsertNotification({
           type: 'community',
-          title: pet ? `Propojeno s ${pet.name}` : 'Nové propojení',
+          title: 'Nová žádost o propojení',
           message: pet?.ownerName
-            ? `Otevřeli jste konverzaci s ${pet.ownerName} ohledně ${pet.name}.`
-            : 'Otevřeli jste konverzaci z Objevovat.',
+            ? `Oslovili jste ${pet.ownerName} kvůli propojení s ${pet.name}.`
+            : pet
+              ? `Oslovili jste majitele ${pet.name} kvůli propojení.`
+              : 'Odeslali jste žádost o propojení z Objevovat.',
           priority: 'normal',
-          dedupeKey: `discover:connect:${contactPetId}`,
-          petId: contactPetId,
+          dedupeKey: `discover:connect:${petContactId}`,
+          petId: petContactId,
           petName: pet?.name,
           href: `/messages?conversationId=${encodeURIComponent(openedId)}`,
           conversationId: openedId,

@@ -51,6 +51,7 @@ const ALLOWED_DISCOVER_KEYS = new Set([
   'likes',
   'dislikes',
   'lookingFor',
+  'connectionPreferences',
   'activities',
   'publicBadges',
   'gallery',
