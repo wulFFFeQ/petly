@@ -14,6 +14,7 @@ import {
   Utensils,
 } from 'lucide-react'
 import { BadgesSection } from '../../badges/BadgesSection'
+import { WhoHasAccessSection } from '../access/WhoHasAccessSection'
 import { useApp } from '../../../context/AppContext'
 import {
   buildConnectionPreferencesUpdate,
@@ -579,6 +580,8 @@ export function OverviewTab({
           )}
         </Card>
       </div>
+
+      <WhoHasAccessSection petId={pet.id} petName={pet.name} />
 
       <BadgesSection scope="pet" petId={pet.id} earnedBadges={earnedBadges} />
     </div>

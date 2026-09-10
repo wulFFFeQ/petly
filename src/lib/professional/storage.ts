@@ -275,6 +275,9 @@ export function normalizePetProfessionalAccess(raw: unknown): PetProfessionalAcc
   if (typeof raw.revokedAt === 'string' && raw.revokedAt.trim()) {
     access.revokedAt = raw.revokedAt.trim()
   }
+  if (typeof raw.requestedAt === 'string' && raw.requestedAt.trim()) {
+    access.requestedAt = raw.requestedAt.trim()
+  }
   return access
 }
 

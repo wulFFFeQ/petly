@@ -118,6 +118,8 @@ export interface PetProfessionalAccess {
   professionalId: string
   permissions: ProfessionalPermission[]
   status: ProfessionalAccessStatus
+  /** Set when a request is created (pending); grant may reuse as grantedAt. */
+  requestedAt?: string
   grantedAt: string
   expiresAt?: string
   revokedAt?: string
@@ -125,6 +127,7 @@ export interface PetProfessionalAccess {
 }
 
 export type ProfessionalAccessLogAction =
+  | 'access_requested'
   | 'access_granted'
   | 'access_revoked'
   | 'record_viewed'

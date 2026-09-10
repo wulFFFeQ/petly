@@ -1,20 +1,52 @@
-import { BadgeCheck, MapPin } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ConnectProfessionalModal } from '../components/professionals/ConnectProfessionalModal'
+import { ProfessionalLinkedPetsSection } from '../components/professionals/ProfessionalLinkedPetsSection'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { findProfessionalProfileById } from '../lib/account'
-import { getRoleMeta, toPublicProfessionalProfile } from '../lib/professional'
+import {
+  findProfessionalProfileById,
+  getSelfAccount,
+  listSelfProfessionalProfiles,
+} from '../lib/account'
+import {
+  getAccessListForProfessional,
+  getOpenAccessForPair,
+  getRoleMeta,
+  requestPetProfessionalAccess,
+  toPublicProfessionalProfile,
+} from '../lib/professional'
 import { loadVerifications } from '../lib/verification'
+import { useApp } from '../context/AppContext'
+import { BadgeCheck, MapPin } from 'lucide-react'
 
 export function ProfessionalPublicPage() {
   const { professionalId } = useParams()
   const navigate = useNavigate()
+  const { pets, showToast } = useApp()
+  const [connectOpen, setConnectOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
   const profile = professionalId ? findProfessionalProfileById(professionalId) : null
   const verifications = loadVerifications()
   const pub =
     profile != null ? toPublicProfessionalProfile(profile, { verifications }) : null
+
+  const selfPros = listSelfProfessionalProfiles()
+  const isOwnProfile = Boolean(profile && selfPros.some((p) => p.id === profile.id))
+
+  const pendingOrActiveForFirstPet = useMemo(() => {
+    if (!profile || pets.length === 0) return null
+    for (const pet of pets) {
+      const open = getOpenAccessForPair(pet.id, profile.id)
+      if (open) return open
+    }
+    return null
+  }, [profile, pets, refreshKey])
+
+  const hasAnyOpenForSelfPets = Boolean(pendingOrActiveForFirstPet)
 
   if (!profile || !pub) {
     return (
@@ -37,6 +69,46 @@ export function ProfessionalPublicPage() {
 
   const roleLabel = getRoleMeta(pub.type).label
   const avatarSrc = pub.profilePhotoUrl || pub.logoUrl
+
+  const handleProfessionalRequest = () => {
+    if (pets.length === 0) {
+      showToast('Přidejte mazlíčka', 'Nejdříve potřebujete mazlíčka k propojení.', 'info')
+      return
+    }
+    const pet = pets[0]!
+    const existing = getOpenAccessForPair(pet.id, profile.id)
+    if (existing) {
+      showToast(
+        existing.status === 'pending' ? 'Žádost čeká na schválení' : 'Už propojeno',
+        pet.name,
+        'info',
+      )
+      setRefreshKey((k) => k + 1)
+      return
+    }
+    try {
+      requestPetProfessionalAccess({
+        petId: pet.id,
+        professionalId: profile.id,
+        grantedByAccountId: getSelfAccount()?.id || 'owner_self',
+        permissions: [],
+      })
+      showToast('Žádost odeslána', `${pet.name} · čeká na schválení majitele`, 'success')
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      showToast(
+        'Nelze vytvořit žádost',
+        err instanceof Error ? err.message : 'Duplicitní žádost',
+        'info',
+      )
+    }
+  }
+
+  // For DEMO hybrid accounts: "Požádat o propojení" from pro side uses first pet.
+  // Owner CTA opens full permission modal.
+  const openRequestExists = getAccessListForProfessional(profile.id).some(
+    (a) => a.status === 'pending' || a.status === 'active',
+  )
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-8" data-testid="professional-public-page">
@@ -119,8 +191,53 @@ export function ProfessionalPublicPage() {
               {pub.publicPhone ? <p>{pub.publicPhone}</p> : null}
             </div>
           )}
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              data-testid="pro-connect-with-pet"
+              onClick={() => setConnectOpen(true)}
+            >
+              Propojit s mazlíčkem
+            </Button>
+            {hasAnyOpenForSelfPets && pendingOrActiveForFirstPet?.status === 'pending' ? (
+              <Button variant="secondary" size="sm" disabled data-testid="pro-request-pending">
+                Žádost čeká na schválení
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="pro-request-connect"
+                onClick={handleProfessionalRequest}
+                disabled={Boolean(
+                  hasAnyOpenForSelfPets && pendingOrActiveForFirstPet?.status === 'active',
+                )}
+              >
+                {hasAnyOpenForSelfPets && pendingOrActiveForFirstPet?.status === 'active'
+                  ? 'Již propojeno'
+                  : 'Požádat o propojení'}
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
+
+      {isOwnProfile ? (
+        <ProfessionalLinkedPetsSection
+          professionalId={profile.id}
+          professionalTypeLabel={roleLabel}
+          refreshKey={refreshKey + (openRequestExists ? 1 : 0)}
+        />
+      ) : null}
+
+      <ConnectProfessionalModal
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        professional={profile}
+        onCompleted={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   )
 }

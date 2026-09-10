@@ -60,6 +60,7 @@ export const PROFESSIONAL_ACCESS_STATUSES = [
 ] as const
 
 export const PROFESSIONAL_ACCESS_LOG_ACTIONS = [
+  'access_requested',
   'access_granted',
   'access_revoked',
   'record_viewed',

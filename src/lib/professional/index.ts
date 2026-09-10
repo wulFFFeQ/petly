@@ -78,6 +78,7 @@ export {
 export {
   activateAccess,
   assertCanAddHealthRecord,
+  assertCanAddNote,
   assertCanAddVaccination,
   assertCanAddVisit,
   canProfessionalAddHealthRecord,
@@ -88,18 +89,47 @@ export {
   canProfessionalViewHealth,
   canProfessionalViewMedications,
   canProfessionalViewVaccinations,
+  cancelPendingAccess,
   createAccessId,
   findAccess,
+  findOpenAccess,
   grantPetAccess,
   hasPermission,
   isAccessEffective,
   listAccessForOwner,
   listAccessForPet,
   listAccessForProfessional,
+  requestProfessionalAccess,
   resolveAccessStatus,
   revokeAccess,
+  updateAccessPermissions,
   type GrantPetAccessInput,
+  type RequestProfessionalAccessInput,
 } from './access'
+
+export {
+  activatePetProfessionalAccess,
+  appendAndPersistAccessLogs,
+  approvePetProfessionalAccess,
+  cancelPetProfessionalAccessRequest,
+  getAccessListForPet,
+  getAccessListForProfessional,
+  getOpenAccessForPair,
+  grantOwnerPetAccess,
+  loadAccessState,
+  requestPetProfessionalAccess,
+  revokePetProfessionalAccess,
+  updatePetProfessionalAccessPermissions,
+  type AccessMutationResult,
+} from './accessSession'
+
+export {
+  formatPermissionList,
+  PERMISSION_LABELS,
+  READ_PERMISSION_OPTIONS,
+  suggestedPermissionsForRole,
+  WRITE_PERMISSION_OPTIONS,
+} from './permissionLabels'
 
 export {
   PROFESSIONAL_VIEW_FORBIDDEN_KEYS,

@@ -22,6 +22,7 @@ import { OnboardingPage } from './pages/OnboardingPage'
 import { OwnerPublicPage } from './pages/OwnerPublicPage'
 import { PetProfilePage } from './pages/PetProfilePage'
 import { ProfessionalPublicPage } from './pages/ProfessionalPublicPage'
+import { ProfessionalPetAccessPage } from './pages/ProfessionalPetAccessPage'
 import { ProfessionalsCatalogPage } from './pages/ProfessionalsCatalogPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
@@ -83,6 +84,10 @@ function App() {
               <Route path="discover/:petId" element={<DiscoverPetPage />} />
               <Route path="owners/:ownerId" element={<OwnerPublicPage />} />
               <Route path="professionals" element={<ProfessionalsCatalogPage />} />
+              <Route
+                path="professionals/:professionalId/pets/:petId"
+                element={<ProfessionalPetAccessPage />}
+              />
               <Route
                 path="professionals/:professionalId"
                 element={<ProfessionalPublicPage />}

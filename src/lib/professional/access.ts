@@ -78,9 +78,14 @@ export function grantPetAccess(
   logs: ProfessionalAccessLog[],
   input: GrantPetAccessInput,
 ): { access: PetProfessionalAccess; accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[] } {
+  const open = findOpenAccess(existing, input.petId, input.professionalId)
+  if (open && open.id !== input.id) {
+    throw new Error('Open access already exists for this professional and pet')
+  }
+
   const nowIso = input.grantedAt ?? new Date().toISOString()
   const access: PetProfessionalAccess = {
-    id: input.id ?? createAccessId(),
+    id: input.id ?? open?.id ?? createAccessId(),
     petId: input.petId,
     professionalId: input.professionalId,
     permissions: normalizePermissions(input.permissions),
@@ -88,12 +93,15 @@ export function grantPetAccess(
     grantedAt: nowIso,
     grantedByAccountId: input.grantedByAccountId,
   }
+  if (input.status === 'pending' || open?.requestedAt) {
+    access.requestedAt = open?.requestedAt ?? nowIso
+  }
   if (input.expiresAt) access.expiresAt = input.expiresAt
 
   const entry = createAccessLogEntry({
     petId: access.petId,
     professionalId: access.professionalId,
-    action: 'access_granted',
+    action: access.status === 'pending' ? 'access_requested' : 'access_granted',
     timestamp: nowIso,
     metadata: {
       accessId: access.id,
@@ -189,6 +197,120 @@ export function findAccess(
   return accessList.find((a) => a.petId === petId && a.professionalId === professionalId)
 }
 
+/** Pending or active grant for the same pet + professional (blocks duplicates). */
+export function findOpenAccess(
+  accessList: PetProfessionalAccess[],
+  petId: string,
+  professionalId: string,
+): PetProfessionalAccess | undefined {
+  return accessList.find(
+    (a) =>
+      a.petId === petId &&
+      a.professionalId === professionalId &&
+      (a.status === 'pending' || a.status === 'active'),
+  )
+}
+
+export type RequestProfessionalAccessInput = {
+  petId: string
+  professionalId: string
+  /** Owner account that will approve; may be empty string until known in DEMO. */
+  grantedByAccountId: string
+  /** Optional suggested permissions — still pending until activate/grant. */
+  permissions?: ProfessionalPermission[]
+  requestedAt?: string
+  id?: string
+}
+
+/**
+ * Create a pending access request. Does not grant data access.
+ * Throws if pending/active already exists for the pair.
+ */
+export function requestProfessionalAccess(
+  existing: PetProfessionalAccess[],
+  logs: ProfessionalAccessLog[],
+  input: RequestProfessionalAccessInput,
+): { access: PetProfessionalAccess; accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[] } {
+  const open = findOpenAccess(existing, input.petId, input.professionalId)
+  if (open) {
+    throw new Error('Open access already exists for this professional and pet')
+  }
+
+  const nowIso = input.requestedAt ?? new Date().toISOString()
+  const access: PetProfessionalAccess = {
+    id: input.id ?? createAccessId(),
+    petId: input.petId,
+    professionalId: input.professionalId,
+    permissions: normalizePermissions(input.permissions ?? []),
+    status: 'pending',
+    requestedAt: nowIso,
+    grantedAt: nowIso,
+    grantedByAccountId: input.grantedByAccountId,
+  }
+
+  const entry = createAccessLogEntry({
+    petId: access.petId,
+    professionalId: access.professionalId,
+    action: 'access_requested',
+    timestamp: nowIso,
+    metadata: {
+      accessId: access.id,
+      status: 'pending',
+      permissions: [...access.permissions],
+    },
+  })
+
+  const accessList = [...existing, access]
+  return { access, accessList, logs: appendAccessLog(logs, entry) }
+}
+
+export function updateAccessPermissions(
+  accessList: PetProfessionalAccess[],
+  logs: ProfessionalAccessLog[],
+  accessId: string,
+  permissions: ProfessionalPermission[],
+  nowIso: string = new Date().toISOString(),
+): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
+  let updated: PetProfessionalAccess | null = null
+  const next = accessList.map((a) => {
+    if (a.id !== accessId) return a
+    updated = {
+      ...a,
+      permissions: normalizePermissions(permissions),
+    }
+    return updated
+  })
+  if (!updated) return { accessList, logs, access: null }
+
+  const entry = createAccessLogEntry({
+    petId: updated.petId,
+    professionalId: updated.professionalId,
+    action: 'access_granted',
+    timestamp: nowIso,
+    metadata: {
+      accessId,
+      permissionsUpdated: true,
+      permissions: [...updated.permissions],
+      status: updated.status,
+    },
+  })
+  return { accessList: next, logs: appendAccessLog(logs, entry), access: updated }
+}
+
+/** Cancel a pending request (stored as revoked for history). */
+export function cancelPendingAccess(
+  accessList: PetProfessionalAccess[],
+  logs: ProfessionalAccessLog[],
+  accessId: string,
+  nowIso: string = new Date().toISOString(),
+): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
+  const target = accessList.find((a) => a.id === accessId)
+  if (!target || target.status !== 'pending') {
+    return { accessList, logs, access: null }
+  }
+  return revokeAccess(accessList, logs, accessId, nowIso)
+}
+
 export function canProfessionalViewHealth(
   access: PetProfessionalAccess | null | undefined,
   now?: number,
@@ -273,5 +395,14 @@ export function assertCanAddVaccination(
 ): void {
   if (!canProfessionalAddVaccination(access, now)) {
     throw new Error('Professional lacks addVaccination permission')
+  }
+}
+
+export function assertCanAddNote(
+  access: PetProfessionalAccess | null | undefined,
+  now?: number,
+): void {
+  if (!canProfessionalAddNote(access, now)) {
+    throw new Error('Professional lacks addNote permission')
   }
 }
