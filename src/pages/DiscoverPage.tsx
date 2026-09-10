@@ -2,20 +2,21 @@ import { Compass } from 'lucide-react'
 import { useMemo } from 'react'
 import { DiscoverCard } from '../components/discover/DiscoverCard'
 import { DiscoverFilters } from '../components/discover/DiscoverFilters'
-import { discoverPets } from '../data/mockData'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
+import { getDiscoverPets } from '../lib/discover/catalog'
 import { petMatchesDiscoverCriteria } from '../lib/discoverCriteria'
 
 export function DiscoverPage() {
   const { discoverSearch, discoverCriteria } = useApp()
+  const catalog = useMemo(() => getDiscoverPets(), [])
 
   const filtered = useMemo(() => {
-    return discoverPets.filter((pet) =>
+    return catalog.filter((pet) =>
       petMatchesDiscoverCriteria(pet, discoverCriteria, discoverSearch),
     )
-  }, [discoverSearch, discoverCriteria])
+  }, [catalog, discoverSearch, discoverCriteria])
 
   return (
     <div className="space-y-8">
@@ -32,7 +33,7 @@ export function DiscoverPage() {
         <p className="text-xs font-medium text-[#7D8B82]">
           {filtered.length === 0
             ? 'Žádné výsledky'
-            : `Zobrazeno ${filtered.length} z ${discoverPets.length} profilů`}
+            : `Zobrazeno ${filtered.length} z ${catalog.length} profilů`}
         </p>
       </div>
 

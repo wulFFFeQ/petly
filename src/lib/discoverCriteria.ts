@@ -1,4 +1,5 @@
 import type { DiscoverPet } from '../types'
+import { isPetNearby } from './discover/distance'
 import { getUserHomeCity } from './userProfile'
 
 export type DiscoverSpecies = 'all' | 'dog' | 'cat'
@@ -46,6 +47,10 @@ export const DEFAULT_DISCOVER_CRITERIA: DiscoverCriteria = {
   seeking: [],
 }
 
+/**
+ * @deprecated Nearby filtering uses home-city radius (`isPetNearby`), not this whitelist.
+ * Kept for any legacy references / docs.
+ */
 export const NEARBY_LOCATIONS = ['Kolín', 'Kutná Hora'] as const
 
 /** Approximate city centers for mock pets + common CZ towns. */
@@ -264,7 +269,7 @@ export function petMatchesDiscoverCriteria(
 
   if (criteria.species === 'dog' && pet.type !== 'dog') return false
   if (criteria.species === 'cat' && pet.type !== 'cat') return false
-  if (criteria.nearby && !(NEARBY_LOCATIONS as readonly string[]).includes(pet.location)) {
+  if (criteria.nearby && !isPetNearby(pet.location)) {
     return false
   }
   if (criteria.popular && !pet.popular) return false

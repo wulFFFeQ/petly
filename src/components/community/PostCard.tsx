@@ -12,8 +12,11 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { discoverPets } from '../../data/mockData'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import {
+  discoverCatalogHasPetId,
+  findDiscoverPetByName,
+} from '../../lib/discover/catalog'
 import { mapsUrlForPlace } from '../../lib/geolocation'
 import { formatCommentDisplayTime } from '../../lib/relativeTime'
 import type { CommunityPost, Pet } from '../../types'
@@ -31,7 +34,7 @@ function resolvePetHref(
 ): string | null {
   if (petId) {
     if (pets.some((pet) => pet.id === petId)) return `/pets/${petId}`
-    if (discoverPets.some((pet) => pet.id === petId)) return `/discover/${petId}`
+    if (discoverCatalogHasPetId(petId)) return `/discover/${petId}`
   }
 
   const name = petTag?.split('·')[0]?.trim()
@@ -40,7 +43,7 @@ function resolvePetHref(
   const ownPet = pets.find((pet) => pet.name === name)
   if (ownPet) return `/pets/${ownPet.id}`
 
-  const discoverPet = discoverPets.find((pet) => pet.name === name)
+  const discoverPet = findDiscoverPetByName(name)
   if (discoverPet) return `/discover/${discoverPet.id}`
 
   return null

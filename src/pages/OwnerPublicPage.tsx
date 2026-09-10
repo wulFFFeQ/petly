@@ -3,14 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Avatar } from '../components/ui/Avatar'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { discoverOwners, discoverPets } from '../data/mockData'
+import { getDiscoverOwnerById, getDiscoverPetsByOwnerId } from '../lib/discover/catalog'
 import { petTypeLabel } from '../lib/petTypes'
 
 export function OwnerPublicPage() {
   const { ownerId } = useParams()
   const navigate = useNavigate()
-  const owner = discoverOwners.find((item) => item.id === ownerId)
-  const pets = discoverPets.filter((pet) => pet.ownerId === ownerId)
+  const owner = getDiscoverOwnerById(ownerId)
+  const pets = getDiscoverPetsByOwnerId(ownerId)
 
   if (!owner) {
     return (

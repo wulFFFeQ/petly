@@ -11,16 +11,14 @@ import { DiscoverTimelineSection } from '../components/discover/profile/Discover
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { useApp } from '../context/AppContext'
-import { discoverOwners, discoverPets } from '../data/mockData'
+import { getDiscoverOwnerById, getDiscoverPetById } from '../lib/discover/catalog'
 
 export function DiscoverPetPage() {
   const { petId } = useParams()
   const navigate = useNavigate()
   const { showToast } = useApp()
-  const pet = discoverPets.find((item) => item.id === petId)
-  const owner = pet?.ownerId
-    ? discoverOwners.find((item) => item.id === pet.ownerId)
-    : undefined
+  const pet = getDiscoverPetById(petId)
+  const owner = pet?.ownerId ? getDiscoverOwnerById(pet.ownerId) : undefined
 
   const handleConnect = () => {
     if (!pet) return
