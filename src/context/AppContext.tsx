@@ -29,6 +29,21 @@ import {
   petNameForRecord,
 } from '../lib/medicationReminders'
 import {
+  reconcileDocumentReminders,
+  removeDocumentReminderEvents,
+  syncDocumentReminderEvents,
+} from '../lib/documentReminders'
+import {
+  deleteDocumentBlob,
+  getDocumentObjectUrl,
+  loadDocumentsMeta,
+  migrateDocumentBlobs,
+  persistDocumentsMeta,
+  saveDocumentBlob,
+} from '../lib/documentStorage'
+import { formatFileSize, assertDocumentFile } from '../lib/readDocumentFile'
+import type { DocumentCategory, DocumentTypeId } from '../lib/documentCategories'
+import {
   applySeriesExclude,
   isRecurring,
   normalizeRecurrence,
@@ -97,7 +112,6 @@ export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'nearby' | 'popular'
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
-const DOCUMENTS_STORAGE_KEY = 'lovedandknown.petDocuments'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
 
@@ -223,16 +237,7 @@ function loadHealthRecords(): HealthRecord[] {
 }
 
 function loadDocuments(): PetDocument[] {
-  if (typeof window === 'undefined') return initialPetDocuments
-  try {
-    const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY)
-    if (!raw) return initialPetDocuments
-    const parsed = JSON.parse(raw) as PetDocument[]
-    if (!Array.isArray(parsed)) return initialPetDocuments
-    return parsed
-  } catch {
-    return initialPetDocuments
-  }
+  return loadDocumentsMeta(initialPetDocuments)
 }
 
 function loadEarnedBadges(): EarnedBadge[] {
@@ -325,28 +330,22 @@ interface AppContextValue {
   addPetPhotos: (petId: string, urls: string[]) => void
   updatePetPhoto: (photoId: string, updates: Partial<Pick<PetPhoto, 'caption'>>) => void
   deletePetPhoto: (photoId: string) => void
-  addPetDocuments: (
-    petId: string,
-    files: Array<{
-      name: string
-      size: string
-      url: string
-      mimeType?: string
-      type: PetDocument['type']
-    }>,
-  ) => void
+  addPetDocument: (input: {
+    petId: string
+    name: string
+    category: DocumentCategory
+    documentType: DocumentTypeId
+    file: File
+    issuedAt?: string
+    expiresAt?: string
+    notes?: string
+    reminderEnabled?: boolean
+    reminderOffsetsDays?: number[]
+  }) => Promise<PetDocument | null>
   updatePetDocument: (documentId: string, updates: Partial<PetDocument>) => void
-  replacePetDocument: (
-    documentId: string,
-    file: {
-      name: string
-      size: string
-      url: string
-      mimeType?: string
-      type?: PetDocument['type']
-    },
-  ) => void
-  deletePetDocument: (documentId: string) => void
+  replacePetDocument: (documentId: string, file: File) => Promise<boolean>
+  deletePetDocument: (documentId: string) => Promise<void>
+  resolveDocumentUrl: (doc: PetDocument) => Promise<string | null>
   addHealthRecord: (input: NewHealthRecordInput) => void
   updateHealthRecord: (recordId: string, updates: Partial<HealthRecord>) => void
   deleteHealthRecord: (recordId: string) => void
@@ -653,14 +652,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [healthRecords])
 
   useEffect(() => {
-    try {
-      const payload = JSON.stringify(documents)
-      if (payload.length > 4_500_000) return
-      window.localStorage.setItem(DOCUMENTS_STORAGE_KEY, payload)
-    } catch {
-      // Ignore quota errors — documents remain available in the current session.
-    }
+    persistDocumentsMeta(documents)
   }, [documents])
+
+  // Migrate legacy data-URL documents into IndexedDB once on mount.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const migrated = await migrateDocumentBlobs(documents)
+      if (cancelled) return
+      const changed = migrated.some((doc, i) => doc.storageKey !== documents[i]?.storageKey || doc.url !== documents[i]?.url)
+      if (changed) {
+        setDocuments(migrated)
+        persistDocumentsMeta(migrated)
+      }
+    })().catch(() => {
+      /* keep session documents */
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after initial load
+  }, [])
+
+  // Keep document expiry reminders synced with calendar (session state).
+  useEffect(() => {
+    setCalendarEvents((prev) => {
+      const next = reconcileDocumentReminders(prev, documents, pets)
+      if (
+        next.length === prev.length &&
+        next.every((event, index) => event.id === prev[index]?.id && event.date === prev[index]?.date)
+      ) {
+        return prev
+      }
+      return next
+    })
+  }, [documents, pets])
 
   const setActiveModal = (modal: ModalType, petId?: string) => {
     if (modal !== 'bookVet') {
@@ -753,11 +780,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pet = pets.find((item) => item.id === petId)
     if (!pet) return
 
+    const petDocIds = documents.filter((doc) => doc.petId === petId).map((doc) => doc.id)
+    petDocIds.forEach((id) => {
+      void deleteDocumentBlob(id).catch(() => undefined)
+    })
+
     setPets((prev) => prev.filter((item) => item.id !== petId))
     setPhotos((prev) => prev.filter((photo) => photo.petId !== petId))
     setDocuments((prev) => prev.filter((doc) => doc.petId !== petId))
     setHealthRecords((prev) => prev.filter((record) => record.petId !== petId))
-    setCalendarEvents((prev) => prev.filter((event) => event.petName !== pet.name))
+    setCalendarEvents((prev) =>
+      prev.filter(
+        (event) =>
+          event.petName !== pet.name &&
+          event.petId !== petId &&
+          !petDocIds.includes(event.sourceDocumentId ?? ''),
+      ),
+    )
     setPosts((prev) =>
       prev.map((post) =>
         post.petId === petId ? { ...post, petId: undefined } : post,
@@ -978,76 +1017,171 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts((prev) => prev.filter((post) => post.sourcePhotoId !== photoId))
   }
 
-  const addPetDocuments = (
-    petId: string,
-    files: Array<{
-      name: string
-      size: string
-      url: string
-      mimeType?: string
-      type: PetDocument['type']
-    }>,
-  ) => {
-    if (files.length === 0) return
-    const pet = pets.find((item) => item.id === petId)
+  const addPetDocument = async (input: {
+    petId: string
+    name: string
+    category: DocumentCategory
+    documentType: DocumentTypeId
+    file: File
+    issuedAt?: string
+    expiresAt?: string
+    notes?: string
+    reminderEnabled?: boolean
+    reminderOffsetsDays?: number[]
+  }): Promise<PetDocument | null> => {
+    const pet = pets.find((item) => item.id === input.petId)
     const stamp = Date.now()
-    const added: PetDocument[] = files.map((file, index) => ({
-      id: `doc_${stamp}_${index}_${Math.random().toString(36).slice(2, 6)}`,
-      petId,
-      name: file.name,
-      size: file.size,
-      updatedAt: 'právě teď',
-      type: file.type,
-      url: file.url,
-      mimeType: file.mimeType,
-    }))
-    setDocuments((prev) => [...added, ...prev])
+    const id = `doc_${stamp}_${Math.random().toString(36).slice(2, 8)}`
+    const nowIso = new Date().toISOString()
+    const doc: PetDocument = {
+      id,
+      petId: input.petId,
+      name: input.name.trim() || input.file.name,
+      category: input.category,
+      documentType: input.documentType,
+      fileName: input.file.name,
+      fileSizeBytes: input.file.size,
+      size: formatFileSize(input.file.size),
+      mimeType: input.file.type || undefined,
+      uploadedAt: nowIso,
+      updatedAt: nowIso,
+      issuedAt: input.issuedAt || undefined,
+      expiresAt: input.expiresAt || undefined,
+      notes: input.notes?.trim() || undefined,
+      storageKey: id,
+      isPublic: false,
+      reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
+      reminderOffsetsDays:
+        input.reminderEnabled && input.expiresAt
+          ? input.reminderOffsetsDays?.filter((d) => d > 0)
+          : undefined,
+    }
+
+    try {
+      assertDocumentFile(input.file)
+      await saveDocumentBlob(id, input.file, {
+        mimeType: doc.mimeType,
+        fileName: doc.fileName,
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Nahrajte PDF, JPG nebo PNG.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast(
+          'Nahrání selhalo',
+          'Soubor se nepodařilo uložit. Zkuste to znovu.',
+          'info',
+        )
+      }
+      return null
+    }
+
+    const nextDocs = [doc, ...documents]
+    const metaOk = persistDocumentsMeta(nextDocs)
+    if (!metaOk) {
+      await deleteDocumentBlob(id).catch(() => undefined)
+      showToast(
+        'Nahrání selhalo',
+        'Metadata dokumentu se nepodařilo uložit.',
+        'info',
+      )
+      return null
+    }
+
+    setDocuments(nextDocs)
+    setCalendarEvents((prev) => syncDocumentReminderEvents(prev, doc, pet))
     showToast(
-      files.length === 1 ? 'Dokument nahrán' : `${files.length} dokumenty nahrány`,
-      pet
-        ? `Uloženo v sekci Dokumenty u ${pet.name}.`
-        : 'Uloženo v sekci Dokumenty.',
+      'Dokument nahrán',
+      pet ? `Uloženo v sekci Dokumenty u ${pet.name}.` : 'Uloženo v sekci Dokumenty.',
       'gold',
     )
+    return doc
   }
 
   const updatePetDocument = (documentId: string, updates: Partial<PetDocument>) => {
-    setDocuments((prev) =>
-      prev.map((doc) => (doc.id === documentId ? { ...doc, ...updates } : doc)),
-    )
+    const existing = documents.find((doc) => doc.id === documentId)
+    if (!existing) return
+
+    const merged: PetDocument = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      petId: updates.petId ?? existing.petId,
+      isPublic: false,
+      updatedAt: new Date().toISOString(),
+    }
+
+    setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? merged : doc)))
+    const pet = pets.find((item) => item.id === merged.petId)
+    setCalendarEvents((prev) => syncDocumentReminderEvents(prev, merged, pet))
+    showToast('Dokument upraven', 'Metadata dokumentu byla uložena.', 'gold')
   }
 
-  const replacePetDocument = (
-    documentId: string,
-    file: {
-      name: string
-      size: string
-      url: string
-      mimeType?: string
-      type?: PetDocument['type']
-    },
-  ) => {
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.id === documentId
-          ? {
-              ...doc,
-              name: file.name,
-              size: file.size,
-              url: file.url,
-              mimeType: file.mimeType,
-              type: file.type ?? doc.type,
-              updatedAt: 'právě teď',
-            }
-          : doc,
-      ),
-    )
-    showToast('Dokument nahrazen', 'Nová verze byla nahrána.', 'gold')
+  const replacePetDocument = async (documentId: string, file: File): Promise<boolean> => {
+    const existing = documents.find((doc) => doc.id === documentId)
+    if (!existing) return false
+
+    try {
+      assertDocumentFile(file)
+      await saveDocumentBlob(documentId, file, {
+        mimeType: file.type || undefined,
+        fileName: file.name,
+      })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'read_failed'
+      if (reason === 'unsupported_type') {
+        showToast('Nepodporovaný formát', 'Nahrajte PDF, JPG nebo PNG.', 'info')
+      } else if (reason === 'too_large') {
+        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
+      } else {
+        showToast('Nahrazení selhalo', 'Nový soubor se nepodařilo uložit.', 'info')
+      }
+      return false
+    }
+
+    const updated: PetDocument = {
+      ...existing,
+      fileName: file.name,
+      fileSizeBytes: file.size,
+      size: formatFileSize(file.size),
+      mimeType: file.type || undefined,
+      storageKey: documentId,
+      url: undefined,
+      updatedAt: new Date().toISOString(),
+      isPublic: false,
+    }
+
+    const nextDocs = documents.map((doc) => (doc.id === documentId ? updated : doc))
+    if (!persistDocumentsMeta(nextDocs)) {
+      showToast('Nahrazení selhalo', 'Metadata se nepodařilo uložit.', 'info')
+      return false
+    }
+
+    setDocuments(nextDocs)
+    showToast('Dokument nahrazen', 'Nová verze souboru byla nahrána.', 'gold')
+    return true
   }
 
-  const deletePetDocument = (documentId: string) => {
+  const deletePetDocument = async (documentId: string) => {
+    await deleteDocumentBlob(documentId).catch(() => undefined)
     setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
-    showToast('Dokument smazán', 'Soubor byl odstraněn ze seznamu.', 'info')
+    setCalendarEvents((prev) => removeDocumentReminderEvents(prev, documentId))
+    showToast('Dokument smazán', 'Dokument byl trvale odstraněn.', 'info')
+  }
+
+  const resolveDocumentUrl = async (doc: PetDocument): Promise<string | null> => {
+    if (doc.storageKey) {
+      try {
+        return await getDocumentObjectUrl(doc.storageKey)
+      } catch {
+        return null
+      }
+    }
+    if (doc.url) return doc.url
+    return null
   }
 
   const enableMedicationReminder = (record: HealthRecord) => {
@@ -2443,6 +2577,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...updates,
       id: event.id,
       sourceRecordId: event.sourceRecordId,
+      sourceDocumentId: event.sourceDocumentId,
     }
     if ('recurrence' in updates) {
       next.recurrence = normalizeRecurrence(updates.recurrence)
@@ -2638,10 +2773,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addPetPhotos,
         updatePetPhoto,
         deletePetPhoto,
-        addPetDocuments,
+        addPetDocument,
         updatePetDocument,
         replacePetDocument,
         deletePetDocument,
+        resolveDocumentUrl,
         addHealthRecord,
         updateHealthRecord,
         deleteHealthRecord,

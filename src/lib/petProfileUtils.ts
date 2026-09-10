@@ -80,10 +80,8 @@ export function buildPetTimeline(
   return merged.sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))
 }
 
+import { getDocumentExpiryInfo } from './documentExpiry'
+
 export function isDocumentExpiringSoon(expiresAt?: string): boolean {
-  if (!expiresAt) return false
-  const ts = parseCzechDate(expiresAt.includes('.') ? expiresAt : `1. ${expiresAt}`)
-  if (!ts) return false
-  const monthsLeft = (ts - Date.now()) / (1000 * 60 * 60 * 24 * 30)
-  return monthsLeft <= 6
+  return getDocumentExpiryInfo(expiresAt).status === 'soon'
 }

@@ -88,6 +88,7 @@ export const EVENT_TYPES_BY_CATEGORY: Record<
     { value: 'foreign_travel', label: 'Zahraniční cesta' },
     { value: 'pet_friend', label: 'Nový zvířecí kamarád' },
     { value: 'community_meetup', label: 'Setkání komunity' },
+    { value: 'document_expiry', label: 'Expirace dokumentu' },
     { value: 'custom', label: 'Jiná událost' },
   ],
 }
@@ -145,6 +146,7 @@ const EVENT_TYPE_TO_CATEGORY: Record<EventType, CalendarEventCategory> = {
   birthday: 'other',
   adoption_anniversary: 'other',
   community_meetup: 'other',
+  document_expiry: 'other',
   custom: 'other',
   feeding: 'other',
 }
@@ -202,6 +204,7 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   birthday: 'Narozeniny',
   adoption_anniversary: 'Výročí adopce',
   community_meetup: 'Setkání komunity',
+  document_expiry: 'Expirace dokumentu',
   custom: 'Jiná událost',
   feeding: 'Krmení',
 }

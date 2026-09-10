@@ -35,11 +35,9 @@ import {
   togglePersonalityPreset,
 } from '../../../lib/petAboutPresets'
 import { takeSelectedFiles, readImageFileAsDataUrl } from '../../../lib/readImageFile'
-import {
-  formatFileSize,
-  inferDocumentType,
-  readDocumentFileAsDataUrl,
-} from '../../../lib/readDocumentFile'
+import { isAcceptedDocumentFile, PET_DOCUMENT_ACCEPT } from '../../../lib/readDocumentFile'
+import type { DocumentCategory } from '../../../lib/documentCategories'
+import type { DocumentFormValues } from './DocumentFormFields'
 import {
   buildHealthActionItems,
   buildHealthSummaryCards,
@@ -63,14 +61,16 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     photos: allPhotos,
     documents: allDocuments,
     healthRecords: allRecords,
+    pets,
     refreshBadges,
     addPetPhotos,
     updatePetPhoto,
     deletePetPhoto,
-    addPetDocuments,
+    addPetDocument,
     updatePetDocument,
     replacePetDocument,
     deletePetDocument,
+    resolveDocumentUrl,
     updateHealthRecord,
     deleteHealthRecord,
     toggleMedicationReminder,
@@ -81,12 +81,19 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   } = useApp()
 
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
-  const documentFileInputRef = useRef<HTMLInputElement>(null)
   const replaceDocumentInputRef = useRef<HTMLInputElement>(null)
 
   const [galleryUploading, setGalleryUploading] = useState(false)
   const [documentUploading, setDocumentUploading] = useState(false)
+  const [documentUploadOpen, setDocumentUploadOpen] = useState(false)
+  const [documentEditTarget, setDocumentEditTarget] = useState<PetDocument | null>(null)
+  const [documentDeleteTarget, setDocumentDeleteTarget] = useState<PetDocument | null>(null)
+  const [documentFilter, setDocumentFilter] = useState<DocumentCategory | 'all'>('all')
+  const [documentSort, setDocumentSort] = useState<
+    'newest' | 'oldest' | 'name' | 'expiry'
+  >('newest')
   const [replacingDocumentId, setReplacingDocumentId] = useState<string | null>(null)
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null)
   const [weightData, setWeightData] = useState<WeightMeasurement[]>(() =>
     getWeightMeasurementsForPet(pet.id),
   )
@@ -134,6 +141,8 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   useEffect(() => {
     setHealthCategoryView(null)
     setHiddenTimelineIds([])
+    setDocumentFilter('all')
+    setDocumentSort('newest')
   }, [pet.id])
 
   const dailyCareTasks = useMemo(
@@ -378,35 +387,29 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     showToast('Událost přidána', 'Nová položka byla přidána do časové osy.', 'gold')
   }
 
-  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget
-    const files = takeSelectedFiles(input)
-    if (files.length === 0) return
-
+  const handleDocumentUploadSubmit = async (
+    values: DocumentFormValues & { file: File; reminderOffsetsDays: number[] },
+  ): Promise<boolean> => {
     setDocumentUploading(true)
     try {
-      const uploaded = []
-      for (const file of files) {
-        const url = await readDocumentFileAsDataUrl(file)
-        uploaded.push({
-          name: file.name,
-          size: formatFileSize(file.size),
-          url,
-          mimeType: file.type || undefined,
-          type: inferDocumentType(file.name),
-        })
-      }
-      addPetDocuments(pet.id, uploaded)
+      const created = await addPetDocument({
+        petId: values.petId,
+        name: values.name.trim(),
+        category: values.category,
+        documentType: values.documentType,
+        file: values.file,
+        issuedAt: values.issuedAt || undefined,
+        expiresAt: values.hasExpiry ? values.expiresAt || undefined : undefined,
+        notes: values.notes.trim() || undefined,
+        reminderEnabled: values.hasExpiry && values.reminderEnabled,
+        reminderOffsetsDays: values.reminderOffsetsDays,
+      })
+      if (!created) return false
       onTabChange('documents')
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'read_failed'
-      if (reason === 'unsupported_type') {
-        showToast('Nepodporovaný formát', 'Nahrajte PDF nebo obrázek (JPG, PNG, WEBP, GIF).', 'info')
-      } else if (reason === 'too_large') {
-        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
-      } else {
-        showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
-      }
+      return true
+    } catch {
+      showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
+      return false
     } finally {
       setDocumentUploading(false)
     }
@@ -424,44 +427,102 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     setReplacingDocumentId(null)
     if (!docId || files.length === 0) return
 
+    const file = files[0]
+    if (!isAcceptedDocumentFile(file)) {
+      showToast('Nepodporovaný formát', 'Nahrajte PDF nebo obrázek (JPG, PNG).', 'info')
+      return
+    }
+
     try {
-      const file = files[0]
-      const url = await readDocumentFileAsDataUrl(file)
-      replacePetDocument(docId, {
-        name: file.name,
-        size: formatFileSize(file.size),
-        url,
-        mimeType: file.type || undefined,
-        type: inferDocumentType(file.name),
-      })
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'read_failed'
-      if (reason === 'unsupported_type') {
-        showToast('Nepodporovaný formát', 'Nahrajte PDF nebo obrázek.', 'info')
-      } else if (reason === 'too_large') {
-        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
-      } else {
-        showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
-      }
+      await replacePetDocument(docId, file)
+    } catch {
+      showToast('Nahrání selhalo', 'Zkuste soubor vybrat znovu.', 'info')
     }
   }
 
-  const handleDownloadDocument = (doc: PetDocument) => {
-    if (!doc.url) {
-      showToast('Stažení není dostupné', 'Tento ukázkový dokument nemá soubor ke stažení.', 'info')
+  const handleDownloadDocument = async (doc: PetDocument) => {
+    const url = await resolveDocumentUrl(doc)
+    if (!url) {
+      showToast(
+        'Stažení není dostupné',
+        doc.storageKey || doc.url
+          ? 'Soubor se nepodařilo načíst.'
+          : 'Tento ukázkový dokument nemá soubor ke stažení.',
+        'info',
+      )
       return
     }
     const link = document.createElement('a')
-    link.href = doc.url
-    link.download = doc.name
+    link.href = url
+    link.download = doc.fileName || doc.name
     link.click()
+    if (url.startsWith('blob:')) {
+      setTimeout(() => URL.revokeObjectURL(url), 30_000)
+    }
     showToast('Stahování zahájeno', doc.name, 'gold')
   }
 
-  const handleUpdateDocumentExpiry = (docId: string, expiresAt: string) => {
-    updatePetDocument(docId, { expiresAt: expiresAt.trim() || undefined })
-    showToast('Platnost aktualizována', 'Datum expirace dokumentu bylo uloženo.', 'info')
+  const openDocumentPreview = async (doc: PetDocument) => {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl)
+      setPreviewObjectUrl(null)
+    }
+    setDocumentPreview(doc)
+    if (doc.storageKey || doc.url) {
+      const url = await resolveDocumentUrl(doc)
+      if (url?.startsWith('blob:')) setPreviewObjectUrl(url)
+      else if (url) setPreviewObjectUrl(url)
+    }
   }
+
+  const closeDocumentPreview = () => {
+    setDocumentPreview(null)
+    if (previewObjectUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewObjectUrl)
+    }
+    setPreviewObjectUrl(null)
+  }
+
+  const handleConfirmDeleteDocument = async () => {
+    if (!documentDeleteTarget) return
+    const id = documentDeleteTarget.id
+    setDocumentDeleteTarget(null)
+    if (documentPreview?.id === id) closeDocumentPreview()
+    await deletePetDocument(id)
+  }
+
+  const documentReminderEventId = (docId: string) =>
+    calendarEvents.find((event) => event.sourceDocumentId === docId)?.id
+
+  const sortedFilteredDocuments = useMemo(() => {
+    let list =
+      documentFilter === 'all'
+        ? [...documents]
+        : documents.filter((d) => d.category === documentFilter)
+
+    list.sort((a, b) => {
+      if (documentSort === 'name') {
+        return a.name.localeCompare(b.name, 'cs')
+      }
+      if (documentSort === 'expiry') {
+        const ae = a.expiresAt ? Date.parse(a.expiresAt) : Number.POSITIVE_INFINITY
+        const be = b.expiresAt ? Date.parse(b.expiresAt) : Number.POSITIVE_INFINITY
+        return ae - be
+      }
+      const at = Date.parse(a.updatedAt) || Date.parse(a.uploadedAt) || 0
+      const bt = Date.parse(b.updatedAt) || Date.parse(b.uploadedAt) || 0
+      return documentSort === 'oldest' ? at - bt : bt - at
+    })
+    return list
+  }, [documents, documentFilter, documentSort])
+
+  const documentCategoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: documents.length }
+    for (const doc of documents) {
+      counts[doc.category] = (counts[doc.category] ?? 0) + 1
+    }
+    return counts
+  }, [documents])
 
   const handleDeletePhoto = (photoId: string) => {
     deletePetPhoto(photoId)
@@ -705,17 +766,33 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       handleAddTimelineEvent,
     },
     documents: {
-      documents,
+      petId: pet.id,
+      documents: sortedFilteredDocuments,
+      allDocumentsForPet: documents,
+      documentCategoryCounts,
+      documentFilter,
+      setDocumentFilter,
+      documentSort,
+      setDocumentSort,
       documentUploading,
-      documentFileInputRef,
+      documentUploadOpen,
+      setDocumentUploadOpen,
+      documentEditTarget,
+      setDocumentEditTarget,
+      documentDeleteTarget,
+      setDocumentDeleteTarget,
+      pets,
       replaceDocumentInputRef,
-      handleDocumentUpload,
+      handleDocumentUploadSubmit,
       handleReplaceDocumentUpload,
       handleReplaceDocumentPick,
       handleDownloadDocument,
-      handleUpdateDocumentExpiry,
-      setDocumentPreview,
-      deletePetDocument,
+      handleConfirmDeleteDocument,
+      openDocumentPreview,
+      documentReminderEventId,
+      openEditCalendarEvent,
+      updatePetDocument,
+      accept: PET_DOCUMENT_ACCEPT,
     },
     photos: {
       pet,
@@ -740,7 +817,8 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       setNewEvent,
       handleAddTimelineEvent,
       documentPreview,
-      setDocumentPreview,
+      previewObjectUrl,
+      closeDocumentPreview,
       handleDownloadDocument,
       handleReplaceDocumentPick,
       activeGalleryPhoto,

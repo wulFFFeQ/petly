@@ -109,6 +109,7 @@ export type EventType =
   | 'pregnancy_check'
   | 'weaning'
   | 'breeding_other'
+  | 'document_expiry'
 
 /** How a calendar event series repeats. */
 export type RecurrenceFrequency =
@@ -263,17 +264,50 @@ export interface TimelineEvent {
   sourceId?: string
 }
 
+export type PetDocumentCategory =
+  | 'identification'
+  | 'health'
+  | 'insurance'
+  | 'breeding'
+  | 'travel'
+  | 'other'
+
+export type PetDocumentTypeId = string
+
 export interface PetDocument {
   id: string
   petId: string
+  /** Display title (editable). */
   name: string
+  category: PetDocumentCategory
+  documentType: PetDocumentTypeId
+  /** Original file name on disk. */
+  fileName: string
+  fileSizeBytes?: number
+  /** Formatted size for UI, e.g. "2,4 MB". */
   size: string
-  updatedAt: string
-  expiresAt?: string
-  type: 'passport' | 'chip' | 'insurance' | 'lab' | 'other'
-  /** Data URL or remote URL for preview / download. */
-  url?: string
   mimeType?: string
+  /** ISO timestamp when first uploaded. */
+  uploadedAt: string
+  /** ISO timestamp or legacy display label of last update. */
+  updatedAt: string
+  /** ISO date `YYYY-MM-DD` when issued. */
+  issuedAt?: string
+  /** ISO date `YYYY-MM-DD` when expires; omit / undefined = no expiry. */
+  expiresAt?: string
+  notes?: string
+  /** IndexedDB blob key (usually same as id). */
+  storageKey?: string
+  /**
+   * Legacy data URL or remote URL. Prefer `storageKey` for new uploads.
+   * Demo seed docs have neither.
+   */
+  url?: string
+  /** Documents are private by default and must never auto-publish. */
+  isPublic: boolean
+  reminderEnabled?: boolean
+  /** Days before expiry to remind (e.g. 30, 14, 7). */
+  reminderOffsetsDays?: number[]
 }
 
 export interface PetPhoto {
@@ -466,6 +500,8 @@ export interface CalendarEvent {
   actualEndDate?: string
   /** Links medication reminder events to a health record. */
   sourceRecordId?: string
+  /** Links document-expiry reminders to a pet document. */
+  sourceDocumentId?: string
   /** Type-specific details */
   dosage?: string
   medicationName?: string

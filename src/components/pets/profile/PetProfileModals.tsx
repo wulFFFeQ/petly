@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Download, FileText, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { formatDocumentUpdatedAt } from '../../../lib/documentExpiry'
 import type { TimelineEvent } from '../../../types'
 import {
   getCustomListItems,
@@ -70,7 +71,8 @@ export function PetProfileModals({
   setNewEvent,
   handleAddTimelineEvent,
   documentPreview,
-  setDocumentPreview,
+  previewObjectUrl,
+  closeDocumentPreview,
   handleDownloadDocument,
   handleReplaceDocumentPick,
   activeGalleryPhoto,
@@ -246,47 +248,65 @@ export function PetProfileModals({
 
       <Modal
         open={!!documentPreview}
-        onClose={() => setDocumentPreview(null)}
+        onClose={closeDocumentPreview}
         title={documentPreview?.name ?? 'Dokument'}
-        subtitle={`${documentPreview?.size} · aktualizováno ${documentPreview?.updatedAt}`}
+        subtitle={
+          documentPreview
+            ? `${documentPreview.size} · aktualizováno ${formatDocumentUpdatedAt(documentPreview.updatedAt)}`
+            : undefined
+        }
         maxWidth="lg"
       >
         {documentPreview && (
           <div className="space-y-4">
             <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] overflow-hidden">
-              {documentPreview.url &&
-              (documentPreview.mimeType?.startsWith('image/') ||
-                /\.(jpe?g|png|webp|gif|bmp)$/i.test(documentPreview.name)) ? (
-                <img
-                  src={documentPreview.url}
-                  alt={documentPreview.name}
-                  className="max-h-80 w-full object-contain bg-white"
-                />
-              ) : documentPreview.url &&
-                (documentPreview.mimeType === 'application/pdf' ||
-                  documentPreview.name.toLowerCase().endsWith('.pdf')) ? (
-                <iframe
-                  title={documentPreview.name}
-                  src={documentPreview.url}
-                  className="h-80 w-full bg-white"
-                />
-              ) : (
-                <div className="p-8 text-center">
-                  <FileText size={48} className="mx-auto text-[#234B54] mb-3" />
-                  <p className="text-sm font-bold text-[#191E1B]">{documentPreview.name}</p>
-                  <p className="text-xs text-[#7D8B82] mt-1">
-                    {documentPreview.url
-                      ? 'Náhled není k dispozici — soubor lze stáhnout.'
-                      : 'Ukázkový dokument bez nahraného souboru.'}
-                  </p>
-                </div>
-              )}
+              {(() => {
+                const src = previewObjectUrl || documentPreview.url
+                const isImage =
+                  Boolean(src) &&
+                  (documentPreview.mimeType?.startsWith('image/') ||
+                    /\.(jpe?g|png|webp|gif|bmp)$/i.test(documentPreview.fileName || documentPreview.name))
+                const isPdf =
+                  Boolean(src) &&
+                  (documentPreview.mimeType === 'application/pdf' ||
+                    (documentPreview.fileName || documentPreview.name).toLowerCase().endsWith('.pdf'))
+
+                if (src && isImage) {
+                  return (
+                    <img
+                      src={src}
+                      alt={documentPreview.name}
+                      className="max-h-80 w-full object-contain bg-white"
+                    />
+                  )
+                }
+                if (src && isPdf) {
+                  return (
+                    <iframe
+                      title={documentPreview.name}
+                      src={src}
+                      className="h-80 w-full bg-white"
+                    />
+                  )
+                }
+                return (
+                  <div className="p-8 text-center">
+                    <FileText size={48} className="mx-auto text-[#234B54] mb-3" />
+                    <p className="text-sm font-bold text-[#191E1B]">{documentPreview.name}</p>
+                    <p className="text-xs text-[#7D8B82] mt-1">
+                      {src
+                        ? 'Náhled není k dispozici — soubor lze stáhnout.'
+                        : 'Ukázkový dokument bez nahraného souboru.'}
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => handleDownloadDocument(documentPreview)}
+                onClick={() => void handleDownloadDocument(documentPreview)}
               >
                 <Download size={14} />
                 Stáhnout
@@ -296,11 +316,14 @@ export function PetProfileModals({
                 size="sm"
                 onClick={() => {
                   handleReplaceDocumentPick(documentPreview.id)
-                  setDocumentPreview(null)
+                  closeDocumentPreview()
                 }}
               >
                 <RefreshCw size={14} />
                 Nahradit
+              </Button>
+              <Button variant="ghost" size="sm" onClick={closeDocumentPreview}>
+                Zavřít
               </Button>
             </div>
           </div>
