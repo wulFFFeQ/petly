@@ -25,6 +25,11 @@ export const DISCOVER_FORBIDDEN_KEYS = [
   'ownerAddress',
   'vetPhone',
   'emergencyContacts',
+  'importantContacts',
+  'conciergeRequests',
+  'primaryForPetIds',
+  'petIds',
+  'contactPreference',
 ] as const
 
 const FORBIDDEN_SET = new Set<string>(DISCOVER_FORBIDDEN_KEYS)

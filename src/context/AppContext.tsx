@@ -2,10 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import {
   calendarEvents as initialCalendarEvents,
   healthRecords as initialHealthRecords,
+  importantContacts as initialImportantContacts,
   myPets as initialPets,
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
+import {
+  normalizeImportantContact,
+  normalizeImportantContacts,
+} from '../lib/contacts/normalize'
+import { loadTravelPrefs, saveTravelPrefs } from '../lib/travel/travelPrefs'
 import {
   COMMUNITY_SELF_AUTHOR_ID,
   COMMUNITY_SELF_AVATAR,
@@ -121,11 +127,17 @@ import type {
   AppNotification,
   CalendarEvent,
   CommunityPost,
+  ConciergeContactPreference,
+  ConciergeRequest,
+  ConciergeRequestPriority,
+  ConciergeRequestStatus,
+  ConciergeRequestType,
   Conversation,
   CreateLostAnnouncementInput,
   EventType,
   HealthRecord,
   HealthRecordType,
+  ImportantContact,
   LostPetAnnouncement,
   LostPetReport,
   ModalType,
@@ -141,6 +153,8 @@ import type {
   SubmitLostFoundInput,
   SubmitLostSightingInput,
   ToastMessage,
+  TravelPrefs,
+  TravelRequirementCheck,
 } from '../types'
 
 export type { DiscoverCriteria, DiscoverSpecies } from '../lib/discoverCriteria'
@@ -154,6 +168,8 @@ const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
 const CALENDAR_STORAGE_KEY = 'lovedandknown.calendarEvents'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
+const CONTACTS_STORAGE_KEY = 'lovedandknown.importantContacts'
+const CONCIERGE_STORAGE_KEY = 'lovedandknown.conciergeRequests'
 
 function normalizeLifestyleField(value: unknown): string[] | undefined {
   const list = normalizeLifestyleList(value as string | string[] | null | undefined)
@@ -347,6 +363,58 @@ function loadNightOwlEligible(): boolean {
   }
 }
 
+function loadImportantContacts(): ImportantContact[] {
+  const fallback = normalizeImportantContacts(initialImportantContacts, [])
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(CONTACTS_STORAGE_KEY)
+    if (!raw) return fallback
+    return normalizeImportantContacts(JSON.parse(raw), fallback)
+  } catch {
+    return fallback
+  }
+}
+
+function normalizeConciergeRequest(raw: unknown): ConciergeRequest | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const item = raw as Record<string, unknown>
+  if (typeof item.id !== 'string' || !item.id) return null
+  if (typeof item.type !== 'string') return null
+  if (typeof item.description !== 'string') return null
+  const status = (typeof item.status === 'string' ? item.status : 'new') as ConciergeRequestStatus
+  const priority = (typeof item.priority === 'string' ? item.priority : 'normal') as ConciergeRequestPriority
+  const contactPreference = (
+    typeof item.contactPreference === 'string' ? item.contactPreference : 'in_app'
+  ) as ConciergeContactPreference
+  const createdAt =
+    typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString()
+  const updatedAt = typeof item.updatedAt === 'string' ? item.updatedAt : createdAt
+  return {
+    id: item.id,
+    petId: typeof item.petId === 'string' && item.petId ? item.petId : undefined,
+    type: item.type as ConciergeRequestType,
+    description: item.description,
+    priority,
+    contactPreference,
+    status,
+    createdAt,
+    updatedAt,
+  }
+}
+
+function loadConciergeRequests(): ConciergeRequest[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CONCIERGE_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.map(normalizeConciergeRequest).filter((r): r is ConciergeRequest => r != null)
+  } catch {
+    return []
+  }
+}
+
 export type NewHealthRecordInput = {
   petId: string
   type: HealthRecordType
@@ -521,6 +589,27 @@ interface AppContextValue {
   ) => void
   showToast: (title: string, description?: string, type?: ToastMessage['type']) => void
   removeToast: (id: string) => void
+  importantContacts: ImportantContact[]
+  addContact: (input: Omit<ImportantContact, 'id'>) => ImportantContact
+  updateContact: (contactId: string, updates: Partial<Omit<ImportantContact, 'id'>>) => void
+  deleteContact: (contactId: string) => void
+  setPrimaryContact: (petId: string, contactId: string | null) => void
+  conciergeRequests: ConciergeRequest[]
+  createConciergeRequest: (input: {
+    petId?: string
+    type: ConciergeRequestType
+    description: string
+    priority: ConciergeRequestPriority
+    contactPreference: ConciergeContactPreference
+  }) => ConciergeRequest
+  updateConciergeRequestStatus: (requestId: string, status: ConciergeRequestStatus) => void
+  travelPrefs: TravelPrefs
+  setTravelPrefs: (update: TravelPrefs | ((prev: TravelPrefs) => TravelPrefs)) => void
+  confirmTravelCheck: (
+    petId: string,
+    destinationId: string,
+    check: TravelRequirementCheck,
+  ) => void
 }
 
 function loadInitialNotifications(): AppNotification[] {
@@ -597,6 +686,132 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [safeContactChannels, setSafeContactChannels] = useState<SafeContactChannel[]>(
     loadSafeContactChannels,
   )
+  const [importantContacts, setImportantContacts] = useState<ImportantContact[]>(loadImportantContacts)
+  const [conciergeRequests, setConciergeRequests] = useState<ConciergeRequest[]>(loadConciergeRequests)
+  const [travelPrefs, setTravelPrefsState] = useState<TravelPrefs>(loadTravelPrefs)
+
+  const setTravelPrefs = useCallback(
+    (update: TravelPrefs | ((prev: TravelPrefs) => TravelPrefs)) => {
+      setTravelPrefsState(update)
+    },
+    [],
+  )
+
+  const confirmTravelCheck = useCallback(
+    (petId: string, destinationId: string, check: TravelRequirementCheck) => {
+      const key = `${petId}:${destinationId}:${check}`
+      setTravelPrefsState((prev) => ({
+        ...prev,
+        confirmations: {
+          ...prev.confirmations,
+          [key]: new Date().toISOString(),
+        },
+      }))
+    },
+    [],
+  )
+
+  const addContact = useCallback((input: Omit<ImportantContact, 'id'>): ImportantContact => {
+    const contact: ImportantContact = {
+      ...input,
+      id: `ic_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      petIds: input.petIds ?? [],
+      primaryForPetIds: input.primaryForPetIds ?? [],
+    }
+    const normalized = normalizeImportantContact(contact)
+    const next = normalized ?? contact
+    setImportantContacts((prev) => {
+      let list = [next, ...prev]
+      if (next.primaryForPetIds.length > 0) {
+        list = list.map((c) => {
+          if (c.id === next.id) return c
+          return {
+            ...c,
+            primaryForPetIds: c.primaryForPetIds.filter((pid) => !next.primaryForPetIds.includes(pid)),
+          }
+        })
+      }
+      return list
+    })
+    return next
+  }, [])
+
+  const updateContact = useCallback(
+    (contactId: string, updates: Partial<Omit<ImportantContact, 'id'>>) => {
+      setImportantContacts((prev) => {
+        const existing = prev.find((c) => c.id === contactId)
+        if (!existing) return prev
+        const merged = normalizeImportantContact({ ...existing, ...updates, id: contactId })
+        if (!merged) return prev
+        let list = prev.map((c) => (c.id === contactId ? merged : c))
+        if (merged.primaryForPetIds.length > 0) {
+          list = list.map((c) => {
+            if (c.id === merged.id) return c
+            return {
+              ...c,
+              primaryForPetIds: c.primaryForPetIds.filter(
+                (pid) => !merged.primaryForPetIds.includes(pid),
+              ),
+            }
+          })
+        }
+        return list
+      })
+    },
+    [],
+  )
+
+  const deleteContact = useCallback((contactId: string) => {
+    setImportantContacts((prev) => prev.filter((c) => c.id !== contactId))
+  }, [])
+
+  const setPrimaryContact = useCallback((petId: string, contactId: string | null) => {
+    setImportantContacts((prev) =>
+      prev.map((c) => {
+        const without = c.primaryForPetIds.filter((id) => id !== petId)
+        if (contactId && c.id === contactId) {
+          return { ...c, primaryForPetIds: [...without, petId] }
+        }
+        return { ...c, primaryForPetIds: without }
+      }),
+    )
+  }, [])
+
+  const createConciergeRequest = useCallback(
+    (input: {
+      petId?: string
+      type: ConciergeRequestType
+      description: string
+      priority: ConciergeRequestPriority
+      contactPreference: ConciergeContactPreference
+    }): ConciergeRequest => {
+      const now = new Date().toISOString()
+      const request: ConciergeRequest = {
+        id: `cr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        petId: input.petId || undefined,
+        type: input.type,
+        description: input.description.trim(),
+        priority: input.priority,
+        contactPreference: input.contactPreference,
+        status: 'new',
+        createdAt: now,
+        updatedAt: now,
+      }
+      setConciergeRequests((prev) => [request, ...prev])
+      return request
+    },
+    [],
+  )
+
+  const updateConciergeRequestStatus = useCallback(
+    (requestId: string, status: ConciergeRequestStatus) => {
+      const now = new Date().toISOString()
+      setConciergeRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status, updatedAt: now } : r)),
+      )
+    },
+    [],
+  )
 
   const refreshBadges = useCallback(() => {
     setBadgeRevision((n) => n + 1)
@@ -625,6 +840,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    window.localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(importantContacts))
+  }, [importantContacts])
+
+  useEffect(() => {
+    window.localStorage.setItem(CONCIERGE_STORAGE_KEY, JSON.stringify(conciergeRequests))
+  }, [conciergeRequests])
+
+  useEffect(() => {
+    saveTravelPrefs(travelPrefs)
+  }, [travelPrefs])
 
   useEffect(() => {
     window.localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(calendarEvents))
@@ -3366,6 +3593,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteCalendarOccurrence,
         showToast,
         removeToast,
+        importantContacts,
+        addContact,
+        updateContact,
+        deleteContact,
+        setPrimaryContact,
+        conciergeRequests,
+        createConciergeRequest,
+        updateConciergeRequestStatus,
+        travelPrefs,
+        setTravelPrefs,
+        confirmTravelCheck,
       }}
     >
       {children}

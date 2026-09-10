@@ -1,7 +1,11 @@
 import { AlertTriangle, Copy, ExternalLink, Phone, Stethoscope } from 'lucide-react'
 import { useMemo } from 'react'
-import { importantContacts } from '../../../data/mockData'
 import { useApp } from '../../../context/AppContext'
+import {
+  contactByTypeForPet,
+  contactTypeLabel,
+  primaryContactForPet,
+} from '../../../lib/contacts/normalize'
 import { copyTextToClipboard } from '../../../lib/clipboard'
 import { ensureEmergencyCardSettings } from '../../../lib/emergencyCard'
 import {
@@ -16,23 +20,18 @@ import {
 } from '../../../lib/petProfileDisplay'
 import { petTypeLabel } from '../../../lib/petTypes'
 import type { Pet } from '../../../types'
-import type { ImportantContact } from '../../../types'
 import { Button } from '../../ui/Button'
 
 interface EmergencyCardOwnerBodyProps {
   pet: Pet
 }
 
-function contactByType(type: ImportantContact['type']) {
-  return importantContacts.find((c) => c.type === type)
-}
-
 export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
-  const { lostAnnouncements, showToast } = useApp()
+  const { lostAnnouncements, showToast, importantContacts } = useApp()
   const card = ensureEmergencyCardSettings(pet)
-  const emergencyVet = contactByType('emergency')
-  const mainVet = contactByType('vet')
-  const emergencyPerson = contactByType('emergency_person')
+  const emergencyVet = contactByTypeForPet(importantContacts, pet.id, 'emergency')
+  const mainVet = contactByTypeForPet(importantContacts, pet.id, 'vet')
+  const emergencyPerson = primaryContactForPet(importantContacts, pet.id)
   const chip = pet.microchip?.trim()
   const ageLabel = formatOptionalAge(pet.age, pet.ageMonths)
   const meta = [
@@ -58,7 +57,7 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
   if (health?.other) healthLines.push(health.other)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="emergency-card-owner">
       <div className="rounded-xl border-2 border-[#234B54]/20 bg-[#E0EAEC]/40 p-4">
         <div className="flex items-start gap-4">
           <img
@@ -148,7 +147,7 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
       )}
 
       <div className="grid gap-2 sm:grid-cols-2">
-        {emergencyVet && (
+        {emergencyVet?.phone && (
           <a
             href={`tel:${emergencyVet.phone.replace(/\s/g, '')}`}
             className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 transition-colors hover:bg-white"
@@ -156,7 +155,7 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
             <AlertTriangle size={18} className="shrink-0 text-[#B8934A]" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                {emergencyVet.label}
+                {contactTypeLabel(emergencyVet.type, emergencyVet.label)}
               </p>
               <p className="text-sm font-bold text-[#191E1B]">{emergencyVet.phone}</p>
             </div>
@@ -167,7 +166,8 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
             <Stethoscope size={18} className="shrink-0 text-[#234B54]" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                {card.vet?.label || mainVet?.label || 'Hlavní veterinář'}
+                {card.vet?.label ||
+                  (mainVet ? contactTypeLabel(mainVet.type, mainVet.label) : 'Hlavní veterinář')}
               </p>
               <p className="text-sm font-bold text-[#191E1B]">
                 {card.vet?.clinicOrName || mainVet?.name}
@@ -179,14 +179,18 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
           </div>
         )}
         {emergencyPerson && (
-          <div className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 sm:col-span-2">
+          <div
+            className="flex items-center gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3 sm:col-span-2"
+            data-testid="emergency-primary-contact"
+          >
             <Phone size={18} className="shrink-0 text-[#234B54]" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
-                {emergencyPerson.label}
+                Primární kontakt · {contactTypeLabel(emergencyPerson.type, emergencyPerson.label)}
               </p>
               <p className="text-sm font-bold text-[#191E1B]">
-                {emergencyPerson.name} · {emergencyPerson.phone}
+                {emergencyPerson.name}
+                {emergencyPerson.phone ? ` · ${emergencyPerson.phone}` : ''}
               </p>
               <p className="text-[11px] text-[#7D8B82]">
                 Pouze ve vašem náhledu — na veřejné kartě se nezobrazí.

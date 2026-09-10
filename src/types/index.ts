@@ -726,19 +726,61 @@ export interface ToastMessage {
 }
 
 export type ImportantContactType =
-  | 'emergency'
   | 'vet'
-  | 'insurance'
-  | 'registry'
-  | 'emergency_person'
+  | 'emergency'
+  | 'shelter'
+  | 'groomer'
+  | 'trainer'
+  | 'custom'
 
 export interface ImportantContact {
   id: string
   type: ImportantContactType
-  label: string
   name: string
-  phone: string
+  phone?: string
+  email?: string
+  address?: string
   note?: string
+  /** Empty = applies to all pets. */
+  petIds: string[]
+  /** Pets for which this contact is the primary emergency contact. */
+  primaryForPetIds: string[]
+  /** Optional display label override. */
+  label?: string
+}
+
+export type ConciergeRequestType =
+  | 'vet_care'
+  | 'travel'
+  | 'pet_friendly_stay'
+  | 'trainer_groomer'
+  | 'documents_admin'
+  | 'nonstandard'
+  | 'other'
+
+export type ConciergeRequestStatus = 'new' | 'in_progress' | 'needs_info' | 'resolved'
+
+export type ConciergeContactPreference = 'phone' | 'email' | 'in_app'
+
+export type ConciergeRequestPriority = 'low' | 'normal' | 'high'
+
+export interface ConciergeRequest {
+  id: string
+  petId?: string
+  type: ConciergeRequestType
+  description: string
+  priority: ConciergeRequestPriority
+  contactPreference: ConciergeContactPreference
+  status: ConciergeRequestStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TravelPrefs {
+  lastPetId?: string
+  lastDestinationId?: string
+  /** Key: `${petId}:${destinationId}:${check}` → ISO date when user confirmed. */
+  confirmations: Record<string, string>
 }
 
 export interface PetTravelPackage {
@@ -763,6 +805,10 @@ export type TravelRequirementCheck =
   | 'insurance'
   | 'import_permit'
   | 'parasite_prevention'
+
+export type TravelRequirementStatus = 'ready' | 'attention' | 'missing'
+
+export type TravelStepDeepLink = 'documents' | 'health' | 'overview' | 'confirm'
 
 export interface TravelDestinationRequirement {
   id: string
