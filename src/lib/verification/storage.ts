@@ -7,7 +7,7 @@ import {
 
 export const VERIFICATIONS_STORAGE_KEY = 'lovedandknown.verifications'
 
-const SUBJECT_TYPES = new Set(['user', 'pet', 'breeding_profile'])
+const SUBJECT_TYPES = new Set(['user', 'pet', 'breeding_profile', 'professional'])
 const TYPE_SET = new Set<string>(VERIFICATION_TYPES)
 const STATUS_SET = new Set<string>(VERIFICATION_STATUSES)
 const SOURCE_SET = new Set<string>(VERIFICATION_SOURCES)

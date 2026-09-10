@@ -1,5 +1,5 @@
 /** Subject of a verification record. */
-export type VerificationSubjectType = 'user' | 'pet' | 'breeding_profile'
+export type VerificationSubjectType = 'user' | 'pet' | 'breeding_profile' | 'professional'
 
 /**
  * Concrete verification kinds. Never collapse these into a single profile `verified: true`.

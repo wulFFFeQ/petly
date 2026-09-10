@@ -32,6 +32,22 @@ export type {
   VerificationType,
 } from './verification'
 export type {
+  Account,
+  AccountKind,
+  AccountRole,
+  ConsumerRole,
+  PetProfessionalAccess,
+  ProfessionalAccessLog,
+  ProfessionalAccessLogAction,
+  ProfessionalAccessStatus,
+  ProfessionalCredentials,
+  ProfessionalPermission,
+  ProfessionalProfile,
+  ProfessionalType,
+  ProfessionalVerificationStatus,
+  PublicProfessionalProfile,
+} from './professional'
+export type {
   LostPetLifecycle,
   PublicBehavior,
   TemperamentHint,
