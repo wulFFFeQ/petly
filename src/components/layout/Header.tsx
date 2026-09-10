@@ -7,15 +7,17 @@ import {
   UserX,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { getSelfAccount } from '../../lib/account'
+import { getSelfAccount, setUiWorkspace } from '../../lib/account'
+import { getUserDisplayName } from '../../lib/discover/owner'
 import { petCountLabel } from '../../lib/dashboardDates'
 import {
   formatNotificationTime,
   notificationHrefFallback,
   sortNotificationsNewestFirst,
 } from '../../lib/notifications'
+import { canSwitchWorkspace } from '../../lib/professional/dashboard'
 import type { AppNotification, NotificationType } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { SearchInput } from '../ui/SearchInput'
@@ -116,7 +118,7 @@ function NotificationRow({
   )
 }
 
-export function Header() {
+export function Header({ variant = 'consumer' }: { variant?: 'consumer' | 'professional' }) {
   const { greeting, emoji } = getGreetingData()
   const {
     pets,
@@ -130,7 +132,12 @@ export function Header() {
   const [showAllNotifications, setShowAllNotifications] = useState(false)
   const [searchInput, setSearchInput] = useState('')
 
-  const accountId = getSelfAccount()?.id
+  const account = getSelfAccount()
+  const accountId = account?.id
+  const displayName =
+    account?.displayName?.trim() || getUserDisplayName() || 'uživateli'
+  const showWorkspaceSwitch = canSwitchWorkspace()
+  const isProfessional = variant === 'professional'
 
   const sortedNotifications = useMemo(() => {
     const visible = notifications.filter((item) => isVisibleForAccount(item, accountId))
@@ -185,12 +192,38 @@ export function Header() {
       />
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-[#191E1B] sm:text-[1.65rem]">
-            <span>{greeting}, Terezo {emoji}</span>
+          <h1
+            className="text-2xl font-bold tracking-tight text-[#191E1B] sm:text-[1.65rem]"
+            data-testid="header-greeting"
+          >
+            <span>
+              {greeting}, {displayName} {emoji}
+            </span>
           </h1>
           <p className="mt-0.5 text-sm text-[#7D8B82] font-medium">
-            {petCountLabel(pets.length)}
+            {isProfessional ? 'Vaše profesionální prostředí' : petCountLabel(pets.length)}
           </p>
+          {showWorkspaceSwitch ? (
+            isProfessional ? (
+              <Link
+                to="/"
+                onClick={() => setUiWorkspace('consumer')}
+                data-testid="header-switch-to-owner"
+                className="mt-1 inline-block text-xs font-semibold text-[#2C4A3E] hover:underline"
+              >
+                Přepnout na účet majitele
+              </Link>
+            ) : (
+              <Link
+                to="/professional"
+                onClick={() => setUiWorkspace('professional')}
+                data-testid="header-switch-to-professional"
+                className="mt-1 inline-block text-xs font-semibold text-[#2C4A3E] hover:underline"
+              >
+                Přepnout na profesionální účet
+              </Link>
+            )
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">

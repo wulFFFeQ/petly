@@ -199,3 +199,23 @@ export {
   saveProfessionalAccessLogs,
   saveProfessionalProfiles,
 } from './storage'
+
+export {
+  buildProfessionalPetCard,
+  buildRecentActivity,
+  canAccessProfessionalDashboard,
+  canSwitchWorkspace,
+  computeProfessionalDashboardStats,
+  countUnreadNotificationsForAccount,
+  formatActivityTime,
+  getActiveSelfProfessionalProfile,
+  listAvailableQuickActions,
+  listProfessionalPetCards,
+  listTodaysEventsForProfessional,
+  loadProfessionalAccessRows,
+  professionalRoleLabel,
+  type ProfessionalActivityItem,
+  type ProfessionalDashboardStats,
+  type ProfessionalPetCardModel,
+  type ProfessionalQuickAction,
+} from './dashboard'
