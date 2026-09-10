@@ -191,13 +191,21 @@ export function buildMedicationReminderNotification(
         : `${formatCzechShort(start)} v ${time}`
       : `${isToday ? 'Dnes' : formatCzechShort(start)}–${formatCzechShort(end)} · denně v ${time}`
 
+  const message = `${rangeLabel} · ${petName}`
   return {
     id: `n_rem_${record.id}`,
+    type: 'medication',
     title: `Připomínka léku (${formatReminderDaysLabel(days)}): ${record.subtitle}`,
-    time: `${rangeLabel} · ${petName}`,
+    message,
+    createdAt: new Date().toISOString(),
     unread: true,
-    kind: 'medication_reminder',
+    priority: 'normal',
+    dedupeKey: `med:${record.id}`,
+    petId: record.petId,
+    petName,
+    href: `/calendar?eventId=${encodeURIComponent(`cal_rem_${record.id}`)}`,
     sourceRecordId: record.id,
+    time: message,
   }
 }
 

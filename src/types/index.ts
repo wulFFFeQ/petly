@@ -541,17 +541,51 @@ export interface CalendarEvent {
   treatmentEndDate?: string
 }
 
+export type NotificationType =
+  | 'medication'
+  | 'vaccination'
+  | 'vet'
+  | 'health'
+  | 'calendar'
+  | 'message'
+  | 'lost_pet'
+  | 'lost_sighting'
+  | 'lost_found'
+  | 'breeding'
+  | 'system'
+  | 'community'
+
+export type NotificationPriority = 'normal' | 'important' | 'urgent'
+
 export interface AppNotification {
   id: string
+  type: NotificationType
   title: string
-  time: string
+  message: string
+  createdAt: string
   unread: boolean
-  kind?: 'medication_reminder' | 'system' | 'community' | 'lost_pet'
-  sourceRecordId?: string
+  priority: NotificationPriority
+  petId?: string
+  petName?: string
   /** Deep link path, e.g. `/pets/luna?tab=overview&lostReport=xyz`. */
   href?: string
+  /** Stable identity for deduplication across reloads / re-renders. */
+  dedupeKey: string
+  sourceRecordId?: string
+  sourceEventId?: string
+  conversationId?: string
   lostAnnouncementId?: string
   lostReportId?: string
+  /**
+   * Legacy display helper. Prefer formatting from `createdAt` / `message`.
+   * @deprecated
+   */
+  time?: string
+  /**
+   * Legacy kind — migrated into `type` on load.
+   * @deprecated
+   */
+  kind?: 'medication_reminder' | 'system' | 'community' | 'lost_pet'
 }
 
 export interface Message {

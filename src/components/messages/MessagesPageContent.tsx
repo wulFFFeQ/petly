@@ -16,7 +16,7 @@ import {
 } from './messageShareUtils'
 
 export function MessagesPageContent() {
-  const { showToast, lostConversations, sendLostFinderMessage } = useApp()
+  const { showToast, lostConversations, sendLostFinderMessage, upsertNotification } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
   const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
@@ -228,6 +228,17 @@ export function MessagesPageContent() {
               : c,
           ),
         )
+        upsertNotification({
+          id: `n_msg_${replyMsg.id}`,
+          type: 'message',
+          title: 'Nová zpráva',
+          message: 'Máte novou zprávu.',
+          priority: 'normal',
+          dedupeKey: `msg:${activeId}:${replyMsg.id}`,
+          href: `/messages?conversationId=${activeId}`,
+          conversationId: activeId,
+          time: 'právě teď',
+        })
       }, 1400)
     }
   }
@@ -299,6 +310,17 @@ export function MessagesPageContent() {
               : c,
           ),
         )
+        upsertNotification({
+          id: `n_msg_${replyMsg.id}`,
+          type: 'message',
+          title: 'Nová zpráva',
+          message: 'Máte novou zprávu.',
+          priority: 'normal',
+          dedupeKey: `msg:${activeId}:${replyMsg.id}`,
+          href: `/messages?conversationId=${activeId}`,
+          conversationId: activeId,
+          time: 'právě teď',
+        })
       }, 1400)
     }
   }

@@ -86,6 +86,18 @@ import {
   scrubPersonalData,
   normalizeSharedPhone,
 } from '../lib/lostPet'
+import {
+  buildCalendarNotificationDrafts,
+  buildHealthNotificationDrafts,
+  buildSeedNotifications,
+  loadNotifications,
+  markAllNotificationsRead as markAllReadInList,
+  markNotificationRead as markOneReadInList,
+  removeNotificationsBySourceRecord,
+  saveNotifications,
+  upsertNotification as upsertNotificationInList,
+  type NotificationDraft,
+} from '../lib/notifications'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -367,6 +379,8 @@ interface AppContextValue {
   setMedicationReminderTime: (recordId: string, time: string) => void
   setMedicationReminderDays: (recordId: string, days: number) => void
   markNotificationsRead: () => void
+  markNotificationRead: (id: string) => void
+  upsertNotification: (draft: NotificationDraft) => void
   submitFoundPetContact: (token: string, message: string) => boolean
   /**
    * Opens a SafeContact channel from the public emergency card (no owner phone revealed).
@@ -445,29 +459,11 @@ interface AppContextValue {
   removeToast: (id: string) => void
 }
 
-const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'n1',
-    title: 'Naplánováno očkování proti vzteklině u Luny',
-    time: 'Za 12 dní · 24. 9.',
-    unread: true,
-    kind: 'system',
-  },
-  {
-    id: 'n2',
-    title: 'Rutinní dentální prohlídka u Mila',
-    time: 'Zítra v 14:30 · MUDr. Novák',
-    unread: true,
-    kind: 'system',
-  },
-  {
-    id: 'n3',
-    title: 'Sarah K. se líbí váš příspěvek',
-    time: 'před 2 hodinami',
-    unread: false,
-    kind: 'community',
-  },
-]
+function loadInitialNotifications(): AppNotification[] {
+  const stored = loadNotifications()
+  if (stored === null) return buildSeedNotifications()
+  return stored
+}
 
 const AppContext = createContext<AppContextValue | null>(null)
 
@@ -478,7 +474,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS)
+  const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>(loadEarnedBadges)
   const [nightOwlEligible, setNightOwlEligible] = useState(loadNightOwlEligible)
   const [badgeRevision, setBadgeRevision] = useState(0)
@@ -538,6 +534,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  const notificationsRef = useRef(notifications)
+  notificationsRef.current = notifications
+
+  useEffect(() => {
+    saveNotifications(notifications)
+  }, [notifications])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const api = {
+      get: () => notificationsRef.current,
+      set: (items: AppNotification[]) => setNotifications(items),
+      upsert: (draft: NotificationDraft) =>
+        setNotifications((prev) => upsertNotificationInList(prev, draft)),
+    }
+    ;(window as unknown as { __LK_NOTIFICATIONS__?: typeof api }).__LK_NOTIFICATIONS__ = api
+    return () => {
+      delete (window as unknown as { __LK_NOTIFICATIONS__?: typeof api }).__LK_NOTIFICATIONS__
+    }
+  }, [])
 
   useEffect(() => {
     saveLostAnnouncements(lostAnnouncements)
@@ -1245,15 +1262,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...prev.filter((item) => item.sourceRecordId !== record.id),
       ...events,
     ])
-    setNotifications((prev) => [
-      notification,
-      ...prev.filter((item) => item.sourceRecordId !== record.id),
-    ])
+    setNotifications((prev) => upsertNotificationInList(prev, notification))
   }
 
   const disableMedicationReminder = (recordId: string) => {
     setCalendarEvents((prev) => prev.filter((item) => item.sourceRecordId !== recordId))
-    setNotifications((prev) => prev.filter((item) => item.sourceRecordId !== recordId))
+    setNotifications((prev) => removeNotificationsBySourceRecord(prev, recordId))
   }
 
   const addHealthRecord = (input: NewHealthRecordInput) => {
@@ -1356,7 +1370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updated,
         petNameForRecord(pets, record.petId),
       )
-      showToast('Připomínka zapnuta', schedule.time, 'gold')
+      showToast('Připomínka zapnuta', schedule.message || schedule.time || '', 'gold')
     } else {
       disableMedicationReminder(recordId)
       showToast(
@@ -1400,7 +1414,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const markNotificationsRead = () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })))
+    setNotifications((prev) => markAllReadInList(prev))
+  }
+
+  const markNotificationRead = (id: string) => {
+    setNotifications((prev) => markOneReadInList(prev, id))
+  }
+
+  const upsertNotification = (draft: NotificationDraft) => {
+    setNotifications((prev) => upsertNotificationInList(prev, draft))
   }
 
   const submitFoundPetContact = (token: string, message: string): boolean => {
@@ -1410,23 +1432,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pet = findPetByFoundToken(pets, token)
     if (!pet || pet.qrContactEnabled === false) return false
 
-    setNotifications((prev) => [
-      {
-        id: `found-${Date.now()}`,
-        title: `Někdo se pokouší kontaktovat vás kvůli ${pet.name}.`,
-        time: 'právě teď',
-        unread: true,
-        kind: 'system',
-      },
-      {
-        id: `found-msg-${Date.now()}`,
-        title: `Zpráva o ${pet.name}: ${trimmed.slice(0, 120)}${trimmed.length > 120 ? '…' : ''}`,
-        time: 'právě teď',
-        unread: true,
-        kind: 'system',
-      },
-      ...prev,
-    ])
+    const contactKey = `found-contact:${token}:${Date.now()}`
+    upsertNotification({
+      id: `found-${Date.now()}`,
+      type: 'system',
+      title: `Někdo se pokouší kontaktovat vás kvůli ${pet.name}.`,
+      message: 'Nová zpráva přes QR kontakt.',
+      priority: 'important',
+      dedupeKey: contactKey,
+      petId: pet.id,
+      petName: pet.name,
+      href: `/pets/${pet.id}?tab=overview`,
+      time: 'právě teď',
+    })
+    upsertNotification({
+      id: `found-msg-${Date.now()}`,
+      type: 'system',
+      title: `Zpráva o ${pet.name}`,
+      message: `${trimmed.slice(0, 120)}${trimmed.length > 120 ? '…' : ''}`,
+      priority: 'normal',
+      dedupeKey: `found-msg:${token}:${Date.now()}`,
+      petId: pet.id,
+      petName: pet.name,
+      href: `/pets/${pet.id}?tab=overview`,
+      time: 'právě teď',
+    })
 
     try {
       const key = 'lovedandknown.foundPetMessages'
@@ -1549,17 +1579,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setLostConversations((prev) => [conversation, ...prev])
     setSafeContactChannels((prev) => [channel, ...prev])
-    setNotifications((prev) => [
-      {
-        id: `em-contact-${Date.now()}`,
-        title: `Někdo se pokusil kontaktovat vás kvůli ${pet.name}.`,
-        time: 'právě teď',
-        unread: true,
-        kind: 'system',
-        href: `/messages?conversationId=${conversationId}`,
-      },
-      ...prev,
-    ])
+    upsertNotification({
+      id: `em-contact-${conversationId}`,
+      type: 'message',
+      title: `Někdo se pokusil kontaktovat vás kvůli ${pet.name}.`,
+      message: 'Nový bezpečný kontakt z nouzové karty.',
+      priority: 'important',
+      dedupeKey: `em:contact:${conversationId}`,
+      petId: pet.id,
+      petName: pet.name,
+      href: `/messages?conversationId=${conversationId}`,
+      conversationId,
+      time: 'právě teď',
+    })
 
     showToast(
       'Bezpečný kontakt navázán',
@@ -1615,6 +1647,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ),
     )
 
+    upsertNotification({
+      id: `lost-active-${id}`,
+      type: 'lost_pet',
+      title: `${pet.name} je ztracená`,
+      message: 'Pátrání je aktivní.',
+      priority: 'urgent',
+      dedupeKey: `lost:active:${id}`,
+      petId,
+      petName: pet.name,
+      href: `/pets/${petId}?tab=overview#lost-panel`,
+      lostAnnouncementId: id,
+      time: 'právě teď',
+    })
+
     showToast(
       'Oznámení zveřejněno',
       `${pet.name} je označen/a jako ztracený. Veřejné oznámení je aktivní.`,
@@ -1656,18 +1702,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const reporterIds = [...new Set(relatedReports.map((r) => r.reporterAnonymousId))]
     if (reporterIds.length > 0) {
-      setNotifications((prev) => [
-        {
-          id: `lost-resolved-${Date.now()}`,
-          title: `${petName} je doma. Děkujeme všem, kteří pomohli.`,
-          time: 'právě teď',
-          unread: true,
-          kind: 'lost_pet',
-          lostAnnouncementId: announcementId,
-          href: `/pets/${announcement.petId}?tab=overview#lost-panel`,
-        },
-        ...prev,
-      ])
+      upsertNotification({
+        id: `lost-resolved-${announcementId}`,
+        type: 'lost_pet',
+        title: `${petName} je doma. Děkujeme všem, kteří pomohli.`,
+        message: 'Pátrání bylo ukončeno.',
+        priority: 'important',
+        dedupeKey: `lost:resolved:${announcementId}`,
+        petId: announcement.petId,
+        petName,
+        href: `/pets/${announcement.petId}?tab=overview#lost-panel`,
+        lostAnnouncementId: announcementId,
+        time: 'právě teď',
+      })
     }
 
     // Close secure contacts + notify finders
@@ -1763,19 +1810,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     setLostReports((prev) => [report, ...prev])
-    setNotifications((prev) => [
-      {
-        id: `lost-sight-${Date.now()}`,
-        title: `Nové hlášení o ${pet.name}`,
-        time: `${formatRelativeCzech(input.observedAt)} · ${input.location.publicLabel}`,
-        unread: true,
-        kind: 'lost_pet',
-        lostAnnouncementId: announcementId,
-        lostReportId: reportId,
-        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
-      },
-      ...prev,
-    ])
+    upsertNotification({
+      id: `lost-sight-${reportId}`,
+      type: 'lost_sighting',
+      title: `Nové spatření ${pet.name}`,
+      message: 'Někdo nahlásil možné spatření.',
+      priority: 'important',
+      dedupeKey: `lost:sighting:${reportId}`,
+      petId: pet.id,
+      petName: pet.name,
+      href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
+      lostAnnouncementId: announcementId,
+      lostReportId: reportId,
+      time: `${formatRelativeCzech(input.observedAt)} · ${input.location.publicLabel}`,
+    })
 
     showToast(
       'Hlášení odesláno',
@@ -1822,19 +1870,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Report-only path: owner disabled in-app contact — still notify, no chat.
     if (!announcement.allowAppContact) {
-      setNotifications((prev) => [
-        {
-          id: `lost-found-${Date.now()}`,
-          title: `${pet.name} byl/a nalezen/a.`,
-          time: `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
-          unread: true,
-          kind: 'lost_pet',
-          lostAnnouncementId: announcementId,
-          lostReportId: reportId,
-          href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
-        },
-        ...prev,
-      ])
+      upsertNotification({
+        id: `lost-found-${reportId}`,
+        type: 'lost_found',
+        title: `${pet.name} byla nalezena`,
+        message: 'Bylo nahlášeno nalezení mazlíčka.',
+        priority: 'urgent',
+        dedupeKey: `lost:found:${reportId}`,
+        petId: pet.id,
+        petName: pet.name,
+        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
+        lostAnnouncementId: announcementId,
+        lostReportId: reportId,
+        time: `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
+      })
       showToast(
         'Hlášení nálezu odesláno',
         'Majitel byl informován. Přímý chat není dostupný — majitel kontakt přes aplikaci nepovolil.',
@@ -1951,21 +2000,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setLostConversations((prev) => [conversation, ...prev])
     setSafeContactChannels((prev) => [channel, ...prev])
-    setNotifications((prev) => [
-      {
-        id: `lost-found-${Date.now()}`,
-        title: `${pet.name} byl/a nalezen/a.`,
-        time: sharedPhone
-          ? `Nálezce nabízí telefonní kontakt (vyžaduje váš souhlas). · ${input.location.publicLabel}`
-          : `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
-        unread: true,
-        kind: 'lost_pet',
-        lostAnnouncementId: announcementId,
-        lostReportId: reportId,
-        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
-      },
-      ...prev,
-    ])
+    upsertNotification({
+      id: `lost-found-${reportId}`,
+      type: 'lost_found',
+      title: `${pet.name} byla nalezena`,
+      message: 'Bylo nahlášeno nalezení mazlíčka.',
+      priority: 'urgent',
+      dedupeKey: `lost:found:${reportId}`,
+      petId: pet.id,
+      petName: pet.name,
+      href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
+      lostAnnouncementId: announcementId,
+      lostReportId: reportId,
+      conversationId,
+      time: sharedPhone
+        ? `Nálezce nabízí telefonní kontakt (vyžaduje váš souhlas). · ${input.location.publicLabel}`
+        : `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
+    })
 
     showToast(
       'Bezpečný kontakt navázán',
@@ -2086,18 +2137,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (as === 'finder') {
       const petName = conv?.petContext ?? channel?.petName ?? 'mazlíčka'
-      setNotifications((prev) => [
-        {
-          id: `lost-msg-${Date.now()}`,
-          title: `Nová zpráva v bezpečném kontaktu · ${petName}`,
-          time: 'právě teď',
-          unread: true,
-          kind: 'lost_pet',
-          lostAnnouncementId: conv?.lostAnnouncementId ?? channel?.announcementId,
-          href: `/messages?conversationId=${conversationId}`,
-        },
-        ...prev,
-      ])
+      const messageId = `m-${Date.now()}`
+      upsertNotification({
+        id: `lost-msg-${messageId}`,
+        type: 'message',
+        title: 'Nová zpráva',
+        message: `Máte novou zprávu v bezpečném kontaktu · ${petName}`,
+        priority: 'important',
+        dedupeKey: `lost:msg:${conversationId}:${messageId}`,
+        petId: conv?.petId ?? channel?.petId,
+        petName,
+        href: `/messages?conversationId=${conversationId}`,
+        conversationId,
+        lostAnnouncementId: conv?.lostAnnouncementId ?? channel?.announcementId,
+        time: 'právě teď',
+      })
     }
 
     return true
@@ -2151,18 +2205,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }),
     )
-    setNotifications((prev) => [
-      {
-        id: `lost-loc-${Date.now()}`,
+    setNotifications((prev) =>
+      upsertNotificationInList(prev, {
+        id: `lost-loc-${channel.conversationId}-${now}`,
+        type: 'message',
         title: `Nálezce sdílel přibližnou polohu · ${channel.petName}`,
-        time: location.publicLabel,
-        unread: true,
-        kind: 'lost_pet',
-        lostAnnouncementId: channel.announcementId,
+        message: location.publicLabel,
+        priority: 'important',
+        dedupeKey: `lost:loc:${channel.conversationId}:${now}`,
+        petId: channel.petId,
+        petName: channel.petName,
         href: `/messages?conversationId=${channel.conversationId}`,
-      },
-      ...prev,
-    ])
+        conversationId: channel.conversationId,
+        lostAnnouncementId: channel.announcementId,
+        time: location.publicLabel,
+      }),
+    )
     showToast('Poloha sdílena', 'Majitel vidí jen přibližnou oblast.', 'gold')
     return true
   }
@@ -2283,18 +2341,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }),
     )
     if (as === 'finder') {
-      setNotifications((prev) => [
-        {
-          id: `lost-phone-${Date.now()}`,
-          title: `Nálezce nabízí telefon · ${channel.petName}`,
-          time: 'Vyžaduje váš souhlas před zobrazením čísla',
-          unread: true,
-          kind: 'lost_pet',
-          lostAnnouncementId: channel.announcementId,
-          href: `/messages?conversationId=${channel.conversationId}`,
-        },
-        ...prev,
-      ])
+      upsertNotification({
+        id: `lost-phone-${channel.conversationId}-${now}`,
+        type: 'message',
+        title: `Nálezce nabízí telefon · ${channel.petName}`,
+        message: 'Vyžaduje váš souhlas před zobrazením čísla',
+        priority: 'important',
+        dedupeKey: `lost:phone:${channel.conversationId}:${now}`,
+        petId: channel.petId,
+        petName: channel.petName,
+        href: `/messages?conversationId=${channel.conversationId}`,
+        conversationId: channel.conversationId,
+        lostAnnouncementId: channel.announcementId,
+        time: 'Vyžaduje váš souhlas před zobrazením čísla',
+      })
     }
     showToast(
       'Nabídka odeslána',
@@ -2461,9 +2521,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCalendarEvents((prev) =>
       prev.filter((event) => !event.sourceRecordId || !expiredIds.has(event.sourceRecordId)),
     )
-    setNotifications((prev) =>
-      prev.filter((item) => !item.sourceRecordId || !expiredIds.has(item.sourceRecordId)),
-    )
+    setNotifications((prev) => {
+      let next = prev
+      for (const id of expiredIds) {
+        next = removeNotificationsBySourceRecord(next, id)
+      }
+      return next
+    })
   }, [healthRecords])
 
   // Keep calendar/bell in sync for medications that already have reminderEnabled
@@ -2501,17 +2565,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let next = prev
       let changed = false
       for (const record of enabledMeds) {
-        if (next.some((item) => item.sourceRecordId === record.id)) continue
+        const dedupeKey = `med:${record.id}`
+        if (next.some((item) => item.dedupeKey === dedupeKey || item.sourceRecordId === record.id)) {
+          continue
+        }
         const notification = buildMedicationReminderNotification(
           record,
           petNameForRecord(pets, record.petId),
         )
-        next = [notification, ...next]
+        next = upsertNotificationInList(next, notification)
         changed = true
       }
       return changed ? next : prev
     })
   }, [healthRecords, pets])
+
+  // Reconcile calendar + health derived notifications (stable dedupeKeys)
+  useEffect(() => {
+    const drafts = [
+      ...buildCalendarNotificationDrafts(calendarEvents, pets),
+      ...buildHealthNotificationDrafts(healthRecords, pets),
+    ]
+    if (drafts.length === 0) return
+    setNotifications((prev) => {
+      let next = prev
+      let changed = false
+      for (const draft of drafts) {
+        const exists = next.some((item) => item.dedupeKey === draft.dedupeKey)
+        if (exists) {
+          // Refresh title/message/href without flipping read state
+          const before = next
+          next = upsertNotificationInList(next, draft)
+          if (next !== before) changed = true
+          continue
+        }
+        next = upsertNotificationInList(next, draft)
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [calendarEvents, healthRecords, pets])
 
   const toggleLike = (postId: string) => {
     setPosts((prev) =>
@@ -2913,6 +3006,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMedicationReminderTime,
         setMedicationReminderDays,
         markNotificationsRead,
+        markNotificationRead,
+        upsertNotification,
         submitFoundPetContact,
         submitEmergencySafeContact,
         lostAnnouncements,
