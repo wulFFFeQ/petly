@@ -162,7 +162,7 @@ async function main() {
   await page.waitForLoadState('networkidle')
   await shot(page, '04-owner-sees-sighting')
   assert(
-    await page.getByText(/Viděl\/a jsem ho/i).first().isVisible(),
+    await page.getByText(/Spatření/i).first().isVisible(),
     'Owner: sighting appears in reports',
   )
 
@@ -213,7 +213,7 @@ async function main() {
   await page.goto(`${BASE}/pets/luna`)
   await page.waitForLoadState('networkidle')
   assert(
-    await page.getByText(/Našel\/a jsem ho/i).first().isVisible(),
+    await page.getByText(/Nález/i).first().isVisible(),
     'Owner: found report visible',
   )
   await page.getByRole('button', { name: /Otevřít bezpečný kontakt/i }).click()

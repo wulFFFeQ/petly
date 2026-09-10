@@ -434,8 +434,13 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                     </Badge>
                   )}
                 </div>
+                {(pet.lostStatus === 'found' || pet.lostStatus === 'closed') && (
+                  <p className="mt-1.5 text-xs font-medium text-[#7D8B82]">
+                    Ztracený mazlíček – pátrání ukončeno
+                  </p>
+                )}
                 {/* BREED ROW */}
-                <p className="mt-1.5 text-sm font-medium leading-normal text-[#4A564F]">
+                <p className={`${pet.lostStatus === 'found' || pet.lostStatus === 'closed' ? 'mt-0.5' : 'mt-1.5'} text-sm font-medium leading-normal text-[#4A564F]`}>
                   {pet.breed} · {petTypeLabel[pet.type]}
                 </p>
               </div>

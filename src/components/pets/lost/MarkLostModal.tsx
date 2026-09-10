@@ -110,8 +110,9 @@ export function MarkLostModal({ pet, open, onClose, onCreated }: MarkLostModalPr
       maxWidth="lg"
       closeOnBackdrop={false}
     >
-      <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
-        <div className="rounded-xl border border-red-200/70 bg-red-50/60 px-3 py-2 text-xs text-red-900/80">
+      <div className="flex max-h-[70vh] flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+        <div className="rounded-xl border border-rose-200/70 bg-rose-50/60 px-3 py-2 text-xs text-rose-900/80">
           Veřejně se nezobrazí adresa domova, telefon, e-mail ani mikročip — jen bezpečná přibližná
           lokalita.
         </div>
@@ -267,7 +268,7 @@ export function MarkLostModal({ pet, open, onClose, onCreated }: MarkLostModalPr
         )}
       </div>
 
-      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div className="mt-4 flex shrink-0 flex-col-reverse gap-2 border-t border-[#E8E4DC] pt-4 sm:flex-row sm:justify-end">
         <Button type="button" variant="ghost" onClick={onClose}>
           Zrušit
         </Button>
@@ -280,6 +281,7 @@ export function MarkLostModal({ pet, open, onClose, onCreated }: MarkLostModalPr
         >
           Zveřejnit oznámení
         </Button>
+      </div>
       </div>
     </Modal>
   )

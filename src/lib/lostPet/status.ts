@@ -90,9 +90,9 @@ export function foundSafetyLabel(safety: FoundSafety): string {
 export function reportTypeLabel(type: LostPetReportType): string {
   switch (type) {
     case 'sighting':
-      return 'Viděl/a jsem ho'
+      return 'Spatření'
     case 'found':
-      return 'Našel/a jsem ho'
+      return 'Nález'
   }
 }
 

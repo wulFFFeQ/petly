@@ -386,7 +386,7 @@ interface AppContextValue {
   submitLostFoundReport: (
     announcementId: string,
     input: SubmitLostFoundInput,
-  ) => { reportId: string; conversationId: string; channelId: string } | null
+  ) => { reportId: string; conversationId?: string; channelId?: string } | null
   flagLostReport: (reportId: string, reason: ReportFlagReason, note?: string) => boolean
   getLostAnnouncementByToken: (token: string) => LostPetAnnouncement | undefined
   getLostReportsForAnnouncement: (announcementId: string) => LostPetReport[]
@@ -1664,7 +1664,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           unread: true,
           kind: 'lost_pet',
           lostAnnouncementId: announcementId,
-          href: `/pets/${announcement.petId}?tab=overview`,
+          href: `/pets/${announcement.petId}?tab=overview#lost-panel`,
         },
         ...prev,
       ])
@@ -1772,7 +1772,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kind: 'lost_pet',
         lostAnnouncementId: announcementId,
         lostReportId: reportId,
-        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}`,
+        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
       },
       ...prev,
     ])
@@ -1788,19 +1788,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const submitLostFoundReport = (
     announcementId: string,
     input: SubmitLostFoundInput,
-  ): { reportId: string; conversationId: string; channelId: string } | null => {
+  ): { reportId: string; conversationId?: string; channelId?: string } | null => {
     const announcement = lostAnnouncements.find((item) => item.id === announcementId)
     if (!announcement || announcement.status !== 'lost') return null
-    if (!announcement.allowAppContact) {
-      showToast('Kontakt je vypnutý', 'Majitel momentálně nepřijímá zprávy přes aplikaci.', 'info')
-      return null
-    }
     const pet = pets.find((item) => item.id === announcement.petId)
     if (!pet) return null
 
     const reportId = `lfr-${Date.now()}`
-    const conversationId = `lost-conv-${Date.now()}`
-    const channelId = `sc-${Date.now()}`
     const now = new Date().toISOString()
     const safetyText = foundSafetyLabel(input.safetyStatus)
 
@@ -1823,6 +1817,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       note: noteScrubbed?.text || undefined,
       photoUrl: input.photoUrl,
     }
+
+    setLostReports((prev) => [report, ...prev])
+
+    // Report-only path: owner disabled in-app contact — still notify, no chat.
+    if (!announcement.allowAppContact) {
+      setNotifications((prev) => [
+        {
+          id: `lost-found-${Date.now()}`,
+          title: `${pet.name} byl/a nalezen/a.`,
+          time: `Nálezce uvedl, že ${safetyText.toLowerCase()}. · ${input.location.publicLabel}`,
+          unread: true,
+          kind: 'lost_pet',
+          lostAnnouncementId: announcementId,
+          lostReportId: reportId,
+          href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
+        },
+        ...prev,
+      ])
+      showToast(
+        'Hlášení nálezu odesláno',
+        'Majitel byl informován. Přímý chat není dostupný — majitel kontakt přes aplikaci nepovolil.',
+        'gold',
+      )
+      return { reportId }
+    }
+
+    const conversationId = `lost-conv-${Date.now()}`
+    const channelId = `sc-${Date.now()}`
 
     const openerRaw =
       noteScrubbed?.text ||
@@ -1927,7 +1949,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         : {}),
     }
 
-    setLostReports((prev) => [report, ...prev])
     setLostConversations((prev) => [conversation, ...prev])
     setSafeContactChannels((prev) => [channel, ...prev])
     setNotifications((prev) => [
@@ -1941,7 +1962,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kind: 'lost_pet',
         lostAnnouncementId: announcementId,
         lostReportId: reportId,
-        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}`,
+        href: `/pets/${pet.id}?tab=overview&lostReport=${reportId}#lost-panel`,
       },
       ...prev,
     ])

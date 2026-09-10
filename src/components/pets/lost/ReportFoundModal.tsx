@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useApp } from '../../../context/AppContext'
-import { getOrCreateReporterAnonymousId, normalizeSharedPhone } from '../../../lib/lostPet'
+import {
+  getOrCreateReporterAnonymousId,
+  normalizeSharedPhone,
+  resolveObservedAt,
+} from '../../../lib/lostPet'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../../lib/readImageFile'
-import type { ApproxLocation, FoundSafety } from '../../../types'
+import type { ApproxLocation, FoundSafety, ObservedAtPreset } from '../../../types'
 import { Button } from '../../ui/Button'
 import { Input } from '../../ui/Input'
 import { Modal } from '../../ui/Modal'
@@ -14,6 +18,8 @@ interface ReportFoundModalProps {
   onClose: () => void
   announcementId: string
   petName: string
+  /** When false, submit report only — no SafeContactChannel / Messages thread. */
+  allowAppContact?: boolean
   onContactOpened?: (conversationId: string) => void
 }
 
@@ -24,17 +30,32 @@ const SAFETY_OPTIONS = [
   { value: 'unknown', label: 'Nevím' },
 ]
 
+const TIME_OPTIONS = [
+  { value: 'now', label: 'Právě teď' },
+  { value: 'under_hour', label: 'Před méně než hodinou' },
+  { value: 'today', label: 'Dnes' },
+  { value: 'custom', label: 'Vlastní čas' },
+]
+
+function toLocalInputValue(date = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export function ReportFoundModal({
   open,
   onClose,
   announcementId,
   petName,
+  allowAppContact = true,
   onContactOpened,
 }: ReportFoundModalProps) {
   const { submitLostFoundReport, showToast } = useApp()
   const [step, setStep] = useState<'details' | 'contact'>('details')
   const [hasPet, setHasPet] = useState<'yes' | 'no' | ''>('')
   const [location, setLocation] = useState<ApproxLocation | null>(null)
+  const [timePreset, setTimePreset] = useState<ObservedAtPreset>('now')
+  const [customTime, setCustomTime] = useState(toLocalInputValue)
   const [safety, setSafety] = useState<FoundSafety | ''>('')
   const [canKeep, setCanKeep] = useState<'yes' | 'no' | ''>('')
   const [note, setNote] = useState('')
@@ -69,6 +90,12 @@ export function ReportFoundModal({
     }
   }
 
+  const observedAtIso = () => {
+    const customIso =
+      timePreset === 'custom' ? new Date(customTime).toISOString() : undefined
+    return resolveObservedAt(timePreset, customIso)
+  }
+
   const finishSubmit = (withPhone: boolean) => {
     if (!location || !safety) return
     if (withPhone && !normalizeSharedPhone(phone)) {
@@ -79,7 +106,7 @@ export function ReportFoundModal({
     const result = submitLostFoundReport(announcementId, {
       reporterAnonymousId: getOrCreateReporterAnonymousId(),
       location,
-      observedAt: new Date().toISOString(),
+      observedAt: observedAtIso(),
       hasPetWithThem: hasPet === 'yes',
       safetyStatus: safety,
       canKeepSafely: canKeep === 'yes',
@@ -90,19 +117,141 @@ export function ReportFoundModal({
     })
     setSubmitting(false)
     if (result) {
-      onContactOpened?.(result.conversationId)
+      if (result.conversationId) onContactOpened?.(result.conversationId)
       resetAndClose()
     }
   }
+
+  const detailsForm = (
+    <div className="min-h-0 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
+          Máte mazlíčka právě u sebe?
+        </p>
+        <div className="flex gap-2">
+          {(['yes', 'no'] as const).map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={hasPet === option ? 'primary' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setHasPet(option)}
+            >
+              {option === 'yes' ? 'Ano' : 'Ne'}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <LocationPicker
+        value={location}
+        onChange={setLocation}
+        label="Kde jste ho našel/a?"
+        compact
+        onError={(title, description) => showToast(title, description, 'info')}
+      />
+
+      <OptionSelect
+        label="Kdy jste ho našel/a?"
+        value={timePreset}
+        onChange={(v) => setTimePreset(v as ObservedAtPreset)}
+        options={TIME_OPTIONS}
+      />
+
+      {timePreset === 'custom' && (
+        <input
+          type="datetime-local"
+          value={customTime}
+          onChange={(e) => setCustomTime(e.target.value)}
+          className="h-10 w-full rounded-xl border border-[#E8E4DC] px-3 text-sm"
+        />
+      )}
+
+      <OptionSelect
+        label="Je nyní v bezpečí?"
+        value={safety}
+        onChange={(v) => setSafety(v as FoundSafety)}
+        options={SAFETY_OPTIONS}
+        placeholder="Vyberte…"
+      />
+
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
+          Můžete ho bezpečně držet u sebe?
+        </p>
+        <div className="flex gap-2">
+          {(['yes', 'no'] as const).map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={canKeep === option ? 'primary' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setCanKeep(option)}
+            >
+              {option === 'yes' ? 'Ano' : 'Ne'}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
+          Poznámka (volitelné)
+        </label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          placeholder={`Např. ${petName} je u mě a je v pořádku.`}
+          className="w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm outline-none focus:border-[#2C4A3E]"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
+          Fotografie (volitelné)
+        </label>
+        <input
+          type="file"
+          accept={PET_IMAGE_ACCEPT}
+          onChange={(e) => void handlePhoto(takeSelectedFiles(e.currentTarget))}
+          className="block w-full text-xs text-[#7D8B82]"
+        />
+        {photoUrl && (
+          <img src={photoUrl} alt="" className="mt-2 h-24 rounded-xl object-cover" />
+        )}
+      </div>
+
+      {allowAppContact ? (
+        <p className="rounded-xl bg-[#FAF4E6] px-3 py-2 text-xs text-[#7A6230]">
+          Ve výchozím stavu se telefon ani e-mail majiteli nezobrazí. V dalším kroku můžete
+          dobrovolně nabídnout své číslo — majitel ho uvidí až po svém souhlasu.
+        </p>
+      ) : (
+        <p className="rounded-xl bg-[#FAF8F5] px-3 py-2 text-xs text-[#5A6660]">
+          Majitel momentálně nepřijímá přímý chat. Vaše hlášení nálezu se mu stejně doručí —
+          identita zůstává anonymní.
+        </p>
+      )}
+    </div>
+  )
 
   return (
     <Modal
       open={open}
       onClose={resetAndClose}
-      title={step === 'details' ? 'Našel/a jsem ho' : 'Předat telefon majiteli?'}
+      title={
+        step === 'details'
+          ? 'Našel/a jsem ho'
+          : 'Předat telefon majiteli?'
+      }
       subtitle={
         step === 'details'
-          ? `Kontaktovat majitele ${petName} přes LOVED & KNOWN`
+          ? allowAppContact
+            ? `Nahlásit nález ${petName} a bezpečně kontaktovat majitele`
+            : `Nahlásit nález ${petName} majiteli`
           : 'Volitelné — výchozí je anonymní bezpečný kontakt'
       }
       maxWidth="md"
@@ -110,110 +259,32 @@ export function ReportFoundModal({
     >
       {step === 'details' ? (
         <>
-          <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
-                Máte mazlíčka právě u sebe?
-              </p>
-              <div className="flex gap-2">
-                {(['yes', 'no'] as const).map((option) => (
-                  <Button
-                    key={option}
-                    type="button"
-                    variant={hasPet === option ? 'primary' : 'outline'}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setHasPet(option)}
-                  >
-                    {option === 'yes' ? 'Ano' : 'Ne'}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <LocationPicker
-              value={location}
-              onChange={setLocation}
-              label="Kde jste ho našel/a?"
-              compact
-              onError={(title, description) => showToast(title, description, 'info')}
-            />
-
-            <OptionSelect
-              label="Je nyní v bezpečí?"
-              value={safety}
-              onChange={(v) => setSafety(v as FoundSafety)}
-              options={SAFETY_OPTIONS}
-              placeholder="Vyberte…"
-            />
-
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
-                Můžete ho bezpečně držet u sebe?
-              </p>
-              <div className="flex gap-2">
-                {(['yes', 'no'] as const).map((option) => (
-                  <Button
-                    key={option}
-                    type="button"
-                    variant={canKeep === option ? 'primary' : 'outline'}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setCanKeep(option)}
-                  >
-                    {option === 'yes' ? 'Ano' : 'Ne'}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
-                Poznámka (volitelné)
-              </label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                placeholder="Např. Luna je u mě a je v pořádku."
-                className="w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm outline-none focus:border-[#2C4A3E]"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#7D8B82]">
-                Fotografie (volitelné)
-              </label>
-              <input
-                type="file"
-                accept={PET_IMAGE_ACCEPT}
-                onChange={(e) => void handlePhoto(takeSelectedFiles(e.currentTarget))}
-                className="block w-full text-xs text-[#7D8B82]"
-              />
-              {photoUrl && (
-                <img src={photoUrl} alt="" className="mt-2 h-24 rounded-xl object-cover" />
-              )}
-            </div>
-
-            <p className="rounded-xl bg-[#FAF4E6] px-3 py-2 text-xs text-[#7A6230]">
-              Ve výchozím stavu se telefon ani e-mail majiteli nezobrazí. V dalším kroku můžete
-              dobrovolně nabídnout své číslo — majitel ho uvidí až po svém souhlasu.
-            </p>
-          </div>
-
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {detailsForm}
+          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-[#E8E4DC] pt-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="ghost" onClick={resetAndClose}>
               Zrušit
             </Button>
-            <Button
-              type="button"
-              variant="gold"
-              disabled={!canSubmitDetails}
-              onClick={() => setStep('contact')}
-              className="font-bold"
-            >
-              Pokračovat
-            </Button>
+            {allowAppContact ? (
+              <Button
+                type="button"
+                variant="gold"
+                disabled={!canSubmitDetails}
+                onClick={() => setStep('contact')}
+                className="font-bold"
+              >
+                Pokračovat
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="gold"
+                disabled={!canSubmitDetails || submitting}
+                onClick={() => finishSubmit(false)}
+                className="font-bold"
+              >
+                Odeslat hlášení nálezu
+              </Button>
+            )}
           </div>
         </>
       ) : (
@@ -264,7 +335,7 @@ export function ReportFoundModal({
             )}
           </div>
 
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="mt-5 flex flex-col-reverse gap-2 border-t border-[#E8E4DC] pt-4 sm:flex-row sm:justify-end">
             <Button type="button" variant="ghost" onClick={() => setStep('details')}>
               Zpět
             </Button>

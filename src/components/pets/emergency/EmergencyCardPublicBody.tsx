@@ -1,4 +1,5 @@
-import { AlertTriangle, Eye, HeartHandshake, Navigation, Phone, Shield, Stethoscope } from 'lucide-react'
+import { AlertTriangle, Eye, ExternalLink, HeartHandshake, Navigation, Phone, Shield, Stethoscope } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { BRAND_NAME } from '../../../lib/brand'
 import type { EmergencyCardPublicView } from '../../../lib/emergencyCard'
 import { formatCzechDateTime, publicBehaviorLabel } from '../../../lib/lostPet'
@@ -148,6 +149,13 @@ export function EmergencyCardPublicBody({
           {view.lost.specialCaution && (
             <p className="text-xs leading-relaxed text-[#5A6660]">{view.lost.specialCaution}</p>
           )}
+          <Link
+            to={`/lost/${view.lost.publicToken}`}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2 text-xs font-semibold text-[#2C4A3E] transition-colors hover:bg-[#EBF2EE]"
+          >
+            <ExternalLink size={14} />
+            Otevřít veřejné oznámení
+          </Link>
         </div>
       )}
 
@@ -241,10 +249,10 @@ export function EmergencyCardPublicBody({
               fullWidth
               className="gap-1.5 font-bold"
               onClick={onReportFound}
-              disabled={!onReportFound || !view.lost.allowAppContact}
+              disabled={!onReportFound}
             >
               <HeartHandshake size={16} />
-              Našel/la jsem ho
+              Našel/a jsem ho
             </Button>
           </div>
         )}

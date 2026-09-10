@@ -5,6 +5,7 @@ import type {
   PublicBehavior,
   TemperamentHint,
 } from '../../types/lostPet'
+import { formatOptionalAge } from '../petProfileDisplay'
 
 /** Whitelisted fields for the public lost-pet announcement page. */
 export interface LostPetPublicView {
@@ -15,6 +16,9 @@ export interface LostPetPublicView {
   breed: string
   type: Pet['type']
   image: string
+  /** Safe basic ID — never address, phone, email, or microchip. */
+  ageLabel?: string
+  gender?: string
   lastSeenPublicLabel: string
   lastSeenAt: string
   /** Very coarse public pin only. */
@@ -39,6 +43,7 @@ export function buildLostPetPublicView(
   pet: Pet,
   announcement: LostPetAnnouncement,
 ): LostPetPublicView {
+  const ageLabel = formatOptionalAge(pet.age, pet.ageMonths)
   return {
     token: announcement.publicToken,
     announcementId: announcement.id,
@@ -47,6 +52,8 @@ export function buildLostPetPublicView(
     breed: pet.breed,
     type: pet.type,
     image: pet.image,
+    ageLabel: ageLabel !== 'Zatím nevyplněno' ? ageLabel : undefined,
+    gender: pet.gender?.trim() || undefined,
     lastSeenPublicLabel: announcement.lastSeen.publicLabel,
     lastSeenAt: announcement.lastSeen.seenAt,
     publicLat: announcement.lastSeen.publicLat,

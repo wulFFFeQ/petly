@@ -107,6 +107,7 @@ export function EmergencyPetPage() {
             onClose={() => setFoundOpen(false)}
             announcementId={view.lost.announcementId}
             petName={view.name}
+            allowAppContact={view.lost.allowAppContact}
             onContactOpened={setChatConversationId}
           />
         </>

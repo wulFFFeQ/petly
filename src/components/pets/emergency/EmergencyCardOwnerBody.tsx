@@ -1,6 +1,13 @@
-import { AlertTriangle, Phone, Stethoscope } from 'lucide-react'
+import { AlertTriangle, Copy, ExternalLink, Phone, Stethoscope } from 'lucide-react'
+import { useMemo } from 'react'
 import { importantContacts } from '../../../data/mockData'
+import { useApp } from '../../../context/AppContext'
+import { copyTextToClipboard } from '../../../lib/clipboard'
 import { ensureEmergencyCardSettings } from '../../../lib/emergencyCard'
+import {
+  buildLostAnnouncementUrl,
+  findActiveAnnouncementForPet,
+} from '../../../lib/lostPet'
 import {
   EMPTY_PROFILE_LABEL,
   formatOptionalAge,
@@ -10,6 +17,7 @@ import {
 import { petTypeLabel } from '../../../lib/petTypes'
 import type { Pet } from '../../../types'
 import type { ImportantContact } from '../../../types'
+import { Button } from '../../ui/Button'
 
 interface EmergencyCardOwnerBodyProps {
   pet: Pet
@@ -20,6 +28,7 @@ function contactByType(type: ImportantContact['type']) {
 }
 
 export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
+  const { lostAnnouncements, showToast } = useApp()
   const card = ensureEmergencyCardSettings(pet)
   const emergencyVet = contactByType('emergency')
   const mainVet = contactByType('vet')
@@ -34,6 +43,11 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
   ]
     .filter(Boolean)
     .join(' · ')
+
+  const activeLost = useMemo(
+    () => findActiveAnnouncementForPet(lostAnnouncements, pet.id),
+    [lostAnnouncements, pet.id],
+  )
 
   const health = card.health
   const healthLines: string[] = []
@@ -65,7 +79,65 @@ export function EmergencyCardOwnerBody({ pet }: EmergencyCardOwnerBodyProps) {
         </div>
       </div>
 
-      {pet.lostStatus === 'lost' && (
+      {activeLost && (
+        <div className="space-y-2 rounded-xl border border-[#7A1F1F]/30 bg-[#7A1F1F]/08 px-3 py-3">
+          <div className="flex items-start gap-2 text-xs text-[#7A1F1F]">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Mazlíček je označen jako ztracený — veřejná karta je v režimu pátrání. Nálezce uvidí
+              přibližnou lokalitu a důležité pokyny, ne vaši adresu ani telefon.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={async () => {
+                const url = buildLostAnnouncementUrl(activeLost.publicToken)
+                const ok = await copyTextToClipboard(url)
+                showToast(
+                  ok ? 'Odkaz zkopírován' : 'Odkaz',
+                  ok ? 'Sdílejte veřejné oznámení o ztrátě.' : url,
+                  'gold',
+                )
+              }}
+            >
+              <Copy size={14} />
+              Sdílet oznámení
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() =>
+                window.open(buildLostAnnouncementUrl(activeLost.publicToken), '_blank')
+              }
+            >
+              <ExternalLink size={14} />
+              Veřejné oznámení
+            </Button>
+          </div>
+          {(activeLost.importantInstructions || activeLost.respondsToName) && (
+            <div className="rounded-lg bg-white/70 px-3 py-2 text-xs text-[#4A564F]">
+              {activeLost.respondsToName && (
+                <p>
+                  <span className="font-semibold">Slyší na:</span> {activeLost.respondsToName}
+                </p>
+              )}
+              {activeLost.importantInstructions && (
+                <p className="mt-1">
+                  <span className="font-semibold">Pokyny:</span> {activeLost.importantInstructions}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!activeLost && pet.lostStatus === 'lost' && (
         <div className="flex items-start gap-2 rounded-xl border border-[#7A1F1F]/30 bg-[#7A1F1F]/08 px-3 py-2.5 text-xs text-[#7A1F1F]">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>

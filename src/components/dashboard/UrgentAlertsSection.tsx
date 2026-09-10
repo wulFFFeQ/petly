@@ -92,7 +92,7 @@ export function UrgentAlertsSection() {
               </div>
             </div>
             <Link
-              to={`/pets/${pet.id}`}
+              to={`/pets/${pet.id}?tab=overview#lost-panel`}
               className={cn(
                 'inline-flex shrink-0 items-center justify-center self-start sm:self-center',
                 'rounded-lg border border-rose-200/60 bg-rose-50 px-3.5 py-1.5',
