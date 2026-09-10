@@ -319,3 +319,26 @@ export function listSelfProfessionalProfiles(): ProfessionalProfile[] {
 export function findProfessionalProfileById(id: string): ProfessionalProfile | null {
   return loadProfessionalProfiles().find((p) => p.id === id) ?? null
 }
+
+/**
+ * Toggle publicVisibility only.
+ * Does NOT change verification, entitlements, privacy, or pet professional access.
+ */
+export function setProfessionalPublicVisibility(
+  profileId: string,
+  visibility: 'public' | 'private',
+): ProfessionalProfile | null {
+  const profiles = loadProfessionalProfiles()
+  const idx = profiles.findIndex((p) => p.id === profileId)
+  if (idx < 0) return null
+
+  const updated: ProfessionalProfile = {
+    ...profiles[idx],
+    publicVisibility: visibility,
+    updatedAt: nowIso(),
+  }
+  const next = [...profiles]
+  next[idx] = updated
+  saveProfessionalProfiles(next)
+  return updated
+}

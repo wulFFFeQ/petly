@@ -1,6 +1,6 @@
-import { IdCard, Plus } from 'lucide-react'
+import { ExternalLink, IdCard, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -11,6 +11,7 @@ import {
   getSelfAccount,
   listSelfProfessionalProfiles,
   resetOnboardingDemo,
+  setProfessionalPublicVisibility,
   type ProfessionalProfileDraft,
 } from '../../lib/account'
 import {
@@ -88,6 +89,11 @@ export function AccountRolesSection() {
     reload()
   }
 
+  const handleVisibilityToggle = (profile: ProfessionalProfile, checked: boolean) => {
+    setProfessionalPublicVisibility(profile.id, checked ? 'public' : 'private')
+    reload()
+  }
+
   const handleDemoReset = () => {
     resetOnboardingDemo()
     navigate('/onboarding')
@@ -143,25 +149,71 @@ export function AccountRolesSection() {
       </div>
 
       {profiles.length > 0 ? (
-        <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#7D8B82]">
+        <div className="space-y-3" data-testid="account-pro-profiles">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7D8B82]">
             Profesionální profily
           </p>
-          <ul className="space-y-2" data-testid="account-pro-profiles">
-            {profiles.map((p) => (
-              <li
+          {profiles.map((p) => {
+            const isPublic = p.publicVisibility === 'public'
+            return (
+              <div
                 key={p.id}
-                className="rounded-xl border border-[#E8E4DC] bg-white px-3.5 py-3 text-xs"
+                data-testid={`pro-profile-card-${p.id}`}
+                className="space-y-3 rounded-xl border border-[#E8E4DC] bg-white px-3.5 py-3"
               >
-                <p className="font-bold text-[#191E1B]">{p.displayName}</p>
-                <p className="mt-0.5 text-[11px] text-[#7D8B82]">
-                  {getRoleMeta(p.type).label} ·{' '}
-                  {p.verificationStatus === 'verified' ? 'stav verified' : 'neověřeno'} ·{' '}
-                  {p.publicVisibility === 'public' ? 'veřejný' : 'soukromý'}
-                </p>
-              </li>
-            ))}
-          </ul>
+                <div>
+                  <p className="text-xs font-bold text-[#191E1B]">{p.displayName}</p>
+                  <p className="mt-0.5 text-[11px] text-[#7D8B82]">
+                    {getRoleMeta(p.type).label} ·{' '}
+                    {p.verificationStatus === 'verified' ? 'stav verified' : 'neověřeno'}
+                  </p>
+                </div>
+
+                <div
+                  data-testid={`pro-visibility-section-${p.id}`}
+                  className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-[#191E1B]">
+                      Veřejný profesionální profil
+                    </p>
+                    <span data-testid={`pro-visibility-status-${p.id}`}>
+                      <Badge variant={isPublic ? 'success' : 'outline'} size="sm">
+                        {isPublic ? 'Veřejný' : 'Soukromý'}
+                      </Badge>
+                    </span>
+                  </div>
+
+                  <label className="mt-3 flex cursor-pointer items-start justify-between gap-3">
+                    <span className="text-xs font-semibold text-[#191E1B]">
+                      Zobrazovat můj profesionální profil veřejně
+                    </span>
+                    <input
+                      type="checkbox"
+                      data-testid={`pro-visibility-toggle-${p.id}`}
+                      checked={isPublic}
+                      onChange={(e) => handleVisibilityToggle(p, e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded accent-[#2C4A3E]"
+                    />
+                  </label>
+
+                  <p className="mt-2 text-[11px] leading-relaxed text-[#7D8B82]">
+                    Pokud profil zveřejníte, mohou ho ostatní uživatelé najít v LOVED &
+                    KNOWN. Zobrazí se pouze údaje určené pro veřejný profil.
+                  </p>
+
+                  <Link
+                    to={`/professionals/${p.id}`}
+                    data-testid={`pro-view-public-${p.id}`}
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#2C4A3E] hover:underline"
+                  >
+                    <ExternalLink size={12} />
+                    Zobrazit veřejný profil
+                  </Link>
+                </div>
+              </div>
+            )
+          })}
         </div>
       ) : null}
 
@@ -176,7 +228,10 @@ export function AccountRolesSection() {
         Přidat roli
       </Button>
 
-      <p className="text-[11px] leading-relaxed text-[#9AA59E]" data-testid="account-roles-disclaimer">
+      <p
+        className="text-[11px] leading-relaxed text-[#9AA59E]"
+        data-testid="account-roles-disclaimer"
+      >
         ROLE ≠ VERIFIED ≠ PREMIUM ≠ PERMISSION. Přístup k mazlíčkům vzniká jen přes
         explicitní grant od majitele.
       </p>

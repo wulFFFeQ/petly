@@ -11,6 +11,7 @@ export {
   markOnboardingCompleted,
   resetOnboardingDemo,
   saveSelfAccount,
+  setProfessionalPublicVisibility,
   upsertProfessionalIdentity,
   type CompleteOnboardingInput,
   type ProfessionalProfileDraft,
