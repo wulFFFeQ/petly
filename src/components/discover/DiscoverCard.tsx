@@ -1,4 +1,4 @@
-import { MapPin, Sparkles, MessageCircle, ShieldCheck, User } from 'lucide-react'
+import { MapPin, Sparkles, MessageCircle, User } from 'lucide-react'
 import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
@@ -9,6 +9,7 @@ import {
 import { isOwnDiscoverPet } from '../../lib/discover'
 import type { DiscoverPet } from '../../types'
 import { ConnectComposeModal } from './ConnectComposeModal'
+import { TrustBadges } from '../verification/TrustBadges'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
@@ -74,9 +75,9 @@ export function DiscoverCard({ pet }: DiscoverCardProps) {
               )
             }
             topRight={
-              pet.verified ? (
-                <span className="h-6 w-6 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-[#2C4A3E] shadow-xs">
-                  <ShieldCheck size={14} />
+              pet.publicTrustBadges && pet.publicTrustBadges.length > 0 ? (
+                <span className="rounded-full bg-white/90 backdrop-blur-md px-1 py-0.5 shadow-xs">
+                  <TrustBadges badges={pet.publicTrustBadges} compact size="sm" />
                 </span>
               ) : undefined
             }

@@ -31,6 +31,11 @@ import {
   hasActiveHeatForPet,
   sanitizePetBreedingProfile,
 } from '../lib/breedingProfile'
+import {
+  applyBreedingEvaluation,
+  loadVerifications,
+  saveVerifications,
+} from '../lib/verification'
 import { getEventCategory } from '../lib/calendarEventTypes'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
@@ -1266,6 +1271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updatePet = (petId: string, updates: Partial<Pet>) => {
     let breedingJustEnabledPet: Pet | null = null
+    let petForVerification: Pet | null = null
 
     setPets((prev) =>
       prev.map((pet) => {
@@ -1394,9 +1400,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           breedingJustEnabledPet = next
         }
 
+        petForVerification = next
         return next
       }),
     )
+
+    if (petForVerification) {
+      try {
+        saveVerifications(applyBreedingEvaluation(loadVerifications(), petForVerification))
+      } catch {
+        // ignore storage errors
+      }
+    }
 
     if (breedingJustEnabledPet) {
       const petForHeat = breedingJustEnabledPet

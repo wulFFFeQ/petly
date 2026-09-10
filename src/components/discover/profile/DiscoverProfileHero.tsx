@@ -1,6 +1,7 @@
-import { MapPin, ShieldCheck, Sparkles } from 'lucide-react'
+import { MapPin, Sparkles } from 'lucide-react'
 import type { DiscoverPet } from '../../../types'
 import { petTypeLabel } from '../../../lib/petTypes'
+import { TrustBadges } from '../../verification/TrustBadges'
 import { Badge } from '../../ui/Badge'
 import { Card } from '../../ui/Card'
 
@@ -17,14 +18,6 @@ export function DiscoverProfileHero({ pet }: DiscoverProfileHeroProps) {
         <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 text-white">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{pet.name}</h1>
-            {pet.verified && (
-              <span
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-[#2C4A3E] shadow-sm"
-                title="Ověřený profil"
-              >
-                <ShieldCheck size={15} />
-              </span>
-            )}
             {pet.communityFavorite || pet.popular ? (
               <Badge variant="gold" size="sm" className="bg-white/95 text-[#191E1B]">
                 <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
@@ -37,6 +30,11 @@ export function DiscoverProfileHero({ pet }: DiscoverProfileHeroProps) {
               </Badge>
             )}
           </div>
+          {pet.publicTrustBadges && pet.publicTrustBadges.length > 0 ? (
+            <div className="mt-2">
+              <TrustBadges badges={pet.publicTrustBadges} size="sm" />
+            </div>
+          ) : null}
           <p className="mt-1.5 text-sm text-white/90 font-medium">
             {pet.breed}
             <span className="mx-1.5 text-white/50">·</span>

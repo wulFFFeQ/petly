@@ -1,5 +1,6 @@
 import type { DiscoverPet, Pet } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
+import type { Verification } from '../../types/verification'
 import {
   applyPublicDiscoverMigration,
   defaultPrivacySettings,
@@ -7,11 +8,14 @@ import {
   projectPublicPet,
   type PrivacySettings,
 } from '../privacy'
+import { loadVerifications } from '../verification/storage'
 import { sanitizeDiscoverPet } from './privacy'
 
 export type ProjectOwnedPetOptions = {
   /** Field-level privacy. When omitted, loads from localStorage (browser) or defaults. */
   privacySettings?: PrivacySettings | null
+  /** Verification records. When omitted, loads from localStorage (browser) or []. */
+  verifications?: Verification[]
 }
 
 function resolvePrivacySettings(
@@ -42,9 +46,22 @@ export function projectOwnedPetToDiscover(
   options: ProjectOwnedPetOptions = {},
 ): DiscoverPet | null {
   const settings = resolvePrivacySettings(pet, options.privacySettings)
+  let verifications = options.verifications
+  if (verifications == null) {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        verifications = loadVerifications()
+      } catch {
+        verifications = []
+      }
+    } else {
+      verifications = []
+    }
+  }
   const projected = projectPublicPet(pet, {
     settings,
     earnedBadges,
+    verifications,
   })
   if (!projected) return null
   return sanitizeDiscoverPet(projected)

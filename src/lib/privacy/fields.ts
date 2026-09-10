@@ -215,6 +215,16 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'contactPreference',
   'dateOfBirth',
   'allergies',
+  // Krok 16 — raw verification must never leak; only publicTrustBadges
+  'verifications',
+  'verification',
+  'verificationMetadata',
+  'providerPayload',
+  'rawProviderResponse',
+  'attestorId',
+  'attestorDocument',
+  'chipNumber',
+  'documentIds',
 ] as const
 
 export type PublicPayloadForbiddenKey = (typeof PUBLIC_PAYLOAD_FORBIDDEN_KEYS)[number]

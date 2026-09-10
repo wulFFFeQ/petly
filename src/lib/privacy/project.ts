@@ -5,12 +5,14 @@ import type {
   PetBreedingData,
 } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
+import type { Verification } from '../../types/verification'
 import { toPublicBadges } from '../badges/toPublicBadges'
 import { toPublicConnectionPreferences } from '../connections'
 import { SELF_OWNER_ID, getUserDisplayName } from '../discover/owner'
 import { resolveEngagement } from '../discover/engagement'
 import { getUserHomeCity } from '../userProfile'
 import { toSafePublicLabel } from '../lostPet/privacy'
+import { toPublicTrustBadges } from '../verification/public'
 import { canViewAccountField, canViewPetField } from './access'
 import { PUBLIC_PAYLOAD_FORBIDDEN_KEYS } from './fields'
 import type { PrivacySettings, ViewerRole } from './types'
@@ -102,6 +104,9 @@ export type ProjectPetOptions = {
   earnedBadges?: EarnedBadge[]
   /** Optional owner contact values for connection-level sharing. */
   ownerContacts?: { phone?: string; email?: string; address?: string }
+  /** Verification records (private). Only safe publicTrustBadges are projected. */
+  verifications?: Verification[]
+  ownerId?: string
 }
 
 function safePublicLocation(raw?: string): string {
@@ -211,6 +216,11 @@ export function projectPublicPet(
     ? mapPublicBreeding(pet.breedingProfile, pet.breeding)
     : {}
   const publicBadges = toPublicBadges(pet, options.earnedBadges ?? [])
+  const ownerId = options.ownerId ?? SELF_OWNER_ID
+  const publicTrustBadges = toPublicTrustBadges(options.verifications ?? [], {
+    petId: pet.id,
+    ownerId,
+  })
 
   const projected: DiscoverPet = {
     id: pet.id,
@@ -220,9 +230,7 @@ export function projectPublicPet(
     age,
     location,
     image: pet.image,
-    // verified is a boolean derived flag — never the chip number
-    verified: pet.microchipVerification?.status === 'found',
-    ownerId: SELF_OWNER_ID,
+    ownerId,
     ownerName: getUserDisplayName(),
     bio: pet.bio?.trim() || undefined,
     gender: pet.gender?.trim() || undefined,
@@ -232,6 +240,10 @@ export function projectPublicPet(
     lookingFor: pet.lookingFor?.trim() || undefined,
     engagement: resolveEngagement(pet.id, pet.discoverEngagement),
     ...breeding,
+  }
+
+  if (publicTrustBadges.length > 0) {
+    projected.publicTrustBadges = publicTrustBadges
   }
 
   if (publicBadges.length > 0) {

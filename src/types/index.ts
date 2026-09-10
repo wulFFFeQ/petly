@@ -2,6 +2,7 @@ import type { PetType } from '../lib/petTypes'
 import type { LostPetLifecycle } from './lostPet'
 import type { EmergencyCardSettings } from './emergencyCard'
 import type { PetBreedingData } from './breeding'
+import type { PublicTrustBadge } from './verification'
 
 export type { PetType } from '../lib/petTypes'
 export type {
@@ -20,6 +21,16 @@ export type {
   EmergencyCardHealthContent,
   EmergencyCardVetContent,
 } from './emergencyCard'
+export type {
+  PublicTrustBadge,
+  PublicTrustBadgeType,
+  Verification,
+  VerificationPresentation,
+  VerificationSource,
+  VerificationStatus,
+  VerificationSubjectType,
+  VerificationType,
+} from './verification'
 export type {
   LostPetLifecycle,
   PublicBehavior,
@@ -496,7 +507,11 @@ export interface DiscoverPet {
     activityPoints?: number
   }
   distance?: string
-  verified?: boolean
+  /**
+   * Safe public trust badges from the Verification model (Krok 16).
+   * Never a single profile `verified: true` — only concrete badge types.
+   */
+  publicTrustBadges?: PublicTrustBadge[]
   ownerName?: string
   ownerId?: string
   bio?: string

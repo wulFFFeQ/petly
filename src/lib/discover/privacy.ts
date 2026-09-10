@@ -25,7 +25,7 @@ const ALLOWED_DISCOVER_KEYS = new Set([
   'popularityScore',
   'engagement',
   'distance',
-  'verified',
+  'publicTrustBadges',
   'ownerName',
   'ownerId',
   'bio',
@@ -85,6 +85,34 @@ export function sanitizeDiscoverPet(raw: unknown): DiscoverPet | null {
       litters: Array.isArray(breeding.litters) ? breeding.litters : undefined,
     }
   }
+
+  // Trust badges: keep only safe public fields (no metadata / demo leakage).
+  if (cleaned.publicTrustBadges != null) {
+    if (!Array.isArray(cleaned.publicTrustBadges)) {
+      delete cleaned.publicTrustBadges
+    } else {
+      const allowedTypes = new Set(['email', 'phone', 'pet', 'breeding'])
+      cleaned.publicTrustBadges = cleaned.publicTrustBadges
+        .filter((b): b is Record<string, unknown> => Boolean(b) && typeof b === 'object')
+        .map((b) => {
+          const type = b.type
+          if (typeof type !== 'string' || !allowedTypes.has(type)) return null
+          if (typeof b.label !== 'string' || !b.label.trim()) return null
+          const out: Record<string, unknown> = { type, label: b.label.trim() }
+          if (typeof b.verifiedAt === 'string') out.verifiedAt = b.verifiedAt
+          if (typeof b.expiresAt === 'string') out.expiresAt = b.expiresAt
+          if (typeof b.sourceSummary === 'string') out.sourceSummary = b.sourceSummary
+          return out
+        })
+        .filter(Boolean)
+      if ((cleaned.publicTrustBadges as unknown[]).length === 0) {
+        delete cleaned.publicTrustBadges
+      }
+    }
+  }
+
+  // Never keep legacy flat verified boolean on public payloads.
+  delete cleaned.verified
 
   return cleaned as unknown as DiscoverPet
 }

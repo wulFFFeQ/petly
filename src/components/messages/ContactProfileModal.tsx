@@ -1,4 +1,4 @@
-import { ExternalLink, ShieldCheck } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Conversation, DiscoverPet } from '../../types'
 import { Avatar } from '../ui/Avatar'
@@ -39,7 +39,11 @@ export function ContactProfileModal({
             <div className="flex flex-wrap items-center gap-1.5">
               <h3 className="text-base font-bold text-[#191E1B]">{active.name}</h3>
               {active.role?.includes('veterinář') && (
-                <ShieldCheck size={15} className="text-[#2C4A3E]" />
+                <span title="Role kontaktu — není trust verification">
+                  <Badge variant="outline" size="sm">
+                    Veterinář (kontakt)
+                  </Badge>
+                </span>
               )}
             </div>
             <p className="mt-0.5 text-xs text-[#7D8B82]">

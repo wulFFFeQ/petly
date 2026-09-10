@@ -294,7 +294,9 @@ export function petMatchesDiscoverCriteria(
     return false
   }
   if (criteria.popular && !pet.popular) return false
-  if (criteria.verified && !pet.verified) return false
+  if (criteria.verified && !(pet.publicTrustBadges && pet.publicTrustBadges.length > 0)) {
+    return false
+  }
   if (criteria.breeding && !pet.breedingProfile) return false
 
   if (!petMatchesLocationFilter(pet, criteria)) return false

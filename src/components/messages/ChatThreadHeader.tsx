@@ -4,7 +4,6 @@ import {
   ExternalLink,
   FileText,
   Phone,
-  ShieldCheck,
   Video,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -66,7 +65,12 @@ export function ChatThreadHeader({
               {active.name}
             </button>
             {active.role?.includes('veterinář') && (
-              <ShieldCheck size={14} className="text-[#2C4A3E]" />
+              <span
+                className="text-[10px] font-semibold text-[#7D8B82]"
+                title="Role kontaktu — není ověření důvěryhodnosti LOVED & KNOWN"
+              >
+                Veterinář (kontakt)
+              </span>
             )}
           </div>
           <p className="text-[11px] text-[#7D8B82]">

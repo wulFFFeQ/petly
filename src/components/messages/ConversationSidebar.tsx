@@ -1,6 +1,5 @@
 import { Archive, ArrowLeft } from 'lucide-react'
 import type { Conversation } from '../../types'
-import { Badge } from '../ui/Badge'
 import { SearchInput } from '../ui/SearchInput'
 import { cn } from '../../lib/utils'
 import { ConversationListEmptyState } from './ConversationListEmptyState'
@@ -43,9 +42,6 @@ export function ConversationSidebar({
       <div className="p-4 border-b border-[#F0EDE6] space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-[#191E1B]">Zprávy</h2>
-          <Badge variant="gold" size="sm">
-            Ověřeno
-          </Badge>
         </div>
 
         <div

@@ -2,7 +2,6 @@ import {
   Bell,
   Shield,
   User,
-  ShieldCheck,
   Syringe,
   Pill,
   Stethoscope,
@@ -12,6 +11,7 @@ import {
 import { useState } from 'react'
 import { BadgesSection } from '../components/badges/BadgesSection'
 import { PrivacyOverviewSection } from '../components/privacy/PrivacyOverviewSection'
+import { AccountVerificationSection } from '../components/verification/AccountVerificationSection'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -159,7 +159,7 @@ export function SettingsPage() {
     setVetAccess(DEFAULT_VET_ACCESS)
     showToast(
       'Přístup obnoven',
-      'Výchozí oprávnění pro ověřeného veterináře byla znovu aktivována.',
+      'Výchozí oprávnění pro veterináře s přístupem byla znovu aktivována.',
       'gold',
     )
   }
@@ -214,6 +214,10 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <Card variant="elevated">
+          <AccountVerificationSection />
+        </Card>
+
         <BadgesSection
           title="Odznaky"
           scope="pet"
@@ -264,8 +268,9 @@ export function SettingsPage() {
           </h3>
           <p className="text-xs text-[#4A564F] mb-5 leading-relaxed">
             {BRAND_NAME} uchovává zdravotní a klinické záznamy vašich mazlíčků v šifrované podobě.
-            U každého ověřeného veterináře si můžete přesně nastavit, ke kterým údajům má
-            přístup — a tento přístup kdykoliv odebrat.
+            U každého veterináře s přístupem si můžete přesně nastavit, ke kterým údajům má
+            přístup — a tento přístup kdykoliv odebrat. (Přístup ke zdravotním údajům není totéž
+            jako ověření důvěryhodnosti / veterinary verification.)
           </p>
 
           <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-4">
@@ -274,8 +279,7 @@ export function SettingsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-bold text-[#191E1B]">MUDr. Martin Novák</p>
                   <Badge variant="outline" size="sm">
-                    <ShieldCheck size={11} className="mr-0.5 text-[#234B54]" />
-                    Ověřený veterinář
+                    Veterinář s přístupem
                   </Badge>
                 </div>
                 <p className="mt-0.5 text-[11px] text-[#7D8B82]">

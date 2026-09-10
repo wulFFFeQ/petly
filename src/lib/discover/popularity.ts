@@ -14,7 +14,7 @@ export const COMMUNITY_FAVORITE_SCORE_THRESHOLD = 55
 export function computeDiscoverPopularityScore(
   pet: Pick<
     DiscoverPet,
-    | 'verified'
+    | 'publicTrustBadges'
     | 'publicBadges'
     | 'publicTimeline'
     | 'breedingProfile'
@@ -25,7 +25,7 @@ export function computeDiscoverPopularityScore(
   const engagement: DiscoverEngagementStats = pet.engagement ?? {}
   let score = 0
 
-  if (pet.verified) score += 15
+  if ((pet.publicTrustBadges?.length ?? 0) > 0) score += 15
 
   for (const badge of pet.publicBadges ?? []) {
     score += 8 + Math.max(0, (badge.level ?? 1) - 1) * 2

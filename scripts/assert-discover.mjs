@@ -177,7 +177,7 @@ check(kmNearby <= 30 + 0.05, `Kutná Hora is nearby Kolín (${kmNearby.toFixed(1
 // Popularity score — not a hardcoded boolean
 function computeScore(pet) {
   let score = 0
-  if (pet.verified) score += 15
+  if ((pet.publicTrustBadges?.length ?? 0) > 0) score += 15
   for (const badge of pet.publicBadges ?? []) {
     score += 8 + Math.max(0, (badge.level ?? 1) - 1) * 2
   }
@@ -196,13 +196,13 @@ function computeScore(pet) {
 }
 
 const popularDemo = {
-  verified: true,
+  publicTrustBadges: [{ type: 'email', label: 'Ověřený e-mail' }],
   publicBadges: [{ level: 1 }, { level: 1 }],
   publicTimeline: [{ category: 'adoption' }],
   gallery: [1, 2],
   engagement: { profileViews: 100, favorites: 8, connections: 3, communityInteractions: 10 },
 }
-const quietDemo = { verified: false, publicBadges: [], engagement: {} }
+const quietDemo = { publicTrustBadges: [], publicBadges: [], engagement: {} }
 const popularScore = computeScore(popularDemo)
 const quietScore = computeScore(quietDemo)
 check(popularScore >= 40, `engagement-based score reaches popular threshold (${popularScore})`)
