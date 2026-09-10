@@ -1,6 +1,7 @@
 import { Image, LocateFixed, MapPin, Sparkles, Send, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import { COMMUNITY_SELF_AVATAR } from '../../lib/community'
 import {
   GeolocationRequestError,
   geolocationErrorMessage,
@@ -44,6 +45,7 @@ export function CreatePostInput() {
   const locationPickerRef = useRef<HTMLDivElement>(null)
   const locationInputRef = useRef<HTMLInputElement>(null)
 
+  const publicPets = pets.filter((pet) => pet.publicDiscover)
   const canPublish = Boolean(text.trim() || imagePreview) && !uploading && !locating
 
   useEffect(() => {
@@ -98,71 +100,40 @@ export function CreatePostInput() {
   useEffect(() => {
     if (!locationPickerOpen) return
 
-    const trimmed = locationQuery.trim()
-    if (trimmed.length < 2) {
+    const query = locationQuery.trim()
+    if (query.length < 2) {
       setLocationSuggestions([])
       setLocationSearchStatus('idle')
       return
     }
 
-    const controller = new AbortController()
+    let cancelled = false
     setLocationSearchStatus('loading')
-
-    const timeoutId = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const results = await searchPlaces(trimmed, controller.signal)
-          if (controller.signal.aborted) return
+    const timer = window.setTimeout(() => {
+      void searchPlaces(query)
+        .then((results) => {
+          if (cancelled) return
           setLocationSuggestions(results)
           setLocationSearchStatus(results.length === 0 ? 'empty' : 'idle')
-        } catch (error) {
-          if (controller.signal.aborted) return
-          if (error instanceof DOMException && error.name === 'AbortError') return
+        })
+        .catch(() => {
+          if (cancelled) return
           setLocationSuggestions([])
           setLocationSearchStatus('error')
-        }
-      })()
+        })
     }, 280)
 
     return () => {
-      controller.abort()
-      window.clearTimeout(timeoutId)
+      cancelled = true
+      window.clearTimeout(timer)
     }
-  }, [locationQuery, locationPickerOpen])
+  }, [locationPickerOpen, locationQuery])
 
-  const handlePhotoClick = () => {
-    photoInputRef.current?.click()
-  }
-
-  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const [file] = takeSelectedFiles(event.currentTarget)
-    if (!file) return
-
-    setUploading(true)
-    try {
-      const dataUrl = await readImageFileAsDataUrl(file)
-      setImagePreview(dataUrl)
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'read_failed'
-      if (reason === 'unsupported_type') {
-        showToast('Nepodporovaný formát', 'Použijte JPG, PNG, WEBP nebo GIF.', 'info')
-      } else if (reason === 'too_large') {
-        showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
-      } else {
-        showToast('Nahrání se nezdařilo', 'Zkuste to prosím znovu.', 'info')
-      }
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const openLocationPicker = () => {
-    setPetPickerOpen(false)
-    setLocationQuery('')
-    setLocationSuggestions([])
-    setLocationSearchStatus('idle')
-    setLocationPickerOpen((open) => !open)
-  }
+  useEffect(() => {
+    if (!taggedPet) return
+    const current = pets.find((pet) => pet.id === taggedPet.id)
+    if (!current?.publicDiscover) setTaggedPet(null)
+  }, [pets, taggedPet])
 
   const selectLocation = (
     label: string,
@@ -173,8 +144,6 @@ export function CreatePostInput() {
     setLocationPickerOpen(false)
     setLocationQuery('')
     setLocationSuggestions([])
-    setLocationSearchStatus('idle')
-    showToast('Lokalita nastavena', label, 'info')
   }
 
   const clearLocation = () => {
@@ -207,11 +176,27 @@ export function CreatePostInput() {
       showToast('Žádní mazlíčci', 'Nejdříve přidejte mazlíčka v sekci Moji mazlíčci.', 'info')
       return
     }
+    if (publicPets.length === 0) {
+      showToast(
+        'Žádný veřejný mazlíček',
+        'Označit ve feedu lze jen mazlíčky s veřejným profilem Objevovat.',
+        'info',
+      )
+      return
+    }
     setLocationPickerOpen(false)
     setPetPickerOpen((open) => !open)
   }
 
   const selectPet = (pet: Pet) => {
+    if (!pet.publicDiscover) {
+      showToast(
+        'Mazlíček není veřejný',
+        'Nejdříve zapněte veřejný profil Objevovat u tohoto mazlíčka.',
+        'info',
+      )
+      return
+    }
     setTaggedPet(pet)
     setPetPickerOpen(false)
   }
@@ -236,16 +221,26 @@ export function CreatePostInput() {
     setLocationPickerOpen(false)
   }
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = takeSelectedFiles(e.target)
+    const file = files[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file)
+      setImagePreview(dataUrl)
+    } catch {
+      showToast('Fotografie se nepodařilo načíst', undefined, 'info')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <Card variant="default" padding="sm" className="border-[#E8E4DC]/80">
       <form onSubmit={handleShare}>
         <div className="flex items-start gap-3">
-          <Avatar
-            src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
-            alt="Tereza"
-            size="sm"
-            goldRing
-          />
+          <Avatar src={COMMUNITY_SELF_AVATAR} alt="Vy" size="sm" goldRing />
           <div className="flex-1 min-w-0">
             <textarea
               placeholder="Podělte se o dobrodružství, veterinární tip nebo příběh s ostatními majiteli mazlíčků..."
@@ -298,8 +293,8 @@ export function CreatePostInput() {
                 <button
                   type="button"
                   onClick={() => setImagePreview(null)}
-                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#191E1B]/70 text-white hover:bg-[#191E1B]/90 cursor-pointer"
-                  aria-label="Odstranit fotografii"
+                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1 shadow-sm cursor-pointer"
+                  aria-label="Odebrat fotografii"
                 >
                   <X size={14} />
                 </button>
@@ -308,164 +303,49 @@ export function CreatePostInput() {
           </div>
         </div>
 
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept={PET_IMAGE_ACCEPT}
-          className="sr-only"
-          onChange={handlePhotoChange}
-        />
-
-        <div className="mt-2.5 pt-2.5 border-t border-[#F0EDE6]/80 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-0.5 sm:gap-1">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#F0EDE6]/80 pt-3">
+          <div className="flex flex-wrap items-center gap-1">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept={PET_IMAGE_ACCEPT}
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
             <button
               type="button"
-              onClick={handlePhotoClick}
+              onClick={() => photoInputRef.current?.click()}
               disabled={uploading}
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-[#5A6660] transition-colors hover:bg-[#FAF8F5] hover:text-[#191E1B] cursor-pointer disabled:opacity-50"
             >
-              <Image size={14} className="text-[#2C4A3E]" />
-              <span className="hidden sm:inline">
-                {uploading ? 'Nahrávám…' : 'Fotografie'}
-              </span>
+              <Image size={14} />
+              Foto
             </button>
-
-            <div ref={locationPickerRef} className="relative">
-              <button
-                type="button"
-                onClick={openLocationPicker}
-                aria-expanded={locationPickerOpen}
-                aria-haspopup="listbox"
-                aria-controls={locationListId}
-                aria-pressed={Boolean(locationLabel)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer',
-                  locationLabel || locationPickerOpen
-                    ? 'bg-[#FBF6EC] text-[#8A6A2E]'
-                    : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E]',
-                )}
-              >
-                <MapPin size={14} className="text-[#B8934A]" />
-                <span className="hidden sm:inline">Lokalita</span>
-              </button>
-
-              {locationPickerOpen && (
-                <div
-                  id={locationListId}
-                  className="absolute left-0 bottom-full z-30 mb-1.5 w-72 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white shadow-[0_12px_32px_rgba(25,30,27,0.1)]"
-                >
-                  <div className="border-b border-[#F0EDE6] p-2">
-                    <label className="sr-only" htmlFor={`${locationListId}-search`}>
-                      Hledat lokalitu
-                    </label>
-                    <input
-                      ref={locationInputRef}
-                      id={`${locationListId}-search`}
-                      type="search"
-                      value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
-                      placeholder="Napište místo (např. Kolín)…"
-                      autoComplete="off"
-                      className="w-full rounded-lg border border-[#E8E4DC] bg-[#FAF8F5] px-2.5 py-2 text-xs text-[#191E1B] outline-none placeholder:text-[#A3AEA7] focus:border-[#D1E0D8]"
-                    />
-                    <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-[#7D8B82]">
-                      Vyberte místo ze seznamu — vlastní text nestačí.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => void handleUseCurrentLocation()}
-                    disabled={locating}
-                    className="flex w-full items-center gap-2.5 border-b border-[#F0EDE6] px-3 py-2.5 text-left transition-colors hover:bg-[#FAF8F5] cursor-pointer disabled:opacity-50"
-                  >
-                    <LocateFixed size={14} className="shrink-0 text-[#B8934A]" />
-                    <span className="text-xs font-semibold text-[#191E1B]">
-                      {locating ? 'Zjišťuji polohu…' : 'Použít aktuální polohu'}
-                    </span>
-                  </button>
-
-                  <div role="listbox" aria-label="Nalezené lokality" className="max-h-52 overflow-y-auto py-1">
-                    {locationSearchStatus === 'loading' && (
-                      <p className="px-3 py-2.5 text-[11px] text-[#7D8B82]">Hledám místa…</p>
-                    )}
-                    {locationSearchStatus === 'empty' && (
-                      <p className="px-3 py-2.5 text-[11px] text-[#7D8B82]">
-                        Nic jsme nenašli. Zkuste jiné znění.
-                      </p>
-                    )}
-                    {locationSearchStatus === 'error' && (
-                      <p className="px-3 py-2.5 text-[11px] text-[#7D8B82]">
-                        Vyhledávání se nezdařilo. Zkuste to znovu.
-                      </p>
-                    )}
-                    {locationSearchStatus === 'idle' &&
-                      locationQuery.trim().length < 2 &&
-                      locationSuggestions.length === 0 && (
-                        <p className="px-3 py-2.5 text-[11px] text-[#7D8B82]">
-                          Začněte psát název města, parku nebo adresy.
-                        </p>
-                      )}
-                    {locationSuggestions.map((place) => {
-                      const selected = locationLabel === place.label
-                      return (
-                        <button
-                          key={place.id}
-                          type="button"
-                          role="option"
-                          aria-selected={selected}
-                          onClick={() =>
-                            selectLocation(place.label, {
-                              latitude: place.latitude,
-                              longitude: place.longitude,
-                            })
-                          }
-                          className={cn(
-                            'flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer',
-                            selected ? 'bg-[#FBF6EC]' : 'hover:bg-[#FAF8F5]',
-                          )}
-                        >
-                          <MapPin size={14} className="mt-0.5 shrink-0 text-[#B8934A]" />
-                          <span className="min-w-0 text-xs font-medium text-[#191E1B]">
-                            {place.label}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div ref={petPickerRef} className="relative">
               <button
                 type="button"
                 onClick={handleTagPetClick}
-                aria-expanded={petPickerOpen}
-                aria-haspopup="listbox"
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer',
-                  taggedPet || petPickerOpen
+                  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors cursor-pointer',
+                  taggedPet
                     ? 'bg-[#EBF2EE] text-[#2C4A3E]'
-                    : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#2C4A3E]',
+                    : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#191E1B]',
                 )}
               >
-                <Sparkles size={14} className="text-amber-600" />
-                <span className="hidden sm:inline">
-                  {taggedPet ? taggedPet.name : 'Označit mazlíčka'}
-                </span>
+                <Sparkles size={14} />
+                Mazlíček
               </button>
-
               {petPickerOpen && (
                 <div
                   role="listbox"
-                  aria-label="Vyberte mazlíčka"
+                  aria-label="Vyberte veřejného mazlíčka"
                   className="absolute left-0 bottom-full z-30 mb-1.5 w-64 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white py-1 shadow-[0_12px_32px_rgba(25,30,27,0.1)]"
                 >
                   <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
-                    Vaši mazlíčci
+                    Veřejní mazlíčci
                   </p>
-                  {pets.map((pet) => {
+                  {publicPets.map((pet) => {
                     const selected = taggedPet?.id === pet.id
                     return (
                       <button
@@ -489,6 +369,76 @@ export function CreatePostInput() {
                       </button>
                     )
                   })}
+                </div>
+              )}
+            </div>
+
+            <div ref={locationPickerRef} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setPetPickerOpen(false)
+                  setLocationPickerOpen((open) => !open)
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors cursor-pointer',
+                  locationLabel
+                    ? 'bg-[#FBF6EC] text-[#8A6A2E]'
+                    : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-[#191E1B]',
+                )}
+              >
+                <MapPin size={14} />
+                Lokalita
+              </button>
+              {locationPickerOpen && (
+                <div className="absolute left-0 bottom-full z-30 mb-1.5 w-72 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white p-2 shadow-[0_12px_32px_rgba(25,30,27,0.1)]">
+                  <input
+                    ref={locationInputRef}
+                    list={locationListId}
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    placeholder="Hledat místo…"
+                    className="w-full rounded-lg border border-[#E8E4DC] px-2.5 py-2 text-xs outline-none focus:border-[#2C4A3E]"
+                  />
+                  <datalist id={locationListId}>
+                    {locationSuggestions.map((place) => (
+                      <option key={place.id} value={place.label} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    onClick={() => void handleUseCurrentLocation()}
+                    disabled={locating}
+                    className="mt-1.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-[#2C4A3E] hover:bg-[#EBF2EE] cursor-pointer disabled:opacity-50"
+                  >
+                    <LocateFixed size={14} />
+                    {locating ? 'Zjišťuji polohu…' : 'Použít aktuální polohu'}
+                  </button>
+                  {locationSearchStatus === 'loading' && (
+                    <p className="px-2.5 py-1.5 text-[10px] text-[#7D8B82]">Hledám…</p>
+                  )}
+                  {locationSearchStatus === 'empty' && (
+                    <p className="px-2.5 py-1.5 text-[10px] text-[#7D8B82]">Nic nenalezeno</p>
+                  )}
+                  {locationSuggestions.length > 0 && (
+                    <div className="mt-1 max-h-40 overflow-y-auto">
+                      {locationSuggestions.map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onClick={() =>
+                            selectLocation(place.label, {
+                              latitude: place.latitude,
+                              longitude: place.longitude,
+                            })
+                          }
+                          className="flex w-full px-2.5 py-2 text-left text-xs hover:bg-[#FAF8F5] cursor-pointer"
+                        >
+                          {place.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

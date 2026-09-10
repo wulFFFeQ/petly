@@ -12,6 +12,7 @@ import { ContactProfileModal } from './ContactProfileModal'
 import { ConversationSidebar } from './ConversationSidebar'
 import { SafeContactChat } from '../pets/lost/SafeContactChat'
 import {
+  buildConversationFromCommunityAuthor,
   buildConversationFromDiscoverPet,
   buildHealthShareMessage,
   buildInitialConversations,
@@ -38,8 +39,9 @@ export function MessagesPageContent() {
 
   useEffect(() => {
     const contactPetId = searchParams.get('contactPetId')
+    const contactAuthorId = searchParams.get('contactAuthorId')
     const conversationId = searchParams.get('conversationId')
-    if (!contactPetId && !conversationId) return
+    if (!contactPetId && !contactAuthorId && !conversationId) return
 
     let openedId: string | null = null
     let createdNewDiscoverThread = false
@@ -60,6 +62,55 @@ export function MessagesPageContent() {
         }
         return prev
       })
+      if (openedId) {
+        setListMode('inbox')
+        setActiveId(openedId)
+        setMobileShowChat(true)
+      }
+      setSearchParams({}, { replace: true })
+      return
+    }
+
+    if (contactAuthorId) {
+      const contactName = searchParams.get('contactName') || 'Uživatel komunity'
+      const contactAvatar =
+        searchParams.get('contactAvatar') ||
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=85'
+      const contactRole = searchParams.get('contactRole') || undefined
+
+      setConversations((prev) => {
+        const existing = prev.find(
+          (c) =>
+            c.contactAuthorId === contactAuthorId ||
+            c.id === `conv_community_${contactAuthorId}` ||
+            (c.contactType === 'community' &&
+              c.name === contactName &&
+              !c.lostAnnouncementId),
+        )
+        if (existing) {
+          openedId = existing.id
+          return prev.map((c) =>
+            c.id === existing.id
+              ? {
+                  ...c,
+                  archived: false,
+                  unread: 0,
+                  contactAuthorId: c.contactAuthorId ?? contactAuthorId,
+                }
+              : c,
+          )
+        }
+
+        const created = buildConversationFromCommunityAuthor({
+          authorId: contactAuthorId,
+          name: contactName,
+          avatar: contactAvatar,
+          role: contactRole || undefined,
+        })
+        openedId = created.id
+        return [created, ...prev]
+      })
+
       if (openedId) {
         setListMode('inbox')
         setActiveId(openedId)

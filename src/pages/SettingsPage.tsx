@@ -19,6 +19,12 @@ import { Input } from '../components/ui/Input'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 import { BRAND_NAME } from '../lib/brand'
+import {
+  NOTIFICATION_PREF_ITEMS,
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+  type NotificationPrefs,
+} from '../lib/notificationPrefs'
 import { getUserHomeCity, setUserHomeCity } from '../lib/userProfile'
 import { cn } from '../lib/utils'
 
@@ -72,10 +78,22 @@ export function SettingsPage() {
   const [accountCity, setAccountCity] = useState(
     () => `${getUserHomeCity()}, Česká republika`,
   )
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(
+    () => loadNotificationPrefs(),
+  )
 
   const handleSave = () => {
     setUserHomeCity(accountCity)
+    saveNotificationPrefs(notificationPrefs)
     showToast('Nastavení uloženo', 'Vaše nastavení účtu bylo uloženo.', 'gold')
+  }
+
+  const toggleNotificationPref = (id: keyof NotificationPrefs) => {
+    setNotificationPrefs((prev) => {
+      const next = { ...prev, [id]: !prev[id] }
+      saveNotificationPrefs(next)
+      return next
+    })
   }
 
   const toggleVetAccess = (key: VetAccessKey) => {
@@ -172,15 +190,9 @@ export function SettingsPage() {
             <span>Připomínky a upozornění</span>
           </h3>
           <div className="space-y-3">
-            {[
-              { title: 'Pushová upozornění na očkování a léky', desc: 'Připomínky 48 hodin a 2 hodiny před termínem', enabled: true },
-              { title: 'SMS připomínky veterinárních termínů', desc: 'Upozornění na objednané návštěvy u veterináře', enabled: true },
-              { title: 'Upozornění na schůzky', desc: 'Připomínky treninků, agility lekcí a dalších plánovaných aktivit', enabled: true },
-              { title: 'Zprávy z komunity', desc: 'Upozornění, když se majitelé spojí nebo okomentují váš příspěvek', enabled: false },
-              { title: 'Měsíční přehled zdraví a hmotnosti', desc: 'Souhrnná zpráva o vitálních údajích a dodržování rutin', enabled: true },
-            ].map((item, i) => (
+            {NOTIFICATION_PREF_ITEMS.map((item) => (
               <div
-                key={i}
+                key={item.id}
                 className="flex items-center justify-between p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]"
               >
                 <div>
@@ -189,7 +201,8 @@ export function SettingsPage() {
                 </div>
                 <input
                   type="checkbox"
-                  defaultChecked={item.enabled}
+                  checked={notificationPrefs[item.id]}
+                  onChange={() => toggleNotificationPref(item.id)}
                   className="h-4 w-4 rounded accent-[#2C4A3E] cursor-pointer"
                 />
               </div>

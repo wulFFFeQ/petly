@@ -489,6 +489,8 @@ export interface DiscoverPet {
 export interface PostComment {
   id: string
   author: string
+  /** Stable author id when known (`owner_self` for the signed-in user). */
+  authorId?: string
   avatar: string
   text: string
   time: string
@@ -499,6 +501,8 @@ export interface PostComment {
 export interface CommunityPost {
   id: string
   author: string
+  /** Stable author id (`owner_self` for the signed-in user; `community_*` for seed authors). */
+  authorId?: string
   avatar: string
   badge?: string
   time: string
@@ -516,6 +520,10 @@ export interface CommunityPost {
   comments?: PostComment[]
   /** When set, post was created from a gallery photo upload. */
   sourcePhotoId?: string
+  /** Unix ms when the post was created (user posts / edits). */
+  createdAt?: number
+  /** Unix ms of last edit, when edited. */
+  editedAt?: number
 }
 
 export interface CalendarEvent {
@@ -645,6 +653,8 @@ export interface Conversation {
   petId?: string
   /** Discover pet belonging to the contact (their animal's public profile). */
   contactPetId?: string
+  /** Community feed author id for DMs started from a post (dedupe key with conv id). */
+  contactAuthorId?: string
   contactType: 'vet' | 'trainer' | 'community' | 'lost_finder' | 'emergency_finder'
   online?: boolean
   lastMessage: string

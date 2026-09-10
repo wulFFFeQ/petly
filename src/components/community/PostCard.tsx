@@ -4,15 +4,18 @@ import {
   Link2,
   MapPin,
   MessageCircle,
+  MessageSquare,
   Share2,
   Send,
   MoreHorizontal,
+  Pencil,
   Trash2,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import { isCommunitySelfAuthor } from '../../lib/community'
 import {
   discoverCatalogHasPetId,
   findDiscoverPetByName,
@@ -25,42 +28,61 @@ import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 import { cn } from '../../lib/utils'
 
-const CURRENT_USER_NAME = 'Tereza V.'
-
+/**
+ * Prefer public Discover profile when available so community links
+ * do not open the private owner pet dossier for tagged animals.
+ */
 function resolvePetHref(
   pets: Pet[],
   petId?: string,
   petTag?: string,
 ): string | null {
   if (petId) {
-    if (pets.some((pet) => pet.id === petId)) return `/pets/${petId}`
     if (discoverCatalogHasPetId(petId, pets)) return `/discover/${petId}`
+    const owned = pets.find((pet) => pet.id === petId)
+    if (owned?.publicDiscover) return `/discover/${petId}`
+    if (owned) return `/pets/${petId}`
   }
 
   const name = petTag?.split('·')[0]?.trim()
   if (!name) return null
 
-  const ownPet = pets.find((pet) => pet.name === name)
-  if (ownPet) return `/pets/${ownPet.id}`
-
   const discoverPet = findDiscoverPetByName(name, pets)
   if (discoverPet) return `/discover/${discoverPet.id}`
+
+  const ownPet = pets.find((pet) => pet.name === name)
+  if (ownPet?.publicDiscover) return `/discover/${ownPet.id}`
+  if (ownPet) return `/pets/${ownPet.id}`
 
   return null
 }
 
 interface PostCardProps {
   post: CommunityPost
+  highlighted?: boolean
 }
 
-export function PostCard({ post }: PostCardProps) {
-  const { toggleLike, addComment, deleteComment, deletePost, showToast, pets } = useApp()
+export function PostCard({ post, highlighted = false }: PostCardProps) {
+  const {
+    toggleLike,
+    addComment,
+    deleteComment,
+    deletePost,
+    updateCommunityPost,
+    reportPost,
+    reportComment,
+    showToast,
+    pets,
+  } = useApp()
+  const navigate = useNavigate()
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(post.text)
   const [nowTick, setNowTick] = useState(() => Date.now())
   const menuRef = useRef<HTMLDivElement>(null)
-  const isOwnPost = post.author === CURRENT_USER_NAME
+  const isOwnPost = isCommunitySelfAuthor(post.authorId, post.author)
   const petHref = resolvePetHref(pets, post.petId, post.petTag)
   const locationHref = post.location
     ? mapsUrlForPlace(post.location, post.locationLat, post.locationLng)
@@ -96,7 +118,11 @@ export function PostCard({ post }: PostCardProps) {
     }
   }, [menuOpen])
 
-  const handleShare = async () => {
+  useEffect(() => {
+    if (!editing) setEditText(post.text)
+  }, [post.text, editing])
+
+  const handleShareClick = async () => {
     const shareUrl = `${window.location.origin}/community?post=${encodeURIComponent(post.id)}`
     const copied = await copyTextToClipboard(shareUrl)
     if (copied) {
@@ -121,13 +147,37 @@ export function PostCard({ post }: PostCardProps) {
     setCommentText('')
   }
 
+  const handleSaveEdit = () => {
+    const trimmed = editText.trim()
+    if (!trimmed) {
+      showToast('Text příspěvku nesmí být prázdný', undefined, 'info')
+      return
+    }
+    updateCommunityPost(post.id, { text: trimmed })
+    setEditing(false)
+  }
+
+  const handleMessageAuthor = () => {
+    if (!post.authorId || isOwnPost) return
+    const params = new URLSearchParams({
+      contactAuthorId: post.authorId,
+      contactName: post.author,
+      contactAvatar: post.avatar,
+    })
+    if (post.badge) params.set('contactRole', post.badge)
+    navigate(`/messages?${params.toString()}`)
+  }
+
   return (
     <Card
+      id={`community-post-${post.id}`}
       variant="default"
       padding="sm"
-      className="border-[#E8E4DC]/80 transition-colors duration-200 hover:border-[#D1E0D8]"
+      className={cn(
+        'border-[#E8E4DC]/80 transition-colors duration-200 hover:border-[#D1E0D8]',
+        highlighted && 'ring-2 ring-[#B8934A]/60 border-[#B8934A]/40',
+      )}
     >
-      {/* Post Author Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar src={post.avatar} alt={post.author} size="sm" goldRing={post.liked} />
@@ -138,6 +188,9 @@ export function PostCard({ post }: PostCardProps) {
                 <Badge variant="primary" size="sm" className="max-w-full truncate">
                   {post.badge}
                 </Badge>
+              )}
+              {post.editedAt != null && (
+                <span className="text-[10px] text-[#A3AEA7]">upraveno</span>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#7D8B82] mt-0.5">
@@ -195,14 +248,14 @@ export function PostCard({ post }: PostCardProps) {
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white py-1 shadow-[0_12px_32px_rgba(25,30,27,0.1)]"
+              className="absolute right-0 top-full z-30 mt-1.5 w-52 overflow-hidden rounded-xl border border-[#E8E4DC] bg-white py-1 shadow-[0_12px_32px_rgba(25,30,27,0.1)]"
             >
               <button
                 type="button"
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false)
-                  void handleShare()
+                  void handleShareClick()
                 }}
                 className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
               >
@@ -221,30 +274,55 @@ export function PostCard({ post }: PostCardProps) {
                 <MessageCircle size={14} className="shrink-0 text-[#2C4A3E]" />
                 Komentáře
               </button>
-              {isOwnPost ? (
+              {!isOwnPost && post.authorId && (
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false)
-                    deletePost(post.id)
+                    handleMessageAuthor()
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 cursor-pointer"
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
                 >
-                  <Trash2 size={14} className="shrink-0" />
-                  Smazat příspěvek
+                  <MessageSquare size={14} className="shrink-0 text-[#2C4A3E]" />
+                  Napsat zprávu
                 </button>
+              )}
+              {isOwnPost ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setEditing(true)
+                      setEditText(post.text)
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
+                  >
+                    <Pencil size={14} className="shrink-0 text-[#2C4A3E]" />
+                    Upravit příspěvek
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      deletePost(post.id)
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 cursor-pointer"
+                  >
+                    <Trash2 size={14} className="shrink-0" />
+                    Smazat příspěvek
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false)
-                    showToast(
-                      'Příspěvek nahlášen',
-                      'Děkujeme. Podíváme se na to co nejdřív.',
-                      'info',
-                    )
+                    reportPost(post.id)
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#FAF8F5] cursor-pointer"
                 >
@@ -257,12 +335,38 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </div>
 
-      {/* Post Text */}
-      <p className="mt-3 text-sm leading-relaxed text-[#4A564F]">
-        {post.text}
-      </p>
+      {editing ? (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-[#E8E4DC] bg-white px-3 py-2 text-sm text-[#191E1B] outline-none focus:border-[#2C4A3E] focus:ring-2 focus:ring-[#2C4A3E]/10"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false)
+                setEditText(post.text)
+              }}
+              className="rounded-lg px-3 py-1.5 text-[11px] font-medium text-[#5A6660] hover:bg-[#FAF8F5] cursor-pointer"
+            >
+              Zrušit
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              className="rounded-lg bg-[#2C4A3E] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#20362E] cursor-pointer"
+            >
+              Uložit
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm leading-relaxed text-[#4A564F]">{post.text}</p>
+      )}
 
-      {/* Post Image */}
       {post.image && (
         <div className="mt-3 flex justify-center overflow-hidden rounded-xl bg-stone-100 ring-1 ring-[#E8E4DC]/70">
           <img
@@ -273,10 +377,10 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       )}
 
-      {/* Post Actions Bar */}
       <div className="mt-3 pt-3 border-t border-[#F0EDE6]/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => toggleLike(post.id)}
             className={cn(
               'flex items-center gap-1 text-[11px] font-medium py-1 px-2 rounded-lg transition-colors duration-200 cursor-pointer',
@@ -285,14 +389,12 @@ export function PostCard({ post }: PostCardProps) {
                 : 'text-[#5A6660] hover:bg-[#FAF8F5] hover:text-rose-600',
             )}
           >
-            <Heart
-              size={15}
-              fill={post.liked ? 'currentColor' : 'none'}
-            />
+            <Heart size={15} fill={post.liked ? 'currentColor' : 'none'} />
             <span>{post.likes}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setShowComments(!showComments)}
             className={cn(
               'flex items-center gap-1 text-[11px] font-medium py-1 px-2 rounded-lg transition-colors cursor-pointer',
@@ -309,7 +411,8 @@ export function PostCard({ post }: PostCardProps) {
         </div>
 
         <button
-          onClick={handleShare}
+          type="button"
+          onClick={() => void handleShareClick()}
           className="flex items-center gap-1 text-[11px] font-medium text-[#7D8B82] hover:text-[#4A564F] py-1 px-2 rounded-lg hover:bg-[#FAF8F5] transition-colors cursor-pointer"
         >
           <Share2 size={14} />
@@ -317,13 +420,12 @@ export function PostCard({ post }: PostCardProps) {
         </button>
       </div>
 
-      {/* Expandable Comments Drawer */}
       {showComments && (
         <div className="mt-3 pt-3 border-t border-[#F0EDE6]/80 space-y-2.5">
           {post.comments && post.comments.length > 0 && (
             <div className="space-y-2 mb-2">
               {post.comments.map((comment) => {
-                const isOwnComment = comment.author === CURRENT_USER_NAME
+                const isOwnComment = isCommunitySelfAuthor(comment.authorId, comment.author)
                 return (
                   <div
                     key={comment.id}
@@ -332,14 +434,12 @@ export function PostCard({ post }: PostCardProps) {
                     <Avatar src={comment.avatar} alt={comment.author} size="xs" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-[#191E1B]">
-                          {comment.author}
-                        </span>
+                        <span className="font-semibold text-[#191E1B]">{comment.author}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="text-[10px] text-[#7D8B82]">
                             {formatCommentDisplayTime(comment, nowTick)}
                           </span>
-                          {isOwnComment && (
+                          {isOwnComment ? (
                             <button
                               type="button"
                               onClick={() => deleteComment(post.id, comment.id)}
@@ -348,6 +448,16 @@ export function PostCard({ post }: PostCardProps) {
                               className="rounded-md p-1 text-[#A3AEA7] hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
                             >
                               <Trash2 size={12} />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => reportComment(post.id, comment.id)}
+                              aria-label="Nahlásit komentář"
+                              title="Nahlásit komentář"
+                              className="rounded-md p-1 text-[#A3AEA7] hover:bg-[#FAF8F5] hover:text-[#2C4A3E] transition-colors cursor-pointer"
+                            >
+                              <Flag size={12} />
                             </button>
                           )}
                         </div>

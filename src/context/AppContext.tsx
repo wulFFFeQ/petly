@@ -1,12 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   calendarEvents as initialCalendarEvents,
-  communityPosts as initialPosts,
   healthRecords as initialHealthRecords,
   myPets as initialPets,
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
+import {
+  COMMUNITY_SELF_AUTHOR_ID,
+  COMMUNITY_SELF_AVATAR,
+  addCommunityReport,
+  getCommunitySelfAuthorName,
+  isCommunitySelfAuthor,
+  loadPosts,
+  savePosts,
+  toCommunityPublicLocation,
+  withCommunityPrefGate,
+} from '../lib/community'
 import {
   applyBreedingProfileRules,
   buildAutoHeatEvent,
@@ -451,7 +461,18 @@ interface AppContextValue {
     locationLat?: number
     locationLng?: number
   }) => void
+  updateCommunityPost: (
+    postId: string,
+    updates: {
+      text?: string
+      location?: string | null
+      locationLat?: number | null
+      locationLng?: number | null
+    },
+  ) => void
   deletePost: (postId: string) => void
+  reportPost: (postId: string, note?: string) => void
+  reportComment: (postId: string, commentId: string, note?: string) => void
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
   deleteCalendarEvent: (eventId: string) => void
@@ -483,7 +504,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
   const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
-  const [posts, setPosts] = useState<CommunityPost[]>(initialPosts)
+  const [posts, setPosts] = useState<CommunityPost[]>(loadPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>(loadEarnedBadges)
@@ -573,8 +594,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
 
+  useEffect(() => {
+    savePosts(posts)
+  }, [posts])
+
   const notificationsRef = useRef(notifications)
   notificationsRef.current = notifications
+  const postsRef = useRef(posts)
+  postsRef.current = posts
 
   useEffect(() => {
     saveNotifications(notifications)
@@ -591,6 +618,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ;(window as unknown as { __LK_NOTIFICATIONS__?: typeof api }).__LK_NOTIFICATIONS__ = api
     return () => {
       delete (window as unknown as { __LK_NOTIFICATIONS__?: typeof api }).__LK_NOTIFICATIONS__
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const communityApi = {
+      getPosts: () => postsRef.current,
+      simulateOtherComment: (postId: string, text = 'Skvělý tip, díky!') => {
+        const post = postsRef.current.find((item) => item.id === postId)
+        if (!post) return false
+        const createdAt = Date.now()
+        const newComment = {
+          id: `c_sim_${createdAt}`,
+          author: 'Sarah K.',
+          authorId: 'community_sarah',
+          avatar:
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=85',
+          text: text.trim() || 'Skvělý tip, díky!',
+          time: 'Právě teď',
+          createdAt,
+        }
+        setPosts((prev) =>
+          prev.map((item) =>
+            item.id === postId
+              ? {
+                  ...item,
+                  commentsCount: item.commentsCount + 1,
+                  comments: [...(item.comments || []), newComment],
+                }
+              : item,
+          ),
+        )
+        if (isCommunitySelfAuthor(post.authorId, post.author)) {
+          withCommunityPrefGate(
+            {
+              type: 'community',
+              title: 'Sarah K. okomentovala váš příspěvek',
+              message: newComment.text.slice(0, 120),
+              priority: 'normal',
+              dedupeKey: `community:comment:${postId}:${newComment.id}`,
+              href: `/community?post=${encodeURIComponent(postId)}`,
+              time: 'Právě teď',
+            },
+            (draft) => setNotifications((prev) => upsertNotificationInList(prev, draft)),
+          )
+        }
+        return true
+      },
+      simulateOtherLike: (postId: string) => {
+        const post = postsRef.current.find((item) => item.id === postId)
+        if (!post || !isCommunitySelfAuthor(post.authorId, post.author)) return false
+        setPosts((prev) =>
+          prev.map((item) =>
+            item.id === postId ? { ...item, likes: item.likes + 1 } : item,
+          ),
+        )
+        withCommunityPrefGate(
+          {
+            type: 'community',
+            title: 'Sarah K. se líbí váš příspěvek',
+            message: 'Komunita',
+            priority: 'normal',
+            dedupeKey: `community:like:${postId}:community_sarah`,
+            href: `/community?post=${encodeURIComponent(postId)}`,
+            time: 'Právě teď',
+          },
+          (draft) => setNotifications((prev) => upsertNotificationInList(prev, draft)),
+        )
+        return true
+      },
+    }
+    ;(window as unknown as { __LK_COMMUNITY__?: typeof communityApi }).__LK_COMMUNITY__ =
+      communityApi
+    return () => {
+      delete (window as unknown as { __LK_COMMUNITY__?: typeof communityApi }).__LK_COMMUNITY__
     }
   }, [])
 
@@ -1059,33 +1161,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }))
     setPhotos((prev) => [...added, ...prev])
 
-    const feedPosts: CommunityPost[] = added.map((photo) => ({
-      id: `post_${photo.id}`,
-      author: 'Tereza V.',
-      avatar:
-        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
-      badge: 'Nová fotografie z galerie',
-      time: 'Právě teď',
-      text: pet
-        ? `Přidala jsem novou fotografii ${pet.name} do galerie.`
-        : 'Přidala jsem novou fotografii do galerie.',
-      image: photo.url,
-      likes: 0,
-      liked: false,
-      petTag: pet ? `${pet.name} · ${pet.breed}` : undefined,
-      petId: pet?.id,
-      commentsCount: 0,
-      comments: [],
-      sourcePhotoId: photo.id,
-    }))
-    setPosts((prev) => [...feedPosts, ...prev])
+    const shareToCommunity = Boolean(pet?.publicDiscover)
+    if (shareToCommunity) {
+      const authorName = getCommunitySelfAuthorName()
+      const feedPosts: CommunityPost[] = added.map((photo) => ({
+        id: `post_${photo.id}`,
+        author: authorName,
+        authorId: COMMUNITY_SELF_AUTHOR_ID,
+        avatar: COMMUNITY_SELF_AVATAR,
+        badge: 'Nová fotografie z galerie',
+        time: 'Právě teď',
+        text: pet
+          ? `Přidala jsem novou fotografii ${pet.name} do galerie.`
+          : 'Přidala jsem novou fotografii do galerie.',
+        image: photo.url,
+        likes: 0,
+        liked: false,
+        petTag: pet ? `${pet.name} · ${pet.breed}` : undefined,
+        petId: pet?.id,
+        commentsCount: 0,
+        comments: [],
+        sourcePhotoId: photo.id,
+        createdAt: stamp,
+      }))
+      setPosts((prev) => [...feedPosts, ...prev])
+    }
 
     setActiveModal(null)
     showToast(
       urls.length === 1 ? 'Fotografie nahrána' : `${urls.length} fotografie nahrány`,
-      pet
-        ? `Přidáno do galerie ${pet.name} a do komunitního feedu.`
-        : 'Přidáno do galerie a do komunitního feedu.',
+      shareToCommunity
+        ? pet
+          ? `Přidáno do galerie ${pet.name} a do komunitního feedu.`
+          : 'Přidáno do galerie a do komunitního feedu.'
+        : pet
+          ? `Přidáno do galerie ${pet.name}. Pro sdílení v komunitě zapněte veřejný profil Objevovat.`
+          : 'Přidáno do galerie.',
       'gold',
     )
   }
@@ -2689,10 +2800,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addComment = (postId: string, text: string) => {
     if (!text.trim()) return
     const createdAt = Date.now()
+    const authorName = getCommunitySelfAuthorName()
     const newComment = {
       id: `c_${createdAt}`,
-      author: 'Tereza V.',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
+      author: authorName,
+      authorId: COMMUNITY_SELF_AUTHOR_ID,
+      avatar: COMMUNITY_SELF_AVATAR,
       text: text.trim(),
       time: 'Právě teď',
       createdAt,
@@ -2718,7 +2831,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (post.id !== postId) return post
         const comments = post.comments || []
         const target = comments.find((comment) => comment.id === commentId)
-        if (!target || target.author !== 'Tereza V.') return post
+        if (!target || !isCommunitySelfAuthor(target.authorId, target.author)) return post
         const nextComments = comments.filter((comment) => comment.id !== commentId)
         return {
           ...post,
@@ -2747,11 +2860,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const text = input.text.trim()
     if (!text && !input.image) return
 
+    if (input.petId) {
+      const tagged = pets.find((pet) => pet.id === input.petId)
+      if (!tagged) {
+        showToast('Mazlíčka nelze označit', 'Mazlíček nebyl nalezen.', 'info')
+        return
+      }
+      if (!tagged.publicDiscover) {
+        showToast(
+          'Mazlíček není veřejný',
+          'Označit ve feedu lze jen mazlíčky s veřejným profilem Objevovat.',
+          'info',
+        )
+        return
+      }
+    }
+
+    const createdAt = Date.now()
+    const authorName = getCommunitySelfAuthorName()
+    const safeLocation = input.location
+      ? toCommunityPublicLocation(input.location, input.locationLat, input.locationLng)
+      : undefined
+
     const post: CommunityPost = {
-      id: `post_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      author: 'Tereza V.',
-      avatar:
-        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85',
+      id: `post_${createdAt}_${Math.random().toString(36).slice(2, 6)}`,
+      author: authorName,
+      authorId: COMMUNITY_SELF_AUTHOR_ID,
+      avatar: COMMUNITY_SELF_AVATAR,
       time: 'Právě teď',
       text: text || 'Sdílím fotografii z komunity.',
       image: input.image,
@@ -2759,17 +2894,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
       liked: false,
       petTag: input.petTag,
       petId: input.petId,
-      location: input.location,
-      locationLat: input.locationLat,
-      locationLng: input.locationLng,
+      location: safeLocation?.location,
+      locationLat: safeLocation?.locationLat,
+      locationLng: safeLocation?.locationLng,
       commentsCount: 0,
       comments: [],
+      createdAt,
     }
     setPosts((prev) => [post, ...prev])
     showToast(
       'Příspěvek publikován v komunitě',
       'Váš příběh o mazlíčkovi je nyní viditelný v komunitě.',
       'gold',
+    )
+  }
+
+  const updateCommunityPost = (
+    postId: string,
+    updates: {
+      text?: string
+      location?: string | null
+      locationLat?: number | null
+      locationLng?: number | null
+    },
+  ) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postId) return post
+        if (!isCommunitySelfAuthor(post.authorId, post.author)) return post
+
+        const next: CommunityPost = { ...post, editedAt: Date.now() }
+        if (typeof updates.text === 'string') {
+          const trimmed = updates.text.trim()
+          if (trimmed) next.text = trimmed
+        }
+        if (updates.location === null) {
+          next.location = undefined
+          next.locationLat = undefined
+          next.locationLng = undefined
+        } else if (typeof updates.location === 'string' && updates.location.trim()) {
+          const safe = toCommunityPublicLocation(
+            updates.location,
+            updates.locationLat ?? undefined,
+            updates.locationLng ?? undefined,
+          )
+          next.location = safe.location
+          next.locationLat = safe.locationLat
+          next.locationLng = safe.locationLng
+        }
+        return next
+      }),
+    )
+    showToast('Příspěvek upraven', undefined, 'success')
+  }
+
+  const reportPost = (postId: string, note?: string) => {
+    addCommunityReport({ target: 'post', postId, note })
+    showToast(
+      'Příspěvek nahlášen',
+      'Děkujeme. Podíváme se na to co nejdřív.',
+      'info',
+    )
+  }
+
+  const reportComment = (postId: string, commentId: string, note?: string) => {
+    addCommunityReport({ target: 'comment', postId, commentId, note })
+    showToast(
+      'Komentář nahlášen',
+      'Děkujeme. Podíváme se na to co nejdřív.',
+      'info',
     )
   }
 
@@ -3106,7 +3299,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addComment,
         deleteComment,
         addCommunityPost,
+        updateCommunityPost,
         deletePost,
+        reportPost,
+        reportComment,
         addCalendarEvent,
         updateCalendarEvent,
         deleteCalendarEvent,

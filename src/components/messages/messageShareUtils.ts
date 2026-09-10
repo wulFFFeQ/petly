@@ -101,3 +101,37 @@ export function buildConversationFromDiscoverPet(pet: DiscoverPet): Conversation
     ],
   }
 }
+
+/** Start a community DM from a feed post author (deduped by contactAuthorId / conv id). */
+export function buildConversationFromCommunityAuthor(input: {
+  authorId: string
+  name: string
+  avatar: string
+  role?: string
+}): Conversation {
+  const now = new Date()
+  const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
+  const intro = `Ahoj ${input.name.split(' ')[0]}! Píšu ohledně tvého příspěvku v Komunitě.`
+
+  return {
+    id: `conv_community_${input.authorId}`,
+    name: input.name,
+    role: input.role || 'Komunita',
+    petContext: 'Komunita',
+    contactAuthorId: input.authorId,
+    contactType: 'community',
+    online: true,
+    avatar: input.avatar,
+    lastMessage: intro,
+    time: 'Právě teď',
+    unread: 0,
+    messages: [
+      {
+        id: `m_community_${input.authorId}_${Date.now()}`,
+        sender: 'me',
+        text: intro,
+        time: timeString,
+      },
+    ],
+  }
+}
