@@ -7,8 +7,7 @@ import type {
   HealthRecord,
 } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
-import { APP_TODAY, parseEventDate } from '../dashboardDates'
-import { ensurePetFirstSeenDays } from './badgeData'
+import { APP_TODAY, parseCzechDate, parseEventDate } from '../dashboardDates'
 import { BADGE_CATALOG, isBadgeApplicableToPet } from './catalog'
 
 export interface BadgeEvalContext {
@@ -18,6 +17,8 @@ export interface BadgeEvalContext {
   photos: PetPhoto[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
+  /** Community connection threads per owned pet id. */
+  connectionCountsByPetId?: Record<string, number>
   todayIso: string
 }
 
@@ -53,7 +54,26 @@ const EXPERIENCE_TYPES = new Set([
   'competition',
   'exam',
   'seminar',
+  'walk',
+  'sport',
 ])
+
+const TRAVEL_TYPES = new Set(['travel', 'roadtrip', 'foreign_travel'])
+const ADVENTURE_TYPES = new Set(['trip', 'travel', 'roadtrip', 'foreign_travel'])
+const PLAY_TYPES = new Set(['walk', 'sport'])
+const CARE_EVENT_TYPES = new Set([
+  'vet',
+  'vaccination',
+  'examination',
+  'medication',
+  'grooming',
+  'coat_care',
+  'dental',
+  'care_other',
+  'bathing',
+])
+const HEALTH_CAL_TYPES = new Set(['vet', 'vaccination', 'examination', 'medication'])
+const CARE_HEALTH_TYPES = new Set(['vet', 'vaccination', 'examination', 'medication', 'assessment'])
 
 const HOME_LIKE = new Set(['doma', 'home', ''])
 
@@ -65,15 +85,75 @@ function normalizePlace(location: string | undefined): string {
   return (location ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-function isPastOrToday(event: CalendarEvent): boolean {
-  const d = parseEventDate(event.date)
-  if (Number.isNaN(d.getTime())) return false
-  d.setHours(23, 59, 59, 0)
-  return d.getTime() <= APP_TODAY.getTime() + 24 * 60 * 60 * 1000
+function parsePetDate(value: string | undefined | null): Date | null {
+  if (!value?.trim()) return null
+  const raw = value.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = parseEventDate(raw)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const czech = parseCzechDate(raw)
+  if (czech && !Number.isNaN(czech.getTime())) return czech
+  return null
 }
 
-function petEvents(events: CalendarEvent[], petName: string): CalendarEvent[] {
-  return events.filter((e) => e.petName === petName && isPastOrToday(e))
+function toDayStart(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
+}
+
+/** Inclusive calendar years elapsed from start → todayIso (APP_TODAY aligned). */
+export function yearsElapsed(fromIsoOrCzech: string, todayIso: string): number {
+  const from = parsePetDate(fromIsoOrCzech)
+  const today = parseEventDate(todayIso)
+  if (!from || Number.isNaN(today.getTime())) return 0
+  const a = toDayStart(from)
+  const b = toDayStart(today)
+  if (a.getTime() > b.getTime()) return 0
+
+  let years = b.getFullYear() - a.getFullYear()
+  const monthDiff = b.getMonth() - a.getMonth()
+  const dayDiff = b.getDate() - a.getDate()
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) years -= 1
+  return Math.max(0, years)
+}
+
+export function daysElapsed(fromIsoOrCzech: string, todayIso: string): number {
+  const from = parsePetDate(fromIsoOrCzech)
+  const today = parseEventDate(todayIso)
+  if (!from || Number.isNaN(today.getTime())) return 0
+  const a = toDayStart(from)
+  const b = toDayStart(today)
+  if (a.getTime() > b.getTime()) return 0
+  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function isPastOrToday(event: CalendarEvent, todayIso: string): boolean {
+  const d = parseEventDate(event.date)
+  if (Number.isNaN(d.getTime())) return false
+  const today = parseEventDate(todayIso)
+  d.setHours(23, 59, 59, 0)
+  today.setHours(23, 59, 59, 0)
+  return d.getTime() <= today.getTime()
+}
+
+function isIsoOnOrBefore(iso: string, todayIso: string): boolean {
+  const d = parsePetDate(iso)
+  const today = parseEventDate(todayIso)
+  if (!d || Number.isNaN(today.getTime())) return false
+  return toDayStart(d).getTime() <= toDayStart(today).getTime()
+}
+
+function petEvents(
+  events: CalendarEvent[],
+  pet: Pet,
+  todayIso: string,
+): CalendarEvent[] {
+  return events.filter((e) => {
+    if (!isPastOrToday(e, todayIso)) return false
+    if (e.petId && e.petId === pet.id) return true
+    if (!e.petId && e.petName === pet.name) return true
+    return false
+  })
 }
 
 function withPlace(events: CalendarEvent[]): CalendarEvent[] {
@@ -98,17 +178,10 @@ function ofType(events: CalendarEvent[], ...types: string[]): CalendarEvent[] {
 
 function seasonIndex(date: Date): number {
   const m = date.getMonth()
-  if (m >= 2 && m <= 4) return 0 // spring
-  if (m >= 5 && m <= 7) return 1 // summer
-  if (m >= 8 && m <= 10) return 2 // autumn
-  return 3 // winter
-}
-
-function hasResultNote(notes: string | undefined): boolean {
-  if (!notes?.trim()) return false
-  return /(vítěz|výhra|cacib|cac\b|šampion|champion|1\.\s*místo|umístěn|titul|výborný|výsledek)/i.test(
-    notes,
-  )
+  if (m >= 2 && m <= 4) return 0
+  if (m >= 5 && m <= 7) return 1
+  if (m >= 8 && m <= 10) return 2
+  return 3
 }
 
 function maxActivitiesInAnyWeek(events: CalendarEvent[]): number {
@@ -132,49 +205,108 @@ function maxActivitiesInAnyWeek(events: CalendarEvent[]): number {
   return best
 }
 
+function petHealthRecords(records: HealthRecord[], petId: string): HealthRecord[] {
+  return records.filter((r) => r.petId === petId)
+}
+
+function hasBreedingShow(pet: Pet): boolean {
+  return (pet.breeding?.shows ?? []).some((s) => hasText(s.name))
+}
+
+function hasBreedingTitle(pet: Pet): boolean {
+  return (pet.breeding?.titles ?? []).some((t) => hasText(t.name))
+}
+
+function hasShowResult(pet: Pet): boolean {
+  return (pet.breeding?.shows ?? []).some(
+    (s) => hasText(s.result) || hasText(s.titleAwarded),
+  )
+}
+
+function hasHealthTest(pet: Pet): boolean {
+  return (pet.breeding?.healthTests ?? []).some(
+    (t) => hasText(t.name) || Boolean(t.date?.trim()),
+  )
+}
+
+function hasMating(pet: Pet): boolean {
+  return (pet.breeding?.matings ?? []).length >= 1
+}
+
+function hasLitter(pet: Pet): boolean {
+  return (pet.breeding?.litters ?? []).length >= 1
+}
+
 function push(progress: BadgeProgress[], badgeId: string, petId: string, ok: boolean) {
   if (ok) progress.push({ badgeId, petId, level: 1 })
 }
 
 export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
   const progress: BadgeProgress[] = []
+  const todayIso = ctx.todayIso
 
   for (const pet of ctx.pets) {
-    const events = petEvents(ctx.calendarEvents, pet.name)
+    const events = petEvents(ctx.calendarEvents, pet, todayIso)
+    const health = petHealthRecords(ctx.healthRecords, pet.id)
     const places = uniquePlaces(events)
     const trips = ofType(events, 'trip').filter((e) => hasText(e.location))
     const trainings = ofType(events, 'training', 'course')
-    const birthdays = ofType(events, 'birthday')
-    const adoptions = ofType(events, 'adoption_anniversary')
-    const shows = ofType(events, 'exhibition').filter((e) => hasText(e.location))
-    const competitions = ofType(events, 'competition', 'exam')
-    const daysActive = ensurePetFirstSeenDays(pet.id, ctx.todayIso)
+    const travels = events.filter((e) => TRAVEL_TYPES.has(e.type))
+    const adventures = events.filter((e) => ADVENTURE_TYPES.has(e.type))
+    const plays = events.filter((e) => PLAY_TYPES.has(e.type))
+    const meetups = ofType(events, 'community_meetup')
     const experienceCount = events.filter((e) => EXPERIENCE_TYPES.has(e.type)).length
+    const connections = ctx.connectionCountsByPetId?.[pet.id] ?? 0
+
+    const vetHealth = health.filter((r) => r.type === 'vet')
+    const vaccHealth = health.filter((r) => r.type === 'vaccination')
+    const vetCal = ofType(events, 'vet')
+    const vaccCal = ofType(events, 'vaccination')
+    const careCal = events.filter((e) => CARE_EVENT_TYPES.has(e.type))
+    const careHealth = health.filter((r) => CARE_HEALTH_TYPES.has(r.type))
+    const careTotal = careCal.length + careHealth.length
+    const healthCal = events.filter((e) => HEALTH_CAL_TYPES.has(e.type))
 
     const applicable = (id: string) => {
       const def = BADGE_CATALOG.find((b) => b.id === id)
       return def ? isBadgeApplicableToPet(def, pet) : false
     }
 
-    // Milníky
-    if (applicable('life_first_birthday')) {
-      push(progress, 'life_first_birthday', pet.id, birthdays.length >= 1)
-    }
-    if (applicable('life_found_home')) {
-      push(progress, 'life_found_home', pet.id, adoptions.length >= 1)
-    }
-    if (applicable('life_another_year')) {
+    // Milníky — arrivedAt / DOB
+    if (applicable('life_first_day')) {
       push(
         progress,
-        'life_another_year',
+        'life_first_day',
         pet.id,
-        birthdays.length >= 2 || (birthdays.length >= 1 && adoptions.length >= 1),
+        Boolean(pet.arrivedAt?.trim()) && isIsoOnOrBefore(pet.arrivedAt!, todayIso),
+      )
+    }
+    if (applicable('life_first_birthday')) {
+      push(
+        progress,
+        'life_first_birthday',
+        pet.id,
+        Boolean(pet.dateOfBirth?.trim()) && yearsElapsed(pet.dateOfBirth!, todayIso) >= 1,
+      )
+    }
+    if (applicable('life_first_year')) {
+      push(
+        progress,
+        'life_first_year',
+        pet.id,
+        Boolean(pet.arrivedAt?.trim()) && yearsElapsed(pet.arrivedAt!, todayIso) >= 1,
       )
     }
 
-    // Společné zážitky
+    // Zážitky
     if (applicable('exp_first_trip')) {
       push(progress, 'exp_first_trip', pet.id, trips.length >= 1)
+    }
+    if (applicable('exp_first_travel')) {
+      push(progress, 'exp_first_travel', pet.id, travels.length >= 1)
+    }
+    if (applicable('exp_first_abroad')) {
+      push(progress, 'exp_first_abroad', pet.id, ofType(events, 'foreign_travel').length >= 1)
     }
     if (applicable('exp_new_place')) {
       push(progress, 'exp_new_place', pet.id, places.length >= 2)
@@ -185,25 +317,42 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
     if (applicable('exp_first_training')) {
       push(progress, 'exp_first_training', pet.id, trainings.length >= 1)
     }
-    if (applicable('exp_first_roadtrip')) {
-      push(
-        progress,
-        'exp_first_roadtrip',
-        pet.id,
-        ofType(events, 'roadtrip').some((e) => hasText(e.location)),
-      )
-    }
-    if (applicable('exp_first_abroad')) {
-      push(progress, 'exp_first_abroad', pet.id, ofType(events, 'foreign_travel').length >= 1)
-    }
     if (applicable('exp_community_meetup')) {
-      push(progress, 'exp_community_meetup', pet.id, ofType(events, 'community_meetup').length >= 1)
+      push(progress, 'exp_community_meetup', pet.id, meetups.length >= 1)
     }
     if (applicable('exp_new_friend')) {
       push(progress, 'exp_new_friend', pet.id, ofType(events, 'pet_friend').length >= 1)
     }
+    if (applicable('act_active')) {
+      push(progress, 'act_active', pet.id, experienceCount >= 5)
+    }
+    if (applicable('act_adventurer')) {
+      push(progress, 'act_adventurer', pet.id, adventures.length >= 3)
+    }
+    if (applicable('act_player')) {
+      push(progress, 'act_player', pet.id, plays.length >= 3)
+    }
+    if (applicable('act_social')) {
+      push(progress, 'act_social', pet.id, meetups.length >= 2 || connections >= 2)
+    }
     if (applicable('exp_week_five')) {
       push(progress, 'exp_week_five', pet.id, maxActivitiesInAnyWeek(events) >= 5)
+    }
+
+    // Péče
+    if (applicable('care_first_vet')) {
+      push(progress, 'care_first_vet', pet.id, vetHealth.length >= 1 || vetCal.length >= 1)
+    }
+    if (applicable('care_prevention')) {
+      push(
+        progress,
+        'care_prevention',
+        pet.id,
+        vaccHealth.length >= 1 || vaccCal.length >= 1,
+      )
+    }
+    if (applicable('care_regular')) {
+      push(progress, 'care_regular', pet.id, careTotal >= 3)
     }
 
     // Pes
@@ -250,42 +399,48 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
       push(progress, 'cat_calm_explorer', pet.id, places.length >= 3)
     }
 
-    // Chov
+    // Chov — primárně dossier
     if (applicable('breed_first_show')) {
-      push(progress, 'breed_first_show', pet.id, shows.length >= 1)
-    }
-    if (applicable('breed_show_debut')) {
       push(
         progress,
-        'breed_show_debut',
+        'breed_first_show',
         pet.id,
-        shows.some((e) => hasResultNote(e.notes)),
+        hasBreedingShow(pet) || ofType(events, 'exhibition').length >= 1,
       )
     }
-    if (applicable('breed_show_regular')) {
-      push(progress, 'breed_show_regular', pet.id, shows.length >= 5)
+    if (applicable('breed_first_title')) {
+      push(progress, 'breed_first_title', pet.id, hasBreedingTitle(pet))
     }
-    if (applicable('breed_champion')) {
-      const win =
-        [...shows, ...competitions].some((e) => hasResultNote(e.notes)) ||
-        competitions.length >= 3
-      push(progress, 'breed_champion', pet.id, win)
+    if (applicable('breed_show_result')) {
+      push(progress, 'breed_show_result', pet.id, hasShowResult(pet))
+    }
+    if (applicable('breed_health_tested')) {
+      push(progress, 'breed_health_tested', pet.id, hasHealthTest(pet))
     }
     if (applicable('breed_first_mating')) {
-      push(progress, 'breed_first_mating', pet.id, ofType(events, 'mating').length >= 1)
-    }
-    if (applicable('breed_first_litter')) {
-      push(progress, 'breed_first_litter', pet.id, ofType(events, 'birth').length >= 1)
-    }
-    if (applicable('breed_line')) {
       push(
         progress,
-        'breed_line',
+        'breed_first_mating',
         pet.id,
-        ofType(events, 'mating').length >= 1 &&
-          ofType(events, 'birth').length >= 1 &&
-          ofType(events, 'litter_check').length >= 1,
+        hasMating(pet) || ofType(events, 'mating').length >= 1,
       )
+    }
+    if (applicable('breed_first_litter')) {
+      push(
+        progress,
+        'breed_first_litter',
+        pet.id,
+        hasLitter(pet) || ofType(events, 'birth').length >= 1,
+      )
+    }
+    if (applicable('breed_line')) {
+      const matingOk = hasMating(pet) || ofType(events, 'mating').length >= 1
+      const litterOk = hasLitter(pet) || ofType(events, 'birth').length >= 1
+      const showOrTitle =
+        hasBreedingShow(pet) ||
+        hasBreedingTitle(pet) ||
+        ofType(events, 'exhibition').length >= 1
+      push(progress, 'breed_line', pet.id, matingOk && litterOk && showOrTitle)
     }
 
     // Tajné
@@ -307,8 +462,20 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
         pet.id,
         trips.length >= 1 &&
           trainings.length >= 1 &&
-          ofType(events, 'community_meetup').length >= 1 &&
-          ofType(events, 'travel', 'foreign_travel', 'roadtrip').length >= 1,
+          meetups.length >= 1 &&
+          travels.length >= 1,
+      )
+    }
+    if (applicable('secret_care_and_move')) {
+      const careOk = vetHealth.length + vaccHealth.length + vetCal.length + vaccCal.length >= 1
+      push(progress, 'secret_care_and_move', pet.id, careOk && experienceCount >= 1)
+    }
+    if (applicable('secret_calendar_health')) {
+      push(
+        progress,
+        'secret_calendar_health',
+        pet.id,
+        healthCal.length >= 1 && careHealth.length >= 1,
       )
     }
     if (applicable('secret_still_together')) {
@@ -316,7 +483,9 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
         progress,
         'secret_still_together',
         pet.id,
-        daysActive >= 90 && experienceCount >= 5,
+        Boolean(pet.arrivedAt?.trim()) &&
+          daysElapsed(pet.arrivedAt!, todayIso) >= 90 &&
+          experienceCount >= 5,
       )
     }
     if (applicable('secret_unexpected_friend')) {
@@ -324,8 +493,8 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
         progress,
         'secret_unexpected_friend',
         pet.id,
-        ofType(events, 'community_meetup').length >= 1 &&
-          ofType(events, 'pet_friend').length >= 1,
+        meetups.length >= 1 &&
+          (ofType(events, 'pet_friend').length >= 1 || connections >= 1),
       )
     }
     if (applicable('secret_show_heart')) {
@@ -333,7 +502,8 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
         progress,
         'secret_show_heart',
         pet.id,
-        shows.length >= 1 && ofType(events, 'birth').length >= 1,
+        (hasBreedingShow(pet) || ofType(events, 'exhibition').length >= 1) &&
+          (hasLitter(pet) || ofType(events, 'birth').length >= 1),
       )
     }
   }
@@ -341,12 +511,22 @@ export function computeBadgeProgress(ctx: BadgeEvalContext): BadgeProgress[] {
   return progress
 }
 
+/** Evaluate achievements for a single pet. */
+export function evaluatePetAchievements(
+  petId: string,
+  ctx: BadgeEvalContext,
+): BadgeProgress[] {
+  const pet = ctx.pets.find((p) => p.id === petId)
+  if (!pet) return []
+  return computeBadgeProgress({ ...ctx, pets: [pet] })
+}
+
 /** Progress for active challenges (for UI). */
 export function computeChallengeProgress(
   ctx: BadgeEvalContext,
   pet: Pet,
 ): ChallengeProgress[] {
-  const events = petEvents(ctx.calendarEvents, pet.name)
+  const events = petEvents(ctx.calendarEvents, pet, ctx.todayIso)
   const places = uniquePlaces(events)
   const trips = ofType(events, 'trip').filter((e) => hasText(e.location))
   const trainings = ofType(events, 'training', 'course')
@@ -441,11 +621,11 @@ export function mergeBadgeAwards(
       continue
     }
 
+    // Level upgrade keeps original earnedAt stable.
     if (item.level > existing.level) {
       const upgraded: EarnedBadge = {
         ...existing,
         level: item.level,
-        earnedAt: todayIso,
         revealed: true,
       }
       byKey.set(key, upgraded)
@@ -456,7 +636,7 @@ export function mergeBadgeAwards(
   return { next: Array.from(byKey.values()), newlyAwarded }
 }
 
-export function toIsoDay(date = new Date()): string {
+export function toIsoDay(date: Date = APP_TODAY): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')

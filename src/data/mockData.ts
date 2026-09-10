@@ -29,6 +29,7 @@ export const myPets: Pet[] = [
     coverColor: '#2C4A3E',
     healthStatus: 'excellent',
     dateOfBirth: '12. 8. 2022',
+    arrivedAt: '2022-09-01',
     gender: 'Fena',
     weight: 28,
     microchip: '985112004567890',
@@ -91,6 +92,7 @@ export const myPets: Pet[] = [
     coverColor: '#234B54',
     healthStatus: 'good',
     dateOfBirth: '15. 3. 2024',
+    arrivedAt: '2026-03-01',
     gender: 'Kocour',
     weight: 5.2,
     microchip: '985112004567891',
@@ -114,6 +116,7 @@ export const myPets: Pet[] = [
     coverColor: '#B8934A',
     healthStatus: 'good',
     dateOfBirth: '5. 1. 2020',
+    arrivedAt: '2020-03-01',
     gender: 'Fena',
     weight: 18,
     microchip: '985112004567892',
@@ -554,7 +557,7 @@ export const discoverPets: DiscoverPet[] = [
     ],
     publicBadges: [
       {
-        badgeId: 'life_found_home',
+        badgeId: 'life_first_day',
         level: 1,
         earnedAt: '2023-04-12',
         story: 'Adopce ze záchranné stanice — první den v novém domově.',
@@ -684,7 +687,7 @@ export const discoverPets: DiscoverPet[] = [
     ],
     publicBadges: [
       {
-        badgeId: 'life_found_home',
+        badgeId: 'life_first_day',
         level: 1,
         earnedAt: '2024-01-20',
         story: 'Příchod do bytu s Eliškou.',
@@ -772,7 +775,7 @@ export const discoverPets: DiscoverPet[] = [
         story: 'Debut na klubové výstavě border kolií.',
       },
       {
-        badgeId: 'breed_show_debut',
+        badgeId: 'breed_show_result',
         level: 1,
         earnedAt: '2023-04-22',
         story: 'První umístění v třídě otevřené.',

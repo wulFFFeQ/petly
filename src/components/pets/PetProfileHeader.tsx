@@ -61,6 +61,7 @@ interface PetProfileHeaderProps {
 
 type DetailsForm = {
   dateOfBirthIso: string
+  arrivedAtIso: string
   age: string
   ageMonths: string
   gender: string
@@ -91,6 +92,12 @@ function agePartsFromIso(
 function buildDetailsForm(pet: Pet): DetailsForm {
   return {
     dateOfBirthIso: pet.dateOfBirth ? formatCzechDateToIso(pet.dateOfBirth) : '',
+    arrivedAtIso:
+      pet.arrivedAt && /^\d{4}-\d{2}-\d{2}$/.test(pet.arrivedAt)
+        ? pet.arrivedAt
+        : pet.arrivedAt
+          ? formatCzechDateToIso(pet.arrivedAt)
+          : '',
     age: pet.age != null && pet.age >= 0 ? String(pet.age) : '',
     ageMonths: pet.ageMonths != null && pet.ageMonths > 0 ? String(pet.ageMonths) : '',
     gender: pet.gender ?? '',
@@ -190,6 +197,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       dateOfBirth: detailsForm.dateOfBirthIso
         ? formatIsoDateToCzech(detailsForm.dateOfBirthIso)
         : undefined,
+      arrivedAt: detailsForm.arrivedAtIso.trim() || undefined,
       age: hasAge
         ? ageNum != null && !Number.isNaN(ageNum)
           ? Math.max(0, Math.floor(ageNum))
@@ -484,6 +492,17 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
             <div className="shrink-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Datum příchodu
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm font-bold text-[#191E1B]">
+                <Home size={13} className="shrink-0 text-[#234B54]" />
+                {pet.arrivedAt
+                  ? formatIsoDateToCzech(pet.arrivedAt)
+                  : formatOptionalText(undefined)}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
                 Věk
               </p>
               <p className="mt-1 whitespace-nowrap text-sm font-bold text-[#191E1B]">
@@ -725,6 +744,15 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                     parts && parts.months > 0 ? String(parts.months) : parts ? '' : prev.ageMonths,
                 }))
               }}
+            />
+            <Input
+              id="pet-details-arrived"
+              label="Datum příchodu"
+              type="date"
+              value={detailsForm.arrivedAtIso}
+              onChange={(e) =>
+                setDetailsForm((prev) => ({ ...prev, arrivedAtIso: e.target.value }))
+              }
             />
             <Input
               id="pet-details-age"

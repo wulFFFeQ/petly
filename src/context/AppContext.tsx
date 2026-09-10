@@ -41,6 +41,7 @@ import {
   romanLevel,
   toIsoDay,
 } from '../lib/badges/evaluate'
+import { loadPersistedInboxConversations } from '../lib/messages/inboxStorage'
 import {
   buildMedicationReminderEvents,
   buildMedicationReminderNotification,
@@ -150,6 +151,7 @@ export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'nearby' | 'popular'
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
+const CALENDAR_STORAGE_KEY = 'lovedandknown.calendarEvents'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
 
@@ -212,6 +214,10 @@ function loadPets(): Pet[] {
           typeof pet.publicDiscover === 'boolean'
             ? pet.publicDiscover
             : (seed?.publicDiscover ?? false),
+        arrivedAt:
+          typeof pet.arrivedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(pet.arrivedAt.trim())
+            ? pet.arrivedAt.trim()
+            : seed?.arrivedAt,
         discoverEngagement: pet.discoverEngagement ?? seed?.discoverEngagement,
         foundContactToken:
           typeof pet.foundContactToken === 'string' && pet.foundContactToken.trim()
@@ -308,6 +314,27 @@ function loadEarnedBadges(): EarnedBadge[] {
     )
   } catch {
     return []
+  }
+}
+
+function loadCalendarEvents(): CalendarEvent[] {
+  if (typeof window === 'undefined') return initialCalendarEvents
+  try {
+    const raw = window.localStorage.getItem(CALENDAR_STORAGE_KEY)
+    if (!raw) return initialCalendarEvents
+    const parsed = JSON.parse(raw) as CalendarEvent[]
+    if (!Array.isArray(parsed)) return initialCalendarEvents
+    return parsed.filter(
+      (item) =>
+        item &&
+        typeof item.id === 'string' &&
+        typeof item.title === 'string' &&
+        typeof item.petName === 'string' &&
+        typeof item.type === 'string' &&
+        typeof item.date === 'string',
+    )
+  } catch {
+    return initialCalendarEvents
   }
 }
 
@@ -510,7 +537,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
   const [posts, setPosts] = useState<CommunityPost[]>(loadPosts)
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialCalendarEvents)
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(loadCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>(loadEarnedBadges)
   const [nightOwlEligible, setNightOwlEligible] = useState(loadNightOwlEligible)
@@ -598,6 +625,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    window.localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(calendarEvents))
+  }, [calendarEvents])
 
   useEffect(() => {
     savePosts(posts)
@@ -735,6 +766,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [pets, healthRecords, documents, posts, calendarEvents])
 
   useEffect(() => {
+    const connectionCountsByPetId: Record<string, number> = {}
+    try {
+      for (const convo of loadPersistedInboxConversations()) {
+        if (convo.contactType !== 'community') continue
+        const pid = convo.petId
+        if (!pid) continue
+        connectionCountsByPetId[pid] = (connectionCountsByPetId[pid] ?? 0) + 1
+      }
+    } catch {
+      // best-effort
+    }
+
     const progress = computeBadgeProgress({
       pets,
       healthRecords,
@@ -742,6 +785,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       photos,
       posts,
       calendarEvents,
+      connectionCountsByPetId,
       todayIso: toIsoDay(),
     })
 

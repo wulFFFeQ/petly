@@ -3,6 +3,7 @@ export type BadgeScope = 'pet' | 'user'
 export type BadgeCategory =
   | 'milestone'
   | 'companion'
+  | 'care'
   | 'breeding'
   | 'challenge'
   | 'secret'

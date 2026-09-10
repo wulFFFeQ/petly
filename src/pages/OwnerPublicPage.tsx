@@ -10,9 +10,9 @@ import { useApp } from '../context/AppContext'
 export function OwnerPublicPage() {
   const { ownerId } = useParams()
   const navigate = useNavigate()
-  const { pets: ownedPets } = useApp()
+  const { pets: ownedPets, earnedBadges } = useApp()
   const owner = getDiscoverOwnerById(ownerId, ownedPets)
-  const pets = getDiscoverPetsByOwnerId(ownerId, ownedPets)
+  const pets = getDiscoverPetsByOwnerId(ownerId, ownedPets, earnedBadges)
 
   if (!owner) {
     return (

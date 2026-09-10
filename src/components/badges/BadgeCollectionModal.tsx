@@ -6,7 +6,7 @@ import {
   getBadgeDefinition,
   getChallengeDefinition,
 } from '../../lib/badges/catalog'
-import { computeChallengeProgress, romanLevel } from '../../lib/badges/evaluate'
+import { computeChallengeProgress, romanLevel, toIsoDay } from '../../lib/badges/evaluate'
 import { useApp } from '../../context/AppContext'
 import { formatIsoDateToCzech } from '../../lib/petProfileUtils'
 import { cn } from '../../lib/utils'
@@ -124,7 +124,7 @@ export function BadgeCollectionModal({
         photos,
         posts,
         calendarEvents,
-        todayIso: new Date().toISOString().slice(0, 10),
+        todayIso: toIsoDay(),
       },
       focusPet,
     )
@@ -355,7 +355,7 @@ export function BadgeCollectionModal({
                             Objev {romanLevel(index + 1)}
                           </p>
                           <p className="mt-0.5 text-[11px] leading-relaxed text-[#A3AEA7]">
-                            Zapečetěno. Odhalí se ve chvíli, kdy na něj přijde čas.
+                            Tajemství zatím zůstává skryté.
                           </p>
                         </div>
                       </div>

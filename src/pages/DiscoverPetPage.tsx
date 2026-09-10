@@ -24,9 +24,9 @@ import {
 export function DiscoverPetPage() {
   const { petId } = useParams()
   const navigate = useNavigate()
-  const { showToast, pets } = useApp()
+  const { showToast, pets, earnedBadges } = useApp()
   const [composeOpen, setComposeOpen] = useState(false)
-  const pet = getDiscoverPetById(petId, pets)
+  const pet = getDiscoverPetById(petId, pets, earnedBadges)
   const owner = pet?.ownerId ? getDiscoverOwnerById(pet.ownerId, pets) : undefined
   const isOwn = pet ? isOwnDiscoverPet(pet.id, pets) : false
 

@@ -85,6 +85,13 @@ export const SEAL_PALETTE: Record<
     ink: 'text-[#D5E4E8]',
     glow: 'shadow-[0_6px_20px_rgba(35,75,84,0.28)]',
   },
+  care: {
+    outer: 'from-[#4A7A6A] via-[#A8C4B8] to-[#2C4A3E]',
+    mid: 'bg-[#F0F5F2]',
+    disc: 'from-[#2C4A3E] to-[#1E352C]',
+    ink: 'text-[#D5E8DE]',
+    glow: 'shadow-[0_6px_20px_rgba(44,74,62,0.26)]',
+  },
   breeding: {
     outer: 'from-[#8B7355] via-[#D4C4A8] to-[#6B5A45]',
     mid: 'bg-[#F7F2EB]',

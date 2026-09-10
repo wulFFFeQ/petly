@@ -4,6 +4,8 @@ import type {
   Pet,
   PetBreedingData,
 } from '../../types'
+import type { EarnedBadge } from '../../types/badges'
+import { toPublicBadges } from '../badges/toPublicBadges'
 import { toPublicConnectionPreferences } from '../connections'
 import { getUserHomeCity } from '../userProfile'
 import { resolveEngagement } from './engagement'
@@ -68,7 +70,10 @@ function mapPublicBreeding(
  * Project an owned Pet into a public DiscoverPet payload.
  * Caller must ensure `publicDiscover` is true. Never copies health/chip/PII.
  */
-export function projectOwnedPetToDiscover(pet: Pet): DiscoverPet | null {
+export function projectOwnedPetToDiscover(
+  pet: Pet,
+  earnedBadges: EarnedBadge[] = [],
+): DiscoverPet | null {
   if (!pet.publicDiscover) return null
   if (!pet.name?.trim() || !pet.breed?.trim() || !pet.image?.trim()) return null
   if (pet.type !== 'dog' && pet.type !== 'cat') return null
@@ -76,6 +81,7 @@ export function projectOwnedPetToDiscover(pet: Pet): DiscoverPet | null {
   const age = typeof pet.age === 'number' && Number.isFinite(pet.age) ? pet.age : 0
   const location = getUserHomeCity()
   const breeding = mapPublicBreeding(pet.breedingProfile, pet.breeding)
+  const publicBadges = toPublicBadges(pet, earnedBadges)
 
   const projected: DiscoverPet = {
     id: pet.id,
@@ -96,6 +102,10 @@ export function projectOwnedPetToDiscover(pet: Pet): DiscoverPet | null {
     lookingFor: pet.lookingFor?.trim() || undefined,
     engagement: resolveEngagement(pet.id, pet.discoverEngagement),
     ...breeding,
+  }
+
+  if (publicBadges.length > 0) {
+    projected.publicBadges = publicBadges
   }
 
   const connectionPreferences = toPublicConnectionPreferences(pet.connectionPreferences)

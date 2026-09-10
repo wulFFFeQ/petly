@@ -20,16 +20,17 @@ import {
 import { petMatchesDiscoverCriteria } from '../lib/discoverCriteria'
 
 export function DiscoverPage() {
-  const { discoverSearch, discoverCriteria, pets } = useApp()
+  const { discoverSearch, discoverCriteria, pets, earnedBadges } = useApp()
 
   const catalog = useMemo(() => {
     const ownIds = pets.map((pet) => pet.id)
     return getDiscoverPets({
       ownedPets: pets,
+      earnedBadges,
       excludePetIds: ownIds,
       excludeOwnerIds: [SELF_OWNER_ID],
     })
-  }, [pets])
+  }, [pets, earnedBadges])
 
   const contextPet = useMemo(() => {
     return (
@@ -54,8 +55,13 @@ export function DiscoverPage() {
   }, [catalog, discoverSearch, discoverCriteria, contextPet])
 
   const totalPublic = useMemo(
-    () => getDiscoverPets({ ownedPets: pets, excludePetIds: pets.map((p) => p.id) }).length,
-    [pets],
+    () =>
+      getDiscoverPets({
+        ownedPets: pets,
+        earnedBadges,
+        excludePetIds: pets.map((p) => p.id),
+      }).length,
+    [pets, earnedBadges],
   )
 
   const connectionEmpty = shouldShowConnectionEmptyState(
@@ -66,15 +72,16 @@ export function DiscoverPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const api = {
-      getCatalogIncludingOwn: () => getDiscoverPetsIncludingOwn(pets),
+      getCatalogIncludingOwn: () => getDiscoverPetsIncludingOwn(pets, earnedBadges),
       getVisibleForOwner: () =>
         getDiscoverPets({
           ownedPets: pets,
+          earnedBadges,
           excludePetIds: pets.map((p) => p.id),
           excludeOwnerIds: [SELF_OWNER_ID],
         }),
       popularityScore: (petId: string) => {
-        const pet = getDiscoverPetsIncludingOwn(pets).find((p) => p.id === petId)
+        const pet = getDiscoverPetsIncludingOwn(pets, earnedBadges).find((p) => p.id === petId)
         return pet?.popularityScore ?? null
       },
     }
@@ -82,7 +89,7 @@ export function DiscoverPage() {
     return () => {
       delete (window as Window & { __LK_DISCOVER__?: typeof api }).__LK_DISCOVER__
     }
-  }, [pets])
+  }, [pets, earnedBadges])
 
   return (
     <div className="space-y-8">

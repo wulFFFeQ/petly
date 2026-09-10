@@ -194,6 +194,8 @@ export interface Pet {
   /** Last orientational health assessment (owner-reported, not a diagnosis). */
   healthAssessment?: HealthAssessmentSnapshot
   dateOfBirth?: string
+  /** ISO YYYY-MM-DD — datum příchodu/adopce. Primární zdroj pro milníky „spolu“. */
+  arrivedAt?: string
   gender?: string
   weight?: number
   microchip?: string
