@@ -96,6 +96,7 @@ import {
   removeNotificationsBySourceRecord,
   saveNotifications,
   upsertNotification as upsertNotificationInList,
+  pruneStaleDerivedNotifications,
   type NotificationDraft,
 } from '../lib/notifications'
 import type { EarnedBadge } from '../types/badges'
@@ -1700,12 +1701,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ),
     )
 
-    const reporterIds = [...new Set(relatedReports.map((r) => r.reporterAnonymousId))]
-    if (reporterIds.length > 0) {
-      upsertNotification({
+    // Retire active lost alert (keep in history as read) + record resolution
+    setNotifications((prev) => {
+      let next = prev.map((item) =>
+        item.dedupeKey === `lost:active:${announcementId}`
+          ? {
+              ...item,
+              unread: false,
+              priority: 'normal' as const,
+              title: `${petName} je doma`,
+              message: 'Pátrání bylo ukončeno.',
+              time: 'právě teď',
+            }
+          : item,
+      )
+      next = upsertNotificationInList(next, {
         id: `lost-resolved-${announcementId}`,
         type: 'lost_pet',
-        title: `${petName} je doma. Děkujeme všem, kteří pomohli.`,
+        title:
+          relatedReports.length > 0
+            ? `${petName} je doma. Děkujeme všem, kteří pomohli.`
+            : `${petName} je doma`,
         message: 'Pátrání bylo ukončeno.',
         priority: 'important',
         dedupeKey: `lost:resolved:${announcementId}`,
@@ -1715,7 +1731,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lostAnnouncementId: announcementId,
         time: 'právě teď',
       })
-    }
+      return next
+    })
 
     // Close secure contacts + notify finders
     const homeText = `Mazlíček je doma. ❤️\nDěkujeme, že jste pomohli.`
@@ -1777,6 +1794,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prev.map((item) =>
         item.id === announcement.petId
           ? { ...item, lostStatus: 'closed', activeLostAnnouncementId: undefined }
+          : item,
+      ),
+    )
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.dedupeKey === `lost:active:${announcementId}`
+          ? {
+              ...item,
+              unread: false,
+              priority: 'normal' as const,
+              message: 'Pátrání bylo deaktivováno.',
+            }
           : item,
       ),
     )
@@ -2586,20 +2615,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...buildCalendarNotificationDrafts(calendarEvents, pets),
       ...buildHealthNotificationDrafts(healthRecords, pets),
     ]
-    if (drafts.length === 0) return
     setNotifications((prev) => {
       let next = prev
       let changed = false
       for (const draft of drafts) {
-        const exists = next.some((item) => item.dedupeKey === draft.dedupeKey)
-        if (exists) {
-          // Refresh title/message/href without flipping read state
-          const before = next
-          next = upsertNotificationInList(next, draft)
-          if (next !== before) changed = true
-          continue
-        }
+        const before = next
         next = upsertNotificationInList(next, draft)
+        if (next !== before) changed = true
+      }
+      const pruned = pruneStaleDerivedNotifications(
+        next,
+        drafts.map((d) => d.dedupeKey),
+      )
+      if (pruned !== next) {
+        next = pruned
         changed = true
       }
       return changed ? next : prev
@@ -2826,6 +2855,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const existing = calendarEvents.find((event) => event.id === eventId)
     setCalendarEvents((prev) =>
       prev.filter((event) => event.id !== eventId && event.seriesId !== eventId),
+    )
+    setNotifications((prev) =>
+      prev.filter(
+        (item) =>
+          item.sourceEventId !== eventId &&
+          !item.dedupeKey.startsWith(`cal:${eventId}:`),
+      ),
     )
     setEditingCalendarEventId(null)
     setEditingOccurrenceDate(null)

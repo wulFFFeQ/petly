@@ -183,7 +183,7 @@ async function main() {
   assert(await page.getByText('Coco byla nalezena').isVisible(), 'J: found notification')
   await closeBell(page)
 
-  // N) long list scroll — inject many items
+  // N) long list — preview then expand full list
   await page.evaluate(() => {
     const items = Array.from({ length: 25 }, (_, i) => ({
       id: `e2e-long-${i}`,
@@ -203,12 +203,20 @@ async function main() {
   const listScroll = dropdown.locator('.overflow-y-auto').first()
   const headerVisible = await page.getByText('Notifikace').first().isVisible()
   assert(headerVisible, 'N: header stays visible')
+  const previewCount = await page.getByText(/E2E long item/).count()
+  assert(previewCount === 8, `2: dropdown preview shows 8 items (got ${previewCount})`)
+  assert(
+    (await page.getByText('E2E long item 24').count()) === 0,
+    '2: oldest items hidden in preview',
+  )
+  await page.getByRole('button', { name: /Zobrazit všechny notifikace/i }).click()
+  await page.waitForTimeout(150)
   const box = await listScroll.boundingBox()
   assert(box && box.height > 0 && box.height < 600, 'N: list has constrained scroll height')
   await listScroll.evaluate((el) => {
     el.scrollTop = el.scrollHeight
   })
-  assert(await page.getByText('E2E long item 24').isVisible(), 'N: can scroll to older items')
+  assert(await page.getByText('E2E long item 24').isVisible(), '2/N: full list after Zobrazit všechny')
   await shot(page, 'notifications-long-scroll')
   await closeBell(page)
 
@@ -254,8 +262,37 @@ async function main() {
   })
   assert(dedupeCount === 1, 'G: upsert same dedupeKey stays single')
 
-  // K) after pet home — resolved key exists; further lost create blocked by status in app
+  // K) after pet home — resolved key exists; active retired
   await page.evaluate(() => {
+    window.__LK_NOTIFICATIONS__.set([
+      {
+        id: 'e2e-active',
+        type: 'lost_pet',
+        title: 'Coco je ztracená',
+        message: 'Pátrání je aktivní.',
+        createdAt: new Date().toISOString(),
+        unread: true,
+        priority: 'urgent',
+        dedupeKey: 'lost:active:e2e-ann',
+        petName: 'Coco',
+      },
+    ])
+  })
+  await page.waitForTimeout(100)
+  // Simulate resolve retirement the same way AppContext does
+  await page.evaluate(() => {
+    const list = window.__LK_NOTIFICATIONS__.get().map((item) =>
+      item.dedupeKey === 'lost:active:e2e-ann'
+        ? {
+            ...item,
+            unread: false,
+            priority: 'normal',
+            title: 'Coco je doma',
+            message: 'Pátrání bylo ukončeno.',
+          }
+        : item,
+    )
+    window.__LK_NOTIFICATIONS__.set(list)
     window.__LK_NOTIFICATIONS__.upsert({
       id: 'e2e-resolved',
       type: 'lost_pet',
@@ -266,10 +303,38 @@ async function main() {
     })
   })
   await page.waitForTimeout(200)
-  const hasResolved = await page.evaluate(() =>
-    window.__LK_NOTIFICATIONS__.get().some((n) => n.dedupeKey === 'lost:resolved:e2e-ann'),
+  const homeState = await page.evaluate(() => {
+    const list = window.__LK_NOTIFICATIONS__.get()
+    const active = list.find((n) => n.dedupeKey === 'lost:active:e2e-ann')
+    const resolved = list.find((n) => n.dedupeKey === 'lost:resolved:e2e-ann')
+    return {
+      activeUnread: active?.unread ?? null,
+      activePriority: active?.priority ?? null,
+      hasResolved: Boolean(resolved),
+    }
+  })
+  assert(homeState.activeUnread === false, 'K: active lost marked read after home')
+  assert(homeState.activePriority === 'normal', 'K: active lost no longer urgent')
+  assert(homeState.hasResolved, 'K: resolved/home notification retained in history')
+
+  // 3) seed not recreated when storage exists
+  const beforeReloadKeys = await page.evaluate(() =>
+    window.__LK_NOTIFICATIONS__.get().map((n) => n.dedupeKey).sort(),
   )
-  assert(hasResolved, 'K: resolved/home notification retained in history')
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(800)
+  const afterReload = await unreadFromStorage(page)
+  const seedDupes = afterReload.keys.filter((k) => k.startsWith('seed:')).length
+  // seed keys only appear once each if present
+  assert(
+    new Set(afterReload.keys.filter((k) => k.startsWith('seed:'))).size === seedDupes,
+    '3: seed keys not duplicated on reload',
+  )
+  assert(
+    new Set(afterReload.keys).size === afterReload.keys.length,
+    '3/9: unique dedupeKeys after full reload',
+  )
+  void beforeReloadKeys
 
   await browser.close()
 

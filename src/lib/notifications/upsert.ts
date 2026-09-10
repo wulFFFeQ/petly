@@ -5,6 +5,30 @@ import {
   type NotificationDraft,
 } from './model'
 
+/** Derived reconcile keys — obsolete buckets must be pruned to avoid duplicates. */
+export function isDerivedNotificationKey(dedupeKey: string): boolean {
+  return (
+    dedupeKey.startsWith('cal:') ||
+    dedupeKey.startsWith('vax:') ||
+    dedupeKey.startsWith('record:') ||
+    dedupeKey.startsWith('health:')
+  )
+}
+
+/**
+ * Keep event/message/lost/seed notifications; drop derived keys not in the active set.
+ */
+export function pruneStaleDerivedNotifications(
+  list: AppNotification[],
+  activeDedupeKeys: Iterable<string>,
+): AppNotification[] {
+  const active = new Set(activeDedupeKeys)
+  const next = list.filter(
+    (item) => !isDerivedNotificationKey(item.dedupeKey) || active.has(item.dedupeKey),
+  )
+  return next.length === list.length ? list : next
+}
+
 /**
  * Insert or update by `dedupeKey`.
  * Existing unread/read state is preserved (never re-marks read → unread).

@@ -18,6 +18,8 @@ export {
   removeNotificationsBySourceRecord,
   removeNotificationsByDedupePrefix,
   migrateNotificationList,
+  pruneStaleDerivedNotifications,
+  isDerivedNotificationKey,
 } from './upsert'
 export {
   buildCalendarNotificationDrafts,

@@ -15,6 +15,9 @@ import type { AppNotification } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { SearchInput } from '../ui/SearchInput'
 
+/** Dropdown shows a recent preview; full list via „Zobrazit všechny“. */
+const NOTIFICATION_PREVIEW_LIMIT = 8
+
 function getGreetingData(): { greeting: string; emoji: string } {
   const hour = new Date().getHours()
   if (hour < 12) return { greeting: 'Dobré ráno', emoji: '☀️' }
@@ -39,6 +42,7 @@ export function Header() {
   } = useApp()
   const navigate = useNavigate()
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showAllNotifications, setShowAllNotifications] = useState(false)
   const [searchInput, setSearchInput] = useState('')
 
   const sortedNotifications = useMemo(
@@ -46,6 +50,11 @@ export function Header() {
     [notifications],
   )
   const unreadCount = sortedNotifications.filter((item) => item.unread).length
+  const hasMoreThanPreview = sortedNotifications.length > NOTIFICATION_PREVIEW_LIMIT
+  const visibleNotifications =
+    showAllNotifications || !hasMoreThanPreview
+      ? sortedNotifications
+      : sortedNotifications.slice(0, NOTIFICATION_PREVIEW_LIMIT)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +68,19 @@ export function Header() {
     const href = notificationHrefFallback(item)
     if (href) navigate(href)
     setShowNotifications(false)
+    setShowAllNotifications(false)
+  }
+
+  const toggleDropdown = () => {
+    setShowNotifications((open) => {
+      if (open) setShowAllNotifications(false)
+      return !open
+    })
+  }
+
+  const closeDropdown = () => {
+    setShowNotifications(false)
+    setShowAllNotifications(false)
   }
 
   return (
@@ -92,7 +114,7 @@ export function Header() {
 
           <div className="relative">
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
+              onClick={toggleDropdown}
               className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#E8E4DC] bg-white text-[#4A564F] transition-all hover:bg-[#FAF8F5] hover:text-[#191E1B] hover:border-[#D1E0D8] cursor-pointer"
               aria-label="Notifikace"
             >
@@ -106,7 +128,7 @@ export function Header() {
               <>
                 <div
                   className="fixed inset-0 z-30"
-                  onClick={() => setShowNotifications(false)}
+                  onClick={closeDropdown}
                 />
                 <div className="absolute right-0 top-11 z-40 flex max-h-[min(28rem,70vh)] w-80 flex-col overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white shadow-[0_15px_35px_rgba(25,30,27,0.1)] animate-in fade-in zoom-in-95 duration-150 sm:w-96">
                   <div className="flex shrink-0 items-center justify-between border-b border-[#F0EDE6] px-4 pb-3 pt-4">
@@ -135,7 +157,7 @@ export function Header() {
                         </p>
                       </div>
                     ) : (
-                      sortedNotifications.map((item) => (
+                      visibleNotifications.map((item) => (
                         <div
                           key={item.id}
                           role="button"
@@ -180,11 +202,25 @@ export function Header() {
                       ))
                     )}
                   </div>
-                  <div className="shrink-0 border-t border-[#F0EDE6] px-4 py-2.5">
-                    <span className="text-[11px] font-medium text-[#A3AFA7]">
-                      Zobrazit všechny notifikace
-                    </span>
-                  </div>
+                  {sortedNotifications.length > 0 && (
+                    <div className="shrink-0 border-t border-[#F0EDE6] px-4 py-2.5">
+                      {hasMoreThanPreview ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllNotifications((v) => !v)}
+                          className="cursor-pointer text-[11px] font-medium text-[#2C4A3E] hover:text-[#191E1B]"
+                        >
+                          {showAllNotifications
+                            ? 'Zobrazit méně'
+                            : `Zobrazit všechny notifikace (${sortedNotifications.length})`}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-medium text-[#A3AFA7]">
+                          Zobrazit všechny notifikace
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}
