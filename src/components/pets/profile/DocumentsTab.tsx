@@ -223,6 +223,10 @@ export function DocumentsTab({
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-[#191E1B] line-clamp-2">{doc.name}</p>
                         <p className="text-[10px] text-[#7D8B82] mt-1">
+                          Mazlíček:{' '}
+                          {pets.find((p) => p.id === doc.petId)?.name ?? '—'}
+                        </p>
+                        <p className="text-[10px] text-[#7D8B82] mt-0.5">
                           {doc.size} · Aktualizováno {formatDocumentUpdatedAt(doc.updatedAt)}
                         </p>
                         <p

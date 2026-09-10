@@ -347,13 +347,14 @@ export function getAvailableCategories(hasBreedingProfile: boolean): CalendarCat
 
 export function getEventTypesForCategory(
   category: CalendarEventCategory,
-  options?: { isFemale?: boolean; petType?: PetType },
+  options?: { isFemale?: boolean; petType?: PetType; neutered?: boolean },
 ): CalendarEventTypeOption[] {
   const types = EVENT_TYPES_BY_CATEGORY[category]
   if (category !== 'breeding') return types
 
   const isFemale = options?.isFemale !== false
   const petType = options?.petType
+  const neutered = options?.neutered === true
 
   return types.filter((option) => {
     // Males: only mating remains relevant among breeding events.
@@ -361,8 +362,9 @@ export function getEventTypesForCategory(
       return option.value === 'mating' || option.value === 'breeding_other'
     }
 
-    // Hárání is dog-specific terminology / flow for feny.
+    // Hárání only for intact female dogs with breeding context.
     if (option.value === 'heat') {
+      if (neutered) return false
       return !petType || petType === 'dog'
     }
 

@@ -4,6 +4,7 @@ import {
 } from '../../../data/mockData'
 import { useApp } from '../../../context/AppContext'
 import { getHeatPeriodEndDate } from '../../../lib/calendarEventTypes'
+import { canAutoGenerateHeat } from '../../../lib/breedingProfile'
 import { formatIdealWeightHint } from '../../../lib/breedIdealWeight'
 import {
   buildDailyCareTasks,
@@ -13,7 +14,6 @@ import {
 } from '../../../lib/dailyCareChecklist'
 import { persistWeightMeasurement, getWeightMeasurementsForPet } from '../../../lib/badges/badgeData'
 import { APP_TODAY } from '../../../lib/dashboardDates'
-import { isDogType, isFemalePetGender } from '../../../lib/petTypes'
 import type {
   HealthRecord,
   Pet,
@@ -248,8 +248,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
 
   const overviewLastVetVisit = pet.lastVetVisit || latestClinicalVisit?.date || undefined
 
-  const showLastHeatCard =
-    Boolean(pet.breedingProfile) && isDogType(pet.type) && isFemalePetGender(pet.gender)
+  const showLastHeatCard = canAutoGenerateHeat(pet)
 
   const lastHeatEvent = useMemo(() => {
     if (!showLastHeatCard) return null

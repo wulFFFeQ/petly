@@ -120,7 +120,7 @@ export const myPets: Pet[] = [
     foundContactToken: 'fca3b4c5d6e7f8091a2b3c4d5e6f7081',
     qrContactEnabled: true,
     neutered: true,
-    breedingProfile: true,
+    breedingProfile: false,
     lastVetVisit: '22. 5. 2026',
     nextVaccination: '10. 11. 2026',
     healthScore: 92,

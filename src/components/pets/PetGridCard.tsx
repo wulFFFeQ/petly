@@ -10,6 +10,7 @@ import {
   formatOptionalWeight,
   hasMicrochip,
 } from '../../lib/petProfileDisplay'
+import { hasActiveBreedingProfile } from '../../lib/breedingProfile'
 import { maskMicrochip } from '../../lib/microchip'
 import { formatAge } from '../../lib/dashboardDates'
 import { formatCzechDateTime } from '../../lib/lostPet'
@@ -181,7 +182,7 @@ export function PetGridCard({
               <Badge variant="default" size="sm" className="bg-white/90 shadow-xs backdrop-blur-md">
                 {petTypeLabel[pet.type]}
               </Badge>
-              {pet.breedingProfile && (
+              {hasActiveBreedingProfile(pet) && (
                 <Badge
                   variant="gold"
                   size="sm"

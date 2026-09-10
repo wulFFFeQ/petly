@@ -7,6 +7,15 @@ import {
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
+import {
+  applyBreedingProfileRules,
+  buildAutoHeatEvent,
+  canAutoGenerateHeat,
+  canHaveBreedingProfile,
+  hasActiveHeatForPet,
+  sanitizePetBreedingProfile,
+} from '../lib/breedingProfile'
+import { getEventCategory } from '../lib/calendarEventTypes'
 import { getDefaultBreedImage } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
 import { normalizeGenderForType } from '../lib/petTypes'
@@ -121,10 +130,12 @@ function normalizeLifestyleField(value: unknown): string[] | undefined {
 }
 
 function loadPets(): Pet[] {
-  if (typeof window === 'undefined') return initialPets
+  if (typeof window === 'undefined') {
+    return initialPets.map(sanitizePetBreedingProfile)
+  }
   try {
     const raw = window.localStorage.getItem(PETS_STORAGE_KEY)
-    if (!raw) return initialPets
+    if (!raw) return initialPets.map(sanitizePetBreedingProfile)
     const parsed = JSON.parse(raw) as Pet[]
     if (!Array.isArray(parsed) || parsed.length === 0) return initialPets
     return parsed.map((pet) => {
@@ -132,10 +143,11 @@ function loadPets(): Pet[] {
       const { lifestyleExtras: _removed, ...rest } = pet as Pet & {
         lifestyleExtras?: unknown
       }
-      return {
+      const merged: Pet = {
         ...rest,
         breed: localizeBreedName(pet.breed),
         breedingProfile: pet.breedingProfile ?? seed?.breedingProfile,
+        neutered: 'neutered' in pet ? pet.neutered : seed?.neutered,
         gender: pet.gender
           ? normalizeGenderForType(pet.gender, pet.type) ?? pet.gender
           : pet.gender,
@@ -177,6 +189,7 @@ function loadPets(): Pet[] {
             ? pet.profileUpdatedAt.trim()
             : seed?.profileUpdatedAt,
       }
+      return sanitizePetBreedingProfile(merged)
     }).map((pet) =>
       ensurePetEmergencyCard({
         ...pet,
@@ -185,7 +198,7 @@ function loadPets(): Pet[] {
       }),
     )
   } catch {
-    return initialPets
+    return initialPets.map(sanitizePetBreedingProfile)
   }
 }
 
@@ -817,23 +830,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const updatePet = (petId: string, updates: Partial<Pet>) => {
+    let breedingJustEnabledPet: Pet | null = null
+
     setPets((prev) =>
       prev.map((pet) => {
         if (pet.id !== petId) return pet
-        const next: Pet = { ...pet, ...updates }
 
-        if ('gender' in updates) {
-          const gender = updates.gender
-            ? normalizeGenderForType(updates.gender, next.type)
+        // Reject activating breeding profile for neutered pets before merge.
+        const safeUpdates =
+          updates.breedingProfile === true && !canHaveBreedingProfile({ ...pet, ...updates })
+            ? { ...updates, breedingProfile: false }
+            : updates
+
+        const { next: ruled, breedingJustEnabled } = applyBreedingProfileRules(pet, safeUpdates)
+        const next: Pet = ruled
+
+        if ('gender' in safeUpdates) {
+          const gender = safeUpdates.gender
+            ? normalizeGenderForType(safeUpdates.gender, next.type)
             : undefined
           if (gender) next.gender = gender
           else delete next.gender
         }
-        if ('age' in updates && (updates.age == null || updates.age < 0)) {
+        if ('age' in safeUpdates && (safeUpdates.age == null || safeUpdates.age < 0)) {
           delete next.age
         }
-        if ('ageMonths' in updates) {
-          const months = updates.ageMonths
+        if ('ageMonths' in safeUpdates) {
+          const months = safeUpdates.ageMonths
           if (months == null || months <= 0) delete next.ageMonths
           else next.ageMonths = Math.min(11, Math.floor(months))
         }
@@ -844,18 +867,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           delete next.age
           delete next.ageMonths
         }
-        if ('weight' in updates && (updates.weight == null || updates.weight <= 0)) {
+        if ('weight' in safeUpdates && (safeUpdates.weight == null || safeUpdates.weight <= 0)) {
           delete next.weight
         }
-        if ('dateOfBirth' in updates && !updates.dateOfBirth?.trim()) {
+        if ('dateOfBirth' in safeUpdates && !safeUpdates.dateOfBirth?.trim()) {
           delete next.dateOfBirth
         }
-        if ('microchip' in updates) {
-          if (!updates.microchip?.trim()) {
+        if ('microchip' in safeUpdates) {
+          if (!safeUpdates.microchip?.trim()) {
             delete next.microchip
             delete next.microchipVerification
           } else {
-            const nextChip = updates.microchip.trim()
+            const nextChip = safeUpdates.microchip.trim()
             next.microchip = nextChip
             if (
               next.microchipVerification &&
@@ -866,64 +889,87 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
         }
-        if ('microchipVerification' in updates) {
-          if (updates.microchipVerification == null) {
+        if ('microchipVerification' in safeUpdates) {
+          if (safeUpdates.microchipVerification == null) {
             delete next.microchipVerification
           } else {
-            next.microchipVerification = updates.microchipVerification
+            next.microchipVerification = safeUpdates.microchipVerification
           }
         }
-        if ('neutered' in updates && updates.neutered === undefined) {
+        if ('neutered' in safeUpdates && safeUpdates.neutered === undefined) {
           delete next.neutered
         }
-        if ('diet' in updates) {
-          const list = normalizeLifestyleField(updates.diet)
+        // Re-apply after neutered/gender field cleanup.
+        if (!canHaveBreedingProfile(next)) {
+          next.breedingProfile = false
+        }
+        if ('diet' in safeUpdates) {
+          const list = normalizeLifestyleField(safeUpdates.diet)
           if (list) next.diet = list
           else delete next.diet
         }
-        if ('supplements' in updates) {
-          const list = normalizeLifestyleField(updates.supplements)
+        if ('supplements' in safeUpdates) {
+          const list = normalizeLifestyleField(safeUpdates.supplements)
           if (list) next.supplements = list
           else delete next.supplements
         }
-        if ('favoriteToy' in updates) {
-          const list = normalizeLifestyleField(updates.favoriteToy)
+        if ('favoriteToy' in safeUpdates) {
+          const list = normalizeLifestyleField(safeUpdates.favoriteToy)
           if (list) next.favoriteToy = list
           else delete next.favoriteToy
         }
-        if ('likes' in updates) {
-          const list = normalizeLifestyleField(updates.likes)
+        if ('likes' in safeUpdates) {
+          const list = normalizeLifestyleField(safeUpdates.likes)
           if (list) next.likes = list
           else delete next.likes
         }
-        if ('dislikes' in updates) {
-          const list = normalizeLifestyleField(updates.dislikes)
+        if ('dislikes' in safeUpdates) {
+          const list = normalizeLifestyleField(safeUpdates.dislikes)
           if (list) next.dislikes = list
           else delete next.dislikes
         }
-        if ('bio' in updates) {
-          const value = updates.bio?.trim()
+        if ('bio' in safeUpdates) {
+          const value = safeUpdates.bio?.trim()
           if (value) next.bio = value
           else delete next.bio
         }
-        if ('personality' in updates) {
-          const value = updates.personality?.trim()
+        if ('personality' in safeUpdates) {
+          const value = safeUpdates.personality?.trim()
           if (value) next.personality = value
           else delete next.personality
         }
-        if ('lookingFor' in updates) {
-          const value = updates.lookingFor?.trim()
+        if ('lookingFor' in safeUpdates) {
+          const value = safeUpdates.lookingFor?.trim()
           if (value) next.lookingFor = value
           else delete next.lookingFor
         }
 
-        if (!('profileUpdatedAt' in updates)) {
+        if (!('profileUpdatedAt' in safeUpdates)) {
           next.profileUpdatedAt = new Date().toISOString()
+        }
+
+        if (breedingJustEnabled && canAutoGenerateHeat(next)) {
+          breedingJustEnabledPet = next
         }
 
         return next
       }),
     )
+
+    if (breedingJustEnabledPet) {
+      const petForHeat = breedingJustEnabledPet
+      setCalendarEvents((prev) => {
+        if (hasActiveHeatForPet(prev, petForHeat)) return prev
+        if (!canAutoGenerateHeat(petForHeat)) return prev
+        return [
+          {
+            ...buildAutoHeatEvent(petForHeat),
+            id: `c_heat_${petForHeat.id}_${Date.now()}`,
+          },
+          ...prev,
+        ]
+      })
+    }
   }
 
   const updatePetImage = (petId: string, image: string) => {
@@ -2547,6 +2593,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {
+    const pet =
+      pets.find((item) => item.id === event.petId) ??
+      pets.find((item) => item.name === event.petName)
+    const category = getEventCategory(event.type)
+
+    if (category === 'breeding') {
+      if (!pet || !canHaveBreedingProfile(pet) || !pet.breedingProfile) {
+        showToast(
+          'Chovatelskou událost nelze uložit',
+          'Chovný profil je dostupný jen u nekastrovaných mazlíčků se zapnutým chovným profilem.',
+          'info',
+        )
+        return
+      }
+    }
+
+    if (event.type === 'heat') {
+      if (!pet || !canAutoGenerateHeat(pet)) {
+        showToast(
+          'Hárání nelze uložit',
+          'Hárání je jen pro nekastrovanou fenu se zapnutým chovným profilem.',
+          'info',
+        )
+        return
+      }
+    }
+
     const recurrence = normalizeRecurrence(event.recurrence)
     setCalendarEvents((prev) => [
       {
@@ -2590,8 +2663,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updates: Partial<Omit<CalendarEvent, 'id'>>,
   ) => {
     const existing = calendarEvents.find((event) => event.id === eventId)
+    if (!existing) return
+
+    const merged = mergeCalendarEvent(existing, updates)
+    const pet =
+      pets.find((item) => item.id === merged.petId) ??
+      pets.find((item) => item.name === merged.petName)
+    const nextCategory = getEventCategory(merged.type)
+    const prevCategory = getEventCategory(existing.type)
+    const becomingBreeding = nextCategory === 'breeding' && prevCategory !== 'breeding'
+    const becomingHeat = merged.type === 'heat' && existing.type !== 'heat'
+
+    if (becomingBreeding) {
+      if (!pet || !canHaveBreedingProfile(pet) || !pet.breedingProfile) {
+        showToast(
+          'Chovatelskou událost nelze uložit',
+          'Chovný profil je dostupný jen u nekastrovaných mazlíčků se zapnutým chovným profilem.',
+          'info',
+        )
+        return
+      }
+    }
+
+    if (becomingHeat) {
+      if (!pet || !canAutoGenerateHeat(pet)) {
+        showToast(
+          'Hárání nelze uložit',
+          'Hárání je jen pro nekastrovanou fenu se zapnutým chovným profilem.',
+          'info',
+        )
+        return
+      }
+    }
+
     setCalendarEvents((prev) =>
-      prev.map((event) => (event.id === eventId ? mergeCalendarEvent(event, updates) : event)),
+      prev.map((event) => (event.id === eventId ? merged : event)),
     )
     if (updates.date) setCalendarFocusDate(updates.date)
     setEditingCalendarEventId(null)

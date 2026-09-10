@@ -52,7 +52,7 @@ export function daysUntilExpiry(expiresAt?: string | null, now = new Date()): nu
 export function formatExpiryMonthYear(expiresAt: string): string {
   const date = parseDocumentExpiryDate(expiresAt)
   if (!date) return expiresAt
-  return `${date.getMonth() + 1}. ${date.getFullYear()}`
+  return `${date.getMonth() + 1}/${date.getFullYear()}`
 }
 
 export function getDocumentExpiryInfo(
@@ -64,31 +64,38 @@ export function getDocumentExpiryInfo(
   }
 
   const daysLeft = daysUntilExpiry(expiresAt, now)
+  const monthYear = formatExpiryMonthYear(expiresAt)
+
   if (daysLeft === null) {
-    return { status: 'ok', label: `Platnost do: ${expiresAt}` }
+    return { status: 'ok', label: `Platnost do: ${monthYear}` }
   }
 
   if (daysLeft < 0) {
-    return { status: 'expired', daysLeft, label: 'Platnost vypršela' }
+    return {
+      status: 'expired',
+      daysLeft,
+      label: `Platnost vypršela · ${monthYear}`,
+    }
   }
 
   if (daysLeft <= SOON_THRESHOLD_DAYS) {
+    const soonLabel =
+      daysLeft === 0
+        ? 'Platnost končí dnes'
+        : daysLeft === 1
+          ? 'Platnost končí za 1 den'
+          : `Platnost končí za ${daysLeft} dní`
     return {
       status: 'soon',
       daysLeft,
-      label:
-        daysLeft === 0
-          ? 'Platnost končí dnes'
-          : daysLeft === 1
-            ? 'Platnost končí za 1 den'
-            : `Platnost končí za ${daysLeft} dní`,
+      label: `${soonLabel} · ${monthYear}`,
     }
   }
 
   return {
     status: 'ok',
     daysLeft,
-    label: `Platnost do: ${formatExpiryMonthYear(expiresAt)}`,
+    label: `Platnost do: ${monthYear}`,
   }
 }
 

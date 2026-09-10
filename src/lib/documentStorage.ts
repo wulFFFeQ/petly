@@ -207,6 +207,45 @@ export async function migrateDocumentBlobs(documents: PetDocument[]): Promise<Pe
   return next
 }
 
+const CZECH_FILENAME_WORDS: Record<string, string> = {
+  pas: 'Pas',
+  passport: 'Pas',
+  ockovani: 'Očkování',
+  ockovaci: 'Očkovací',
+  ocokovani: 'Očkování',
+  chip: 'Čip',
+  cip: 'Čip',
+  mikrochip: 'Mikročip',
+  pojisteni: 'Pojištění',
+  pojistka: 'Pojistka',
+  rodokmen: 'Rodokmen',
+  lab: 'Lab',
+  laborator: 'Laboratoř',
+  zprava: 'Zpráva',
+  vysledky: 'Výsledky',
+  certifikat: 'Certifikát',
+  cestovni: 'Cestovní',
+  dokument: 'Dokument',
+  pet: 'Pet',
+  eu: 'EU',
+}
+
+function titleCaseWord(word: string): string {
+  if (!word) return word
+  const lower = word.toLowerCase()
+  if (CZECH_FILENAME_WORDS[lower]) return CZECH_FILENAME_WORDS[lower]
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+/** e.g. pas-luna.pdf → "Pas Luna", ockovani-bella.jpg → "Očkování Bella" */
 export function displayNameFromFileName(fileName: string): string {
-  return stripFileExtension(fileName).trim() || fileName
+  const base = stripFileExtension(fileName).trim()
+  if (!base) return fileName
+  const parts = base
+    .replace(/[_\s]+/g, '-')
+    .split('-')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map(titleCaseWord)
+  return parts.join(' ') || base
 }

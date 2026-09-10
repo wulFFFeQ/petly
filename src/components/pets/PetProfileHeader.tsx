@@ -40,6 +40,10 @@ import {
 } from '../../lib/petProfileUtils'
 import { getPetCoverColor } from '../../lib/petCoverColors'
 import { getGenderOptions } from '../../lib/petTypes'
+import {
+  canHaveBreedingProfile,
+  hasActiveBreedingProfile,
+} from '../../lib/breedingProfile'
 import { PET_IMAGE_ACCEPT, readImageFileAsDataUrl, takeSelectedFiles } from '../../lib/readImageFile'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -143,6 +147,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const chipVerification = pet.microchipVerification
   const chipVerifiedFound = chipVerification?.status === 'found'
   const coverColor = getPetCoverColor(pet)
+  const breedingEligible = canHaveBreedingProfile(pet)
+  const breedingActive = hasActiveBreedingProfile(pet)
 
   const shareLink = `https://lovedandknown.app/pets/${pet.id}?share=verified`
 
@@ -418,7 +424,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                   {pet.lostStatus && (
                     <LostPetStatusBadge status={pet.lostStatus} className="shrink-0" />
                   )}
-                  {pet.breedingProfile && (
+                  {breedingActive && (
                     <Badge
                       variant="primary"
                       size="sm"
@@ -594,9 +600,10 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             </div>
           </div>
 
+          {breedingEligible && (
           <div
             className={`mt-4 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4 ${
-              pet.breedingProfile
+              breedingActive
                 ? 'border-[#D1E0D8] bg-[#EBF2EE]/70'
                 : 'border-[#E8E4DC] bg-white'
             }`}
@@ -604,7 +611,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             <div className="flex min-w-0 items-start gap-3">
               <div
                 className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-                  pet.breedingProfile
+                  breedingActive
                     ? 'border-[#D1E0D8] bg-white text-[#2C4A3E]'
                     : 'border-[#E8E4DC] bg-[#FAF8F5] text-[#7D8B82]'
                 }`}
@@ -622,14 +629,15 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             <button
               type="button"
               role="switch"
-              aria-checked={Boolean(pet.breedingProfile)}
+              aria-checked={breedingActive}
               aria-label={
-                pet.breedingProfile
+                breedingActive
                   ? 'Vypnout chovný profil'
                   : 'Zapnout chovný profil'
               }
               onClick={() => {
-                const next = !pet.breedingProfile
+                if (!canHaveBreedingProfile(pet)) return
+                const next = !breedingActive
                 updatePet(pet.id, { breedingProfile: next })
                 showToast(
                   next ? 'Chovný profil zapnut' : 'Chovný profil vypnut',
@@ -643,25 +651,26 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
             >
               <span
                 className={`text-xs font-bold ${
-                  pet.breedingProfile ? 'text-[#2C4A3E]' : 'text-[#7D8B82]'
+                  breedingActive ? 'text-[#2C4A3E]' : 'text-[#7D8B82]'
                 }`}
               >
-                {pet.breedingProfile ? 'Zapnuto' : 'Vypnuto'}
+                {breedingActive ? 'Zapnuto' : 'Vypnuto'}
               </span>
               <span
                 aria-hidden
                 className={`relative h-6 w-11 rounded-full transition-colors ${
-                  pet.breedingProfile ? 'bg-[#2C4A3E]' : 'bg-[#D1D9D4]'
+                  breedingActive ? 'bg-[#2C4A3E]' : 'bg-[#D1D9D4]'
                 }`}
               >
                 <span
                   className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                    pet.breedingProfile ? 'left-5' : 'left-0.5'
+                    breedingActive ? 'left-5' : 'left-0.5'
                   }`}
                 />
               </span>
             </button>
           </div>
+          )}
 
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-rose-200/70 bg-rose-50/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0">

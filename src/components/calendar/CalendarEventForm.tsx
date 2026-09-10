@@ -13,6 +13,11 @@ import {
   suggestHeatEndDate,
   suggestPregnancyDueDate,
 } from '../../lib/calendarEventTypes'
+import {
+  canAutoGenerateHeat,
+  hasActiveBreedingProfile,
+  isPetNeutered,
+} from '../../lib/breedingProfile'
 import { eventFormShows } from '../../lib/eventFormSchema'
 import { isRecurring, RECURRENCE_SCOPE_LABELS } from '../../lib/calendarRecurrence'
 import { isFemalePetGender } from '../../lib/petTypes'
@@ -330,11 +335,15 @@ export function CalendarEventForm() {
     [pets, eventForm.petId, eventForm.petName],
   )
 
-  const hasBreedingProfile = Boolean(selectedEventPet?.breedingProfile)
+  const hasBreedingProfile = hasActiveBreedingProfile(selectedEventPet ?? { neutered: true })
   const isFemalePet = isFemalePetGender(selectedEventPet?.gender)
   const breedingTypeOptions = useMemo(
-    () => ({ isFemale: isFemalePet, petType: selectedEventPet?.type }),
-    [isFemalePet, selectedEventPet?.type],
+    () => ({
+      isFemale: isFemalePet,
+      petType: selectedEventPet?.type,
+      neutered: isPetNeutered(selectedEventPet ?? {}),
+    }),
+    [isFemalePet, selectedEventPet],
   )
 
   const categoryOptions = useMemo(
@@ -457,6 +466,10 @@ export function CalendarEventForm() {
     }
     if (eventForm.type === 'pregnancy' && !eventForm.expectedBirthDate) return
     if (eventForm.type === 'heat' && !eventForm.expectedEndDate) return
+    if (eventForm.category === 'breeding' && !hasBreedingProfile) return
+    if (eventForm.type === 'heat' && (!selectedEventPet || !canAutoGenerateHeat(selectedEventPet))) {
+      return
+    }
     if (
       eventForm.recurrenceFrequency !== 'none' &&
       !eventForm.recurrenceNoEnd &&

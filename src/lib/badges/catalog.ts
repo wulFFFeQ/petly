@@ -1,5 +1,6 @@
 import type { BadgeDefinition, ChallengeDefinition } from '../../types/badges'
 import type { Pet } from '../../types'
+import { hasActiveBreedingProfile } from '../breedingProfile'
 import { isCatType, isDogType } from '../petTypes'
 
 /** Experience-based peals — not profile-form checklist. */
@@ -482,7 +483,7 @@ export function isBadgeApplicableToPet(def: BadgeDefinition, pet: Pet): boolean 
   const species = def.species ?? 'all'
   if (species === 'dog' && !isDogType(pet.type)) return false
   if (species === 'cat' && !isCatType(pet.type)) return false
-  if (def.requiresBreeding && !pet.breedingProfile) return false
+  if (def.requiresBreeding && !hasActiveBreedingProfile(pet)) return false
   return true
 }
 
