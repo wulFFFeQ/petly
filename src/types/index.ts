@@ -1,8 +1,19 @@
 import type { PetType } from '../lib/petTypes'
 import type { LostPetLifecycle } from './lostPet'
 import type { EmergencyCardSettings } from './emergencyCard'
+import type { PetBreedingData } from './breeding'
 
 export type { PetType } from '../lib/petTypes'
+export type {
+  BreedingInfo,
+  BreedingAncestor,
+  BreedingHealthTest,
+  BreedingShowRecord,
+  BreedingMatingRecord,
+  BreedingLitterRecord,
+  BreedingTitleRecord,
+  PetBreedingData,
+} from './breeding'
 export type {
   EmergencyCardSettings,
   EmergencyCardVisibility,
@@ -197,6 +208,11 @@ export interface Pet {
   neutered?: boolean
   /** When true, breeding calendar events (Chov) are available for this pet. */
   breedingProfile?: boolean
+  /**
+   * Private breeding dossier (kennel info, pedigree, tests, shows, litters…).
+   * Independent from everyday health/documents; survives breedingProfile deactivation.
+   */
+  breeding?: PetBreedingData
   lastVetVisit?: string
   nextVaccination?: string
   healthScore?: number

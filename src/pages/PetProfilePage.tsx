@@ -5,8 +5,9 @@ import { PetProfileTabContent } from '../components/pets/PetProfileTabContent'
 import { Card } from '../components/ui/Card'
 import { Tabs } from '../components/ui/Tabs'
 import { useApp } from '../context/AppContext'
+import { shouldShowBreedingTab } from '../lib/breedingData'
 
-const profileTabs = [
+const baseProfileTabs = [
   { id: 'overview', label: 'Přehled' },
   { id: 'health', label: 'Zdraví a medicína' },
   { id: 'timeline', label: 'Životní časová osa' },
@@ -14,17 +15,30 @@ const profileTabs = [
   { id: 'photos', label: 'Fotogalerie' },
 ]
 
-const validTabIds = new Set(profileTabs.map((tab) => tab.id))
-
 export function PetProfilePage() {
   const { petId } = useParams()
   const { pets } = useApp()
   const [searchParams, setSearchParams] = useSearchParams()
 
+  const pet = pets.find((p) => p.id === petId)
+
+  const profileTabs = useMemo(() => {
+    if (!pet || !shouldShowBreedingTab(pet)) return baseProfileTabs
+    const docsIndex = baseProfileTabs.findIndex((tab) => tab.id === 'documents')
+    const next = [...baseProfileTabs]
+    next.splice(docsIndex >= 0 ? docsIndex : next.length, 0, {
+      id: 'breeding',
+      label: 'Chovný profil',
+    })
+    return next
+  }, [pet])
+
+  const validTabIds = useMemo(() => new Set(profileTabs.map((tab) => tab.id)), [profileTabs])
+
   const activeTab = useMemo(() => {
     const tab = searchParams.get('tab')
     return tab && validTabIds.has(tab) ? tab : 'overview'
-  }, [searchParams])
+  }, [searchParams, validTabIds])
 
   const setActiveTab = useCallback(
     (tab: string) => {
@@ -41,10 +55,8 @@ export function PetProfilePage() {
         { replace: true },
       )
     },
-    [setSearchParams],
+    [setSearchParams, validTabIds],
   )
-
-  const pet = pets.find((p) => p.id === petId)
 
   if (!pet) {
     return (

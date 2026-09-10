@@ -621,7 +621,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               <div className="min-w-0">
                 <p className="text-sm font-bold text-[#191E1B]">Chovný profil</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-[#5A6660]">
-                  Zapnutím zpřístupníte chovatelské události v kalendáři (hárání, krytí, vrh…).
+                  Zapnutím otevřete záložku Chovný profil a chovatelské události v kalendáři
+                  (hárání, krytí, vrh…).
                 </p>
               </div>
             </div>
@@ -642,8 +643,8 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 showToast(
                   next ? 'Chovný profil zapnut' : 'Chovný profil vypnut',
                   next
-                    ? 'V kalendáři jsou teď dostupné chovatelské události.'
-                    : 'Chovatelské události se v kalendáři skryjí.',
+                    ? 'Záložka Chovný profil a chovatelské události v kalendáři jsou dostupné.'
+                    : 'Kalendářní chov se skryje; uložená chovatelská data zůstávají.',
                   'info',
                 )
               }}

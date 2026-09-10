@@ -147,6 +147,7 @@ function loadPets(): Pet[] {
         ...rest,
         breed: localizeBreedName(pet.breed),
         breedingProfile: pet.breedingProfile ?? seed?.breedingProfile,
+        breeding: pet.breeding ?? seed?.breeding,
         neutered: 'neutered' in pet ? pet.neutered : seed?.neutered,
         gender: pet.gender
           ? normalizeGenderForType(pet.gender, pet.type) ?? pet.gender
