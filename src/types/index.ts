@@ -48,6 +48,15 @@ export type {
   PublicProfessionalProfile,
 } from './professional'
 export type {
+  FeatureCategory,
+  FeatureId,
+  PlanId,
+  PublicMembershipSummary,
+  SubscriptionProvider,
+  SubscriptionRecord,
+  SubscriptionStatus,
+} from './entitlements'
+export type {
   LostPetLifecycle,
   PublicBehavior,
   TemperamentHint,

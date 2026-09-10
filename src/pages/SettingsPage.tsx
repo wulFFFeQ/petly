@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { BadgesSection } from '../components/badges/BadgesSection'
+import { MembershipSection } from '../components/entitlements/MembershipSection'
 import { PrivacyOverviewSection } from '../components/privacy/PrivacyOverviewSection'
 import { AccountVerificationSection } from '../components/verification/AccountVerificationSection'
 import { Badge } from '../components/ui/Badge'
@@ -216,6 +217,10 @@ export function SettingsPage() {
 
         <Card variant="elevated">
           <AccountVerificationSection />
+        </Card>
+
+        <Card variant="elevated">
+          <MembershipSection />
         </Card>
 
         <BadgesSection
