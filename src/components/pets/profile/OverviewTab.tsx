@@ -28,6 +28,11 @@ import {
   formatOptionalWeight,
 } from '../../../lib/petProfileDisplay'
 import { formatIsoDateToCzech } from '../../../lib/petProfileUtils'
+import {
+  applyPublicDiscoverMigration,
+  loadPrivacySettings,
+  savePrivacySettings,
+} from '../../../lib/privacy'
 import { cn } from '../../../lib/utils'
 import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
@@ -65,6 +70,12 @@ export function OverviewTab({
   const togglePublicDiscover = () => {
     const next = !pet.publicDiscover
     updatePet(pet.id, { publicDiscover: next })
+    if (next) {
+      // Elevate Discover identity + tagging fields if unset (safe publicDiscover migration).
+      const settings = loadPrivacySettings([pet])
+      const migrated = applyPublicDiscoverMigration(settings, [{ ...pet, publicDiscover: true }])
+      savePrivacySettings(migrated)
+    }
     showToast(
       next ? 'Profil je veřejný v Objevovat' : 'Profil skryt z Objevovat',
       next

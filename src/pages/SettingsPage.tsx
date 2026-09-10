@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { BadgesSection } from '../components/badges/BadgesSection'
+import { PrivacyOverviewSection } from '../components/privacy/PrivacyOverviewSection'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -25,6 +26,16 @@ import {
   saveNotificationPrefs,
   type NotificationPrefs,
 } from '../lib/notificationPrefs'
+import {
+  loadPrivacySettings,
+  savePrivacySettings,
+  setAccountFieldLevel,
+  setPetFieldLevel,
+  type AccountPrivacyFieldId,
+  type PetPrivacyFieldId,
+  type PrivacyLevel,
+  type PrivacySettings,
+} from '../lib/privacy'
 import { getUserHomeCity, setUserHomeCity } from '../lib/userProfile'
 import { cn } from '../lib/utils'
 
@@ -72,7 +83,7 @@ const DEFAULT_VET_ACCESS: Record<VetAccessKey, boolean> = {
 }
 
 export function SettingsPage() {
-  const { showToast, earnedBadges } = useApp()
+  const { showToast, earnedBadges, pets } = useApp()
   const [vetAccess, setVetAccess] = useState(DEFAULT_VET_ACCESS)
   const [vetHasAccess, setVetHasAccess] = useState(true)
   const [accountCity, setAccountCity] = useState(
@@ -81,10 +92,14 @@ export function SettingsPage() {
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(
     () => loadNotificationPrefs(),
   )
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(() =>
+    loadPrivacySettings(pets),
+  )
 
   const handleSave = () => {
     setUserHomeCity(accountCity)
     saveNotificationPrefs(notificationPrefs)
+    savePrivacySettings(privacySettings)
     showToast('Nastavení uloženo', 'Vaše nastavení účtu bylo uloženo.', 'gold')
   }
 
@@ -92,6 +107,29 @@ export function SettingsPage() {
     setNotificationPrefs((prev) => {
       const next = { ...prev, [id]: !prev[id] }
       saveNotificationPrefs(next)
+      return next
+    })
+  }
+
+  const handlePetPrivacyChange = (
+    petId: string,
+    fieldId: PetPrivacyFieldId,
+    level: PrivacyLevel,
+  ) => {
+    setPrivacySettings((prev) => {
+      const next = setPetFieldLevel(prev, petId, fieldId, level)
+      savePrivacySettings(next)
+      return next
+    })
+  }
+
+  const handleAccountPrivacyChange = (
+    fieldId: AccountPrivacyFieldId,
+    level: PrivacyLevel,
+  ) => {
+    setPrivacySettings((prev) => {
+      const next = setAccountFieldLevel(prev, fieldId, level)
+      savePrivacySettings(next)
       return next
     })
   }
@@ -208,6 +246,15 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
+        </Card>
+
+        <Card variant="elevated">
+          <PrivacyOverviewSection
+            pets={pets}
+            settings={privacySettings}
+            onPetFieldChange={handlePetPrivacyChange}
+            onAccountFieldChange={handleAccountPrivacyChange}
+          />
         </Card>
 
         <Card variant="elevated">

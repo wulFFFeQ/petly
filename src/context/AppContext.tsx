@@ -38,6 +38,7 @@ import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
 import { formatIsoDateToCzech } from '../lib/petProfileUtils'
 import { normalizeLifestyleList } from '../lib/petProfileDisplay'
+import { canTagPetInCommunity, loadPrivacySettings } from '../lib/privacy'
 import { normalizePetConnectionPreferences } from '../lib/connections'
 import { getBadgeDefinition } from '../lib/badges/catalog'
 import {
@@ -1444,7 +1445,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }))
     setPhotos((prev) => [...added, ...prev])
 
-    const shareToCommunity = Boolean(pet?.publicDiscover)
+    const privacySettings = loadPrivacySettings(pets)
+    const shareToCommunity = Boolean(pet && canTagPetInCommunity(pet, privacySettings))
     if (shareToCommunity) {
       const authorName = getCommunitySelfAuthorName()
       const feedPosts: CommunityPost[] = added.map((photo) => ({
@@ -3149,10 +3151,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showToast('Mazlíčka nelze označit', 'Mazlíček nebyl nalezen.', 'info')
         return
       }
-      if (!tagged.publicDiscover) {
+      const privacySettings = loadPrivacySettings(pets)
+      if (!canTagPetInCommunity(tagged, privacySettings)) {
         showToast(
           'Mazlíček není veřejný',
-          'Označit ve feedu lze jen mazlíčky s veřejným profilem Objevovat.',
+          'Označit ve feedu lze jen mazlíčky s veřejným profilem Objevovat a povoleným tagováním.',
           'info',
         )
         return

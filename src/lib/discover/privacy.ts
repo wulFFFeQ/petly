@@ -1,36 +1,13 @@
 import type { DiscoverPet } from '../../types'
+import { PUBLIC_PAYLOAD_FORBIDDEN_KEYS } from '../privacy/fields'
 
 /**
  * Keys that must never appear on a public Discover payload.
  * Type boundary is the primary safeguard; this is a runtime backstop
  * for accidental spreads from private Pet / owner records.
+ * Source of truth: src/lib/privacy/fields.ts
  */
-export const DISCOVER_FORBIDDEN_KEYS = [
-  'microchip',
-  'microchipNumber',
-  'microchipVerification',
-  'phone',
-  'email',
-  'address',
-  'street',
-  'postalCode',
-  'weight',
-  'healthRecords',
-  'health',
-  'medications',
-  'documents',
-  'privateNotes',
-  'ownerPhone',
-  'ownerEmail',
-  'ownerAddress',
-  'vetPhone',
-  'emergencyContacts',
-  'importantContacts',
-  'conciergeRequests',
-  'primaryForPetIds',
-  'petIds',
-  'contactPreference',
-] as const
+export const DISCOVER_FORBIDDEN_KEYS = PUBLIC_PAYLOAD_FORBIDDEN_KEYS
 
 const FORBIDDEN_SET = new Set<string>(DISCOVER_FORBIDDEN_KEYS)
 

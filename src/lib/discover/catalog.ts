@@ -1,6 +1,7 @@
 import { discoverOwners, discoverPets as rawDiscoverPets } from '../../data/mockData'
 import type { DiscoverOwner, DiscoverPet, Pet } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
+import type { PrivacySettings } from '../privacy'
 import { getUserHomeCity } from '../userProfile'
 import { formatDiscoverDistance } from './distance'
 import { resolveEngagement } from './engagement'
@@ -18,6 +19,8 @@ export type DiscoverCatalogOptions = {
   ownedPets?: Pet[]
   /** Earned badges for owned → public projection. */
   earnedBadges?: EarnedBadge[]
+  /** Optional privacy settings; when omitted, projection loads from localStorage. */
+  privacySettings?: PrivacySettings | null
   /**
    * Exclude these pet ids from the list (typically the signed-in owner's pets
    * so they never see / connect to themselves in Objevovat results).
@@ -50,6 +53,7 @@ function toPublicPet(raw: unknown): DiscoverPet | null {
 function collectRawCatalog(
   ownedPets: Pet[] | undefined,
   earnedBadges: EarnedBadge[] | undefined,
+  privacySettings?: PrivacySettings | null,
 ): DiscoverPet[] {
   const fromMock = rawDiscoverPets
     .map((pet) => toPublicPet(pet))
@@ -61,7 +65,9 @@ function collectRawCatalog(
 
   const fromOwned = (ownedPets ?? [])
     .map((pet) => {
-      const projected = projectOwnedPetToDiscover(pet, earnedBadges ?? [])
+      const projected = projectOwnedPetToDiscover(pet, earnedBadges ?? [], {
+        privacySettings,
+      })
       return projected ? toPublicPet(projected) : null
     })
     .filter((pet): pet is DiscoverPet => pet != null)
@@ -77,7 +83,11 @@ export function getDiscoverPets(options: DiscoverCatalogOptions = {}): DiscoverP
   const excludePets = new Set(options.excludePetIds ?? [])
   const excludeOwners = new Set(options.excludeOwnerIds ?? [])
 
-  return collectRawCatalog(options.ownedPets, options.earnedBadges).filter((pet) => {
+  return collectRawCatalog(
+    options.ownedPets,
+    options.earnedBadges,
+    options.privacySettings,
+  ).filter((pet) => {
     if (excludePets.has(pet.id)) return false
     if (pet.ownerId && excludeOwners.has(pet.ownerId)) return false
     return true
@@ -88,8 +98,9 @@ export function getDiscoverPets(options: DiscoverCatalogOptions = {}): DiscoverP
 export function getDiscoverPetsIncludingOwn(
   ownedPets?: Pet[],
   earnedBadges?: EarnedBadge[],
+  privacySettings?: PrivacySettings | null,
 ): DiscoverPet[] {
-  return collectRawCatalog(ownedPets, earnedBadges)
+  return collectRawCatalog(ownedPets, earnedBadges, privacySettings)
 }
 
 export function getDiscoverPetById(
