@@ -5,10 +5,8 @@ export function ContactsPage() {
   return (
     <div className="space-y-8 max-w-4xl">
       <PageHeader
-        badge="Rychlý přístup"
-        meta="Nouzové a klíčové kontakty"
-        title="Důležité kontakty"
-        description="Veterinární pohotovost, hlavní veterinář, pojišťovna, registr a nouzový kontakt na jedno klepnutí."
+        title="Služby"
+        description="Praktická pomoc, důležité kontakty a péče pro vás i vaše mazlíčky."
       />
       <ImportantContactsSection hideHeader />
     </div>

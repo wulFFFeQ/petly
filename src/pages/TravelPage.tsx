@@ -5,10 +5,8 @@ export function TravelPage() {
   return (
     <div className="space-y-8 max-w-4xl">
       <PageHeader
-        badge="Cestování"
-        meta="Příprava cesty se zvířetem"
-        title="Cestování"
-        description="Zkontrolujte požadavky destinace, dokumenty a připravenost mazlíčka před odjezdem."
+        title="Služby"
+        description="Praktická pomoc, důležité kontakty a péče pro vás i vaše mazlíčky."
       />
       <TravelPackageSection hideHeader />
     </div>

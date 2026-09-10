@@ -2,18 +2,34 @@ import { CheckCircle2, Sparkles, X, Info } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { cn } from '../../lib/utils'
 
+/**
+ * Global toast stack — bottom-docked, height-capped, scrollable.
+ * Keeps PageHeader / search chrome and mid-page CTAs clear even when many toasts fire.
+ */
 export function ToastContainer() {
   const { toasts, removeToast } = useApp()
 
   if (toasts.length === 0) return null
 
+  // Display dock shows the newest few; older toasts remain in state until their timer clears.
+  const visibleToasts = toasts.slice(-3)
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
-      {toasts.map((toast) => (
+    <div
+      className={cn(
+        'fixed z-50 flex flex-col-reverse gap-2.5 pointer-events-none',
+        // Mobile: above BottomNav; leave room for support FAB on the right.
+        'bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-[4.75rem] left-3',
+        // Desktop: classic bottom-right dock.
+        'sm:bottom-6 sm:right-6 sm:left-auto sm:w-full sm:max-w-sm',
+      )}
+      aria-live="polite"
+    >
+      {visibleToasts.map((toast) => (
         <div
           key={toast.id}
           className={cn(
-            'pointer-events-auto flex items-start gap-3 rounded-2xl p-4 shadow-[0_10px_30px_rgba(25,30,27,0.12)] border transition-all duration-300 animate-in slide-in-from-bottom-5',
+            'pointer-events-auto flex w-full items-start gap-3 rounded-2xl p-4 shadow-[0_10px_30px_rgba(25,30,27,0.12)] border transition-all duration-300 animate-in slide-in-from-bottom-5',
             toast.type === 'gold'
               ? 'bg-[#FCFBF8] border-[#E8D8B5] text-[#191E1B]'
               : toast.type === 'info'

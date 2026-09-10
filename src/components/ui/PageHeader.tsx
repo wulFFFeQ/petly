@@ -4,7 +4,8 @@ import { Badge } from './Badge'
 import { cn } from '../../lib/utils'
 
 interface PageHeaderProps {
-  badge: string
+  /** Optional gold badge above the title. Omit to keep the header minimal. */
+  badge?: string
   title: string
   description?: string
   meta?: ReactNode
@@ -23,6 +24,8 @@ export function PageHeader({
   className,
   hideOnMobile = false,
 }: PageHeaderProps) {
+  const showBadgeRow = Boolean(badge) || meta != null
+
   return (
     <div
       className={cn(
@@ -32,15 +35,19 @@ export function PageHeader({
       )}
     >
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Badge variant="gold" size="sm">
-            <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
-            {badge}
-          </Badge>
-          {meta != null && (
-            <span className="text-xs text-[#7D8B82] font-medium">{meta}</span>
-          )}
-        </div>
+        {showBadgeRow && (
+          <div className="flex items-center gap-2 mb-1">
+            {badge ? (
+              <Badge variant="gold" size="sm">
+                <Sparkles size={11} className="mr-0.5 text-[#B8934A]" />
+                {badge}
+              </Badge>
+            ) : null}
+            {meta != null && (
+              <span className="text-xs text-[#7D8B82] font-medium">{meta}</span>
+            )}
+          </div>
+        )}
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#191E1B]">
           {title}
         </h1>
