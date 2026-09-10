@@ -13,6 +13,7 @@ import {
   suggestHeatEndDate,
   suggestPregnancyDueDate,
 } from '../../lib/calendarEventTypes'
+import { eventFormShows } from '../../lib/eventFormSchema'
 import { isRecurring, RECURRENCE_SCOPE_LABELS } from '../../lib/calendarRecurrence'
 import { isFemalePetGender } from '../../lib/petTypes'
 import { todayIsoDate } from '../../lib/petProfileUtils'
@@ -44,6 +45,7 @@ export type EventFormState = {
   reminderCustomMinutes: string
   recurrenceFrequency: RecurrenceFrequency
   recurrenceInterval: string
+  recurrenceCustomUnit: 'days' | 'weeks' | 'months'
   recurrenceWeekDays: number[]
   recurrenceEndDate: string
   recurrenceNoEnd: boolean
@@ -56,6 +58,13 @@ export type EventFormState = {
   nextBoosterDate: string
   partnerName: string
   showClass: string
+  visitReason: string
+  productName: string
+  examType: string
+  trainingType: string
+  discipline: string
+  litterCount: string
+  treatmentEndDate: string
 }
 
 const WEEKDAY_OPTIONS = [
@@ -105,6 +114,7 @@ export function getDefaultEventForm(
     reminderCustomMinutes: '60',
     recurrenceFrequency: defaultRecurrenceForType(type),
     recurrenceInterval: '1',
+    recurrenceCustomUnit: 'days',
     recurrenceWeekDays: [],
     recurrenceEndDate: '',
     recurrenceNoEnd: true,
@@ -117,6 +127,13 @@ export function getDefaultEventForm(
     nextBoosterDate: '',
     partnerName: '',
     showClass: '',
+    visitReason: '',
+    productName: '',
+    examType: '',
+    trainingType: '',
+    discipline: '',
+    litterCount: '',
+    treatmentEndDate: '',
   }
 }
 
@@ -145,6 +162,7 @@ export function calendarEventToForm(
     reminderCustomMinutes: String(event.reminderCustomMinutes ?? 60),
     recurrenceFrequency: freq,
     recurrenceInterval: String(recurrence?.interval ?? 1),
+    recurrenceCustomUnit: recurrence?.customUnit ?? 'days',
     recurrenceWeekDays: recurrence?.weekDays ?? [],
     recurrenceEndDate: recurrence?.endDate || '',
     recurrenceNoEnd: !recurrence?.endDate,
@@ -157,6 +175,13 @@ export function calendarEventToForm(
     nextBoosterDate: event.nextBoosterDate || '',
     partnerName: event.partnerName || '',
     showClass: event.showClass || '',
+    visitReason: event.visitReason || '',
+    productName: event.productName || '',
+    examType: event.examType || '',
+    trainingType: event.trainingType || '',
+    discipline: event.discipline || '',
+    litterCount: event.litterCount != null ? String(event.litterCount) : '',
+    treatmentEndDate: event.treatmentEndDate || '',
   }
 }
 
@@ -165,8 +190,12 @@ function buildRecurrenceFromForm(form: EventFormState): EventRecurrence | undefi
   return {
     frequency: form.recurrenceFrequency,
     interval: Math.max(1, Number(form.recurrenceInterval) || 1),
+    customUnit:
+      form.recurrenceFrequency === 'custom' ? form.recurrenceCustomUnit : undefined,
     weekDays:
-      form.recurrenceFrequency === 'weekly' && form.recurrenceWeekDays.length
+      (form.recurrenceFrequency === 'weekly' ||
+        (form.recurrenceFrequency === 'custom' && form.recurrenceCustomUnit === 'weeks')) &&
+      form.recurrenceWeekDays.length
         ? form.recurrenceWeekDays
         : undefined,
     endDate: form.recurrenceNoEnd ? undefined : form.recurrenceEndDate || undefined,
@@ -175,12 +204,16 @@ function buildRecurrenceFromForm(form: EventFormState): EventRecurrence | undefi
 
 function formToPayload(form: EventFormState): Omit<CalendarEvent, 'id'> {
   const usesPeriodDates = form.type === 'pregnancy' || form.type === 'heat'
-  const title =
-    form.type === 'medication' && form.medicationName.trim()
-      ? `Lék – ${form.medicationName.trim()}`
-      : form.type === 'vaccination' && form.vaccineName.trim()
-        ? form.vaccineName.trim()
-        : form.title.trim() || getDefaultEventTitle(form.type)
+  const title = form.title.trim() || getDefaultEventTitle(form.type)
+
+  let recurrence = buildRecurrenceFromForm(form)
+  if (
+    recurrence &&
+    form.treatmentEndDate &&
+    !recurrence.endDate
+  ) {
+    recurrence = { ...recurrence, endDate: form.treatmentEndDate }
+  }
 
   return {
     title,
@@ -197,7 +230,7 @@ function formToPayload(form: EventFormState): Omit<CalendarEvent, 'id'> {
       form.reminderEnabled && form.reminderOffset === 'custom'
         ? Math.max(1, Number(form.reminderCustomMinutes) || 60)
         : undefined,
-    recurrence: buildRecurrenceFromForm(form),
+    recurrence,
     expectedBirthDate:
       form.type === 'pregnancy' && form.expectedBirthDate
         ? form.expectedBirthDate
@@ -212,31 +245,16 @@ function formToPayload(form: EventFormState): Omit<CalendarEvent, 'id'> {
     nextBoosterDate: form.nextBoosterDate || undefined,
     partnerName: form.partnerName.trim() || undefined,
     showClass: form.showClass.trim() || undefined,
+    visitReason: form.visitReason.trim() || undefined,
+    productName: form.productName.trim() || undefined,
+    examType: form.examType.trim() || undefined,
+    trainingType: form.trainingType.trim() || undefined,
+    discipline: form.discipline.trim() || undefined,
+    litterCount: form.litterCount.trim()
+      ? Math.max(0, Number(form.litterCount) || 0)
+      : undefined,
+    treatmentEndDate: form.treatmentEndDate || undefined,
   }
-}
-
-function showsDosage(type: EventType) {
-  return type === 'medication' || type === 'deworming' || type === 'antiparasitic'
-}
-
-function showsMedicationName(type: EventType) {
-  return type === 'medication'
-}
-
-function showsVaccineFields(type: EventType) {
-  return type === 'vaccination'
-}
-
-function showsPartner(type: EventType) {
-  return type === 'mating'
-}
-
-function showsShowClass(type: EventType) {
-  return type === 'exhibition' || type === 'competition' || type === 'judging'
-}
-
-function showsLocation(type: EventType) {
-  return type !== 'birthday' && type !== 'adoption_anniversary'
 }
 
 export function CalendarEventForm() {
@@ -261,6 +279,7 @@ export function CalendarEventForm() {
   const [editScope, setEditScope] = useState<RecurrenceEditScope>('series')
   const [scopePromptOpen, setScopePromptOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<'save' | 'delete' | null>(null)
+  const [simpleDeleteOpen, setSimpleDeleteOpen] = useState(false)
 
   const routePetId = location.pathname.match(/^\/pets\/([^/]+)/)?.[1]
   const isEditingEvent = Boolean(editingCalendarEventId)
@@ -379,12 +398,21 @@ export function CalendarEventForm() {
         expectedEndDate: isHeat ? suggestHeatEndDate(start) : '',
         actualEndDate: '',
         time: isPregnancy || isHeat ? '' : prev.time || '14:30',
-        medicationName: type === 'medication' ? prev.medicationName : '',
-        vaccineName: type === 'vaccination' ? prev.vaccineName : '',
-        dosage: showsDosage(type) ? prev.dosage : '',
-        nextBoosterDate: type === 'vaccination' ? prev.nextBoosterDate : '',
-        partnerName: type === 'mating' ? prev.partnerName : '',
-        showClass: showsShowClass(type) ? prev.showClass : '',
+        medicationName: eventFormShows(type, 'medicationName') ? prev.medicationName : '',
+        vaccineName: eventFormShows(type, 'vaccineName') ? prev.vaccineName : '',
+        dosage: eventFormShows(type, 'dosage') ? prev.dosage : '',
+        nextBoosterDate: eventFormShows(type, 'nextBoosterDate') ? prev.nextBoosterDate : '',
+        partnerName: eventFormShows(type, 'partnerName') ? prev.partnerName : '',
+        showClass: eventFormShows(type, 'showClass') ? prev.showClass : '',
+        visitReason: eventFormShows(type, 'visitReason') ? prev.visitReason : '',
+        productName: eventFormShows(type, 'productName') ? prev.productName : '',
+        examType: eventFormShows(type, 'examType') ? prev.examType : '',
+        trainingType: eventFormShows(type, 'trainingType') ? prev.trainingType : '',
+        discipline: eventFormShows(type, 'discipline') ? prev.discipline : '',
+        litterCount: eventFormShows(type, 'litterCount') ? prev.litterCount : '',
+        treatmentEndDate: eventFormShows(type, 'treatmentEndDate')
+          ? prev.treatmentEndDate
+          : '',
       }
     })
   }
@@ -459,7 +487,13 @@ export function CalendarEventForm() {
       setScopePromptOpen(true)
       return
     }
+    setSimpleDeleteOpen(true)
+  }
+
+  const confirmSimpleDelete = () => {
+    if (!editingCalendarEventId) return
     deleteCalendarEvent(editingCalendarEventId)
+    setSimpleDeleteOpen(false)
   }
 
   const confirmScope = () => {
@@ -518,6 +552,13 @@ export function CalendarEventForm() {
                 nextBoosterDate: '',
                 partnerName: '',
                 showClass: '',
+                visitReason: '',
+                productName: '',
+                examType: '',
+                trainingType: '',
+                discipline: '',
+                litterCount: '',
+                treatmentEndDate: '',
               }
             })
           }}
@@ -533,39 +574,18 @@ export function CalendarEventForm() {
           maxListHeightClassName="max-h-64"
         />
 
-        {showsMedicationName(eventForm.type) ? (
-          <Input
-            id="event-med-name"
-            label="Název léku"
-            value={eventForm.medicationName}
-            onChange={(e) =>
-              setEventForm({
-                ...eventForm,
-                medicationName: e.target.value,
-                title: e.target.value ? `Lék – ${e.target.value}` : eventForm.title,
-              })
-            }
-            placeholder="např. Glukosamin"
-            required
-          />
-        ) : showsVaccineFields(eventForm.type) ? (
-          <Input
-            id="event-vaccine"
-            label="Název vakcíny"
-            value={eventForm.vaccineName}
-            onChange={(e) =>
-              setEventForm({
-                ...eventForm,
-                vaccineName: e.target.value,
-                title: e.target.value || getDefaultEventTitle('vaccination'),
-              })
-            }
-            placeholder="např. Vzteklina"
-          />
-        ) : (
+        {eventFormShows(eventForm.type, 'title') && (
           <Input
             id="event-title"
-            label="Název události"
+            label={
+              eventForm.type === 'exhibition'
+                ? 'Název výstavy'
+                : eventForm.type === 'competition'
+                  ? 'Název soutěže'
+                  : eventForm.type === 'exam'
+                    ? 'Název závodu'
+                    : 'Název události'
+            }
             value={eventForm.title}
             onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
             placeholder={
@@ -577,27 +597,107 @@ export function CalendarEventForm() {
           />
         )}
 
-        {showsDosage(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'medicationName') && (
+          <Input
+            id="event-med-name"
+            label="Název léku"
+            value={eventForm.medicationName}
+            onChange={(e) =>
+              setEventForm({
+                ...eventForm,
+                medicationName: e.target.value,
+              })
+            }
+            placeholder="např. Glukosamin"
+            required
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'vaccineName') && (
+          <Input
+            id="event-vaccine"
+            label="Název vakcíny"
+            value={eventForm.vaccineName}
+            onChange={(e) => setEventForm({ ...eventForm, vaccineName: e.target.value })}
+            placeholder="např. Vzteklina"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'productName') && (
+          <Input
+            id="event-product"
+            label="Přípravek"
+            value={eventForm.productName}
+            onChange={(e) => setEventForm({ ...eventForm, productName: e.target.value })}
+            placeholder="např. Bravecto, Advocate…"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'examType') && (
+          <Input
+            id="event-exam-type"
+            label="Typ vyšetření"
+            value={eventForm.examType}
+            onChange={(e) => setEventForm({ ...eventForm, examType: e.target.value })}
+            placeholder="např. krevní test, rentgen…"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'visitReason') && (
+          <Input
+            id="event-visit-reason"
+            label={eventForm.type === 'examination' ? 'Důvod' : 'Důvod návštěvy'}
+            value={eventForm.visitReason}
+            onChange={(e) => setEventForm({ ...eventForm, visitReason: e.target.value })}
+            placeholder="např. preventivní prohlídka, bolest tlapky…"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'dosage') && (
           <Input
             id="event-dosage"
-            label="Dávkování"
+            label={
+              eventForm.type === 'antiparasitic'
+                ? 'Dávkování / způsob aplikace'
+                : 'Dávkování'
+            }
             value={eventForm.dosage}
             onChange={(e) => setEventForm({ ...eventForm, dosage: e.target.value })}
             placeholder="např. 1 tableta s jídlem"
           />
         )}
 
-        {showsPartner(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'trainingType') && (
+          <Input
+            id="event-training-type"
+            label={eventForm.type === 'sport' ? 'Typ aktivity' : 'Typ tréninku'}
+            value={eventForm.trainingType}
+            onChange={(e) => setEventForm({ ...eventForm, trainingType: e.target.value })}
+            placeholder="např. poslušnost, agility…"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'discipline') && (
+          <Input
+            id="event-discipline"
+            label="Disciplína"
+            value={eventForm.discipline}
+            onChange={(e) => setEventForm({ ...eventForm, discipline: e.target.value })}
+            placeholder="např. agility, obedience…"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'partnerName') && (
           <Input
             id="event-partner"
-            label="Partner"
+            label="Partner / druhý mazlíček"
             value={eventForm.partnerName}
             onChange={(e) => setEventForm({ ...eventForm, partnerName: e.target.value })}
             placeholder="Jméno partnera / kennel"
           />
         )}
 
-        {showsShowClass(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'showClass') && (
           <Input
             id="event-class"
             label="Kategorie / třída"
@@ -607,7 +707,19 @@ export function CalendarEventForm() {
           />
         )}
 
-        {eventForm.type === 'pregnancy' ? (
+        {eventFormShows(eventForm.type, 'litterCount') && (
+          <Input
+            id="event-litter-count"
+            label="Počet mláďat"
+            type="number"
+            min={0}
+            value={eventForm.litterCount}
+            onChange={(e) => setEventForm({ ...eventForm, litterCount: e.target.value })}
+            placeholder="např. 5"
+          />
+        )}
+
+        {eventFormShows(eventForm.type, 'pregnancyDates') ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
             <Input
               id="event-pregnancy-start"
@@ -639,7 +751,7 @@ export function CalendarEventForm() {
               required
             />
           </div>
-        ) : eventForm.type === 'heat' ? (
+        ) : eventFormShows(eventForm.type, 'heatDates') ? (
           <div className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
               <Input
@@ -677,11 +789,17 @@ export function CalendarEventForm() {
             />
             <p className="text-[11px] text-[#7D8B82] leading-relaxed">{HEAT_DURATION_HINT}</p>
           </div>
-        ) : (
+        ) : eventFormShows(eventForm.type, 'dateTime') ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
               id="event-date"
-              label="Datum"
+              label={
+                eventForm.type === 'medication'
+                  ? 'Datum zahájení'
+                  : eventForm.type === 'birth' || eventForm.type === 'litter_check'
+                    ? 'Datum narození'
+                    : 'Datum'
+              }
               type="date"
               value={eventForm.date}
               onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
@@ -695,19 +813,37 @@ export function CalendarEventForm() {
               onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
             />
           </div>
+        ) : null}
+
+        {eventFormShows(eventForm.type, 'treatmentEndDate') && (
+          <Input
+            id="event-treatment-end"
+            label="Do kdy / datum ukončení"
+            type="date"
+            value={eventForm.treatmentEndDate}
+            onChange={(e) =>
+              setEventForm({
+                ...eventForm,
+                treatmentEndDate: e.target.value,
+                // Keep series end in sync when user sets treatment end and recurrence has no end
+                recurrenceEndDate: e.target.value || eventForm.recurrenceEndDate,
+                recurrenceNoEnd: e.target.value ? false : eventForm.recurrenceNoEnd,
+              })
+            }
+          />
         )}
 
-        {showsVaccineFields(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'nextBoosterDate') && (
           <Input
             id="event-booster"
-            label="Další přeočkování (volitelně)"
+            label="Datum dalšího očkování / přeočkování"
             type="date"
             value={eventForm.nextBoosterDate}
             onChange={(e) => setEventForm({ ...eventForm, nextBoosterDate: e.target.value })}
           />
         )}
 
-        {showsLocation(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'location') && (
           <Input
             id="event-location"
             label={getLocationFieldLabel(eventForm.type)}
@@ -717,6 +853,7 @@ export function CalendarEventForm() {
           />
         )}
 
+        {eventFormShows(eventForm.type, 'recurrence') && (
         <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5]/80 p-3.5 space-y-3">
           <OptionSelect
             id="event-recurrence"
@@ -728,6 +865,8 @@ export function CalendarEventForm() {
                 recurrenceFrequency: value as RecurrenceFrequency,
                 recurrenceNoEnd:
                   value === 'none' ? true : eventForm.recurrenceNoEnd,
+                recurrenceCustomUnit:
+                  value === 'custom' ? eventForm.recurrenceCustomUnit : 'days',
               })
             }
             options={[
@@ -742,6 +881,27 @@ export function CalendarEventForm() {
 
           {eventForm.recurrenceFrequency !== 'none' && (
             <>
+              {eventForm.recurrenceFrequency === 'custom' && (
+                <OptionSelect
+                  id="event-custom-unit"
+                  label="Jednotka intervalu"
+                  value={eventForm.recurrenceCustomUnit}
+                  onChange={(value) =>
+                    setEventForm({
+                      ...eventForm,
+                      recurrenceCustomUnit: value as 'days' | 'weeks' | 'months',
+                      recurrenceWeekDays:
+                        value === 'weeks' ? eventForm.recurrenceWeekDays : [],
+                    })
+                  }
+                  options={[
+                    { value: 'days', label: 'Každých X dní' },
+                    { value: 'weeks', label: 'Každých X týdnů' },
+                    { value: 'months', label: 'Každých X měsíců' },
+                  ]}
+                />
+              )}
+
               {(eventForm.recurrenceFrequency === 'custom' ||
                 eventForm.recurrenceFrequency === 'daily' ||
                 eventForm.recurrenceFrequency === 'weekly' ||
@@ -750,7 +910,11 @@ export function CalendarEventForm() {
                   id="event-interval"
                   label={
                     eventForm.recurrenceFrequency === 'custom'
-                      ? 'Každý X. den'
+                      ? eventForm.recurrenceCustomUnit === 'weeks'
+                        ? 'Každých X týdnů'
+                        : eventForm.recurrenceCustomUnit === 'months'
+                          ? 'Každých X měsíců'
+                          : 'Každých X dní'
                       : eventForm.recurrenceFrequency === 'weekly'
                         ? 'Každý X. týden'
                         : eventForm.recurrenceFrequency === 'monthly'
@@ -766,7 +930,9 @@ export function CalendarEventForm() {
                 />
               )}
 
-              {eventForm.recurrenceFrequency === 'weekly' && (
+              {(eventForm.recurrenceFrequency === 'weekly' ||
+                (eventForm.recurrenceFrequency === 'custom' &&
+                  eventForm.recurrenceCustomUnit === 'weeks')) && (
                 <div>
                   <p className="text-xs font-semibold tracking-wide uppercase text-[#4A564F] mb-2">
                     Dny v týdnu
@@ -833,8 +999,9 @@ export function CalendarEventForm() {
             </>
           )}
         </div>
+        )}
 
-        {eventSupportsReminder(eventForm.type) && (
+        {eventFormShows(eventForm.type, 'reminder') && eventSupportsReminder(eventForm.type) && (
           <div className="space-y-3">
             <label className="flex items-start gap-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5]/80 px-3.5 py-3 cursor-pointer">
               <input
@@ -889,6 +1056,7 @@ export function CalendarEventForm() {
           </div>
         )}
 
+        {eventFormShows(eventForm.type, 'notes') && (
         <Textarea
           id="event-notes"
           label="Poznámky"
@@ -896,6 +1064,7 @@ export function CalendarEventForm() {
           value={eventForm.notes}
           onChange={(e) => setEventForm({ ...eventForm, notes: e.target.value })}
         />
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-4 border-t border-[#F0EDE6]">
           {isEditingEvent && editingCalendarEventId ? (
@@ -930,7 +1099,9 @@ export function CalendarEventForm() {
       {scopePromptOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DC] bg-white p-5 shadow-lg">
-            <h3 className="text-base font-bold text-[#191E1B]">Co chcete změnit?</h3>
+            <h3 className="text-base font-bold text-[#191E1B]">
+              {pendingAction === 'delete' ? 'Co chcete smazat?' : 'Co chcete změnit?'}
+            </h3>
             <p className="mt-1 text-xs text-[#7D8B82]">
               Tato událost je součástí opakované série.
             </p>
@@ -971,6 +1142,30 @@ export function CalendarEventForm() {
               </Button>
               <Button type="button" variant="gold" size="sm" onClick={confirmScope}>
                 Potvrdit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {simpleDeleteOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DC] bg-white p-5 shadow-lg">
+            <h3 className="text-base font-bold text-[#191E1B]">Smazat událost?</h3>
+            <p className="mt-1 text-xs text-[#7D8B82]">
+              Událost bude trvale odstraněna z kalendáře.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSimpleDeleteOpen(false)}
+              >
+                Zrušit
+              </Button>
+              <Button type="button" variant="primary" size="sm" onClick={confirmSimpleDelete}>
+                Smazat
               </Button>
             </div>
           </div>

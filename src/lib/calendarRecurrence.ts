@@ -62,13 +62,20 @@ export function normalizeRecurrence(
   recurrence?: EventRecurrence | null,
 ): EventRecurrence | undefined {
   if (!recurrence || recurrence.frequency === 'none') return undefined
+  const interval = Math.max(1, recurrence.interval ?? 1)
+  const customUnit = recurrence.customUnit ?? 'days'
+  const weekDaysSource =
+    recurrence.frequency === 'weekly' ||
+    (recurrence.frequency === 'custom' && customUnit === 'weeks')
+      ? recurrence.weekDays
+      : undefined
   return {
     frequency: recurrence.frequency,
-    interval: Math.max(1, recurrence.interval ?? 1),
-    weekDays:
-      recurrence.frequency === 'weekly' && recurrence.weekDays?.length
-        ? [...new Set(recurrence.weekDays)].sort((a, b) => a - b)
-        : undefined,
+    interval,
+    customUnit: recurrence.frequency === 'custom' ? customUnit : undefined,
+    weekDays: weekDaysSource?.length
+      ? [...new Set(weekDaysSource)].sort((a, b) => a - b)
+      : undefined,
     endDate: recurrence.endDate || undefined,
   }
 }
@@ -107,10 +114,14 @@ export function generateOccurrenceDates(
 
   const hardEnd = seriesEnd && seriesEnd.getTime() < rangeEnd.getTime() ? seriesEnd : rangeEnd
 
-  if (recurrence.frequency === 'weekly' && recurrence.weekDays?.length) {
+  const usesWeekDays =
+    (recurrence.frequency === 'weekly' ||
+      (recurrence.frequency === 'custom' && (recurrence.customUnit ?? 'days') === 'weeks')) &&
+    recurrence.weekDays?.length
+
+  if (usesWeekDays) {
     // Walk day-by-day from max(start, rangeStart) but respect week intervals from series start.
     let cursor = start.getTime() > rangeStart.getTime() ? new Date(start) : new Date(rangeStart)
-    // Align cursor not before series start
     if (cursor.getTime() < start.getTime()) cursor = new Date(start)
 
     let guard = 0
@@ -123,7 +134,7 @@ export function generateOccurrenceDates(
         )
         const inIntervalWeek = weekIndex % interval === 0
         const appDow = jsDayToAppWeekDay(cursor.getDay())
-        if (inIntervalWeek && recurrence.weekDays.includes(appDow) && !excluded.has(iso)) {
+        if (inIntervalWeek && recurrence.weekDays!.includes(appDow) && !excluded.has(iso)) {
           dates.push(iso)
         }
       }
@@ -144,9 +155,15 @@ export function generateOccurrenceDates(
     index += 1
     switch (recurrence.frequency) {
       case 'daily':
-      case 'custom':
         cursor = addDays(start, index * interval)
         break
+      case 'custom': {
+        const unit = recurrence.customUnit ?? 'days'
+        if (unit === 'months') cursor = addMonths(start, index * interval)
+        else if (unit === 'weeks') cursor = addDays(start, index * 7 * interval)
+        else cursor = addDays(start, index * interval)
+        break
+      }
       case 'weekly':
         cursor = addDays(start, index * 7 * interval)
         break
@@ -287,7 +304,7 @@ export function recurrenceFrequencyLabel(frequency: RecurrenceFrequency): string
 }
 
 export const RECURRENCE_SCOPE_LABELS: Record<RecurrenceEditScope, string> = {
-  this: 'Jen tuto událost',
-  following: 'Tuto a následující události',
-  series: 'Celou sérii',
+  this: 'Pouze tento výskyt',
+  following: 'Tento a následující',
+  series: 'Celá série',
 }

@@ -121,9 +121,11 @@ export type RecurrenceFrequency =
 
 export interface EventRecurrence {
   frequency: RecurrenceFrequency
-  /** Every N days/weeks/months/years (custom = every N days). Default 1. */
+  /** Every N days/weeks/months/years (custom = every N of customUnit). Default 1. */
   interval?: number
-  /** 0 = Mon … 6 = Sun (app calendar week). Used for weekly. */
+  /** For frequency `custom`: which unit the interval applies to. */
+  customUnit?: 'days' | 'weeks' | 'months'
+  /** 0 = Mon … 6 = Sun (app calendar week). Used for weekly / custom weeks. */
   weekDays?: number[]
   /** Inclusive end date (YYYY-MM-DD). Omit for no end. */
   endDate?: string
@@ -471,6 +473,20 @@ export interface CalendarEvent {
   nextBoosterDate?: string
   partnerName?: string
   showClass?: string
+  /** Reason for a vet visit / checkup. */
+  visitReason?: string
+  /** Product name for deworming / antiparasitic. */
+  productName?: string
+  /** Examination type label. */
+  examType?: string
+  /** Training / sport detail. */
+  trainingType?: string
+  /** Competition / race discipline. */
+  discipline?: string
+  /** Litter size for birth / litter events. */
+  litterCount?: number
+  /** Treatment course end date (medications). */
+  treatmentEndDate?: string
 }
 
 export interface AppNotification {

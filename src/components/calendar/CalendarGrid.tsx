@@ -93,6 +93,8 @@ export function CalendarGrid() {
     occurrenceDate: string
   } | null>(null)
   const [deleteScope, setDeleteScope] = useState<RecurrenceEditScope>('this')
+  const [simpleDeleteId, setSimpleDeleteId] = useState<string | null>(null)
+  const [dayListOpen, setDayListOpen] = useState(false)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -206,6 +208,19 @@ export function CalendarGrid() {
   const selectedEvents = selectedDay ? eventsByDay[selectedDay] || [] : []
   const selectedIso =
     selectedDay != null ? toIsoDay(year, month, selectedDay) : null
+  const selectedDateLabel =
+    selectedDay != null
+      ? new Date(year, month, selectedDay).toLocaleDateString('cs-CZ', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'Vyberte datum'
+
+  const openDayList = (day: number) => {
+    setSelectedDay(day)
+    setDayListOpen(true)
+  }
 
   const goToday = () => {
     setCurrentDate(new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), 1))
@@ -252,7 +267,7 @@ export function CalendarGrid() {
       setDeleteScope('this')
       return
     }
-    deleteCalendarEvent(event.id)
+    setSimpleDeleteId(event.id)
   }
 
   const confirmDelete = () => {
@@ -263,6 +278,12 @@ export function CalendarGrid() {
       deleteScope,
     )
     setDeletePrompt(null)
+  }
+
+  const confirmSimpleDelete = () => {
+    if (!simpleDeleteId) return
+    deleteCalendarEvent(simpleDeleteId)
+    setSimpleDeleteId(null)
   }
 
   const isAppToday = (day: number) =>
@@ -444,7 +465,7 @@ export function CalendarGrid() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setSelectedDay(day)
+                          openDayList(day)
                         }}
                         className="text-[9px] font-bold text-[#7D8B82] pl-1 text-left hover:text-[#2C4A3E] cursor-pointer"
                       >
@@ -466,9 +487,7 @@ export function CalendarGrid() {
                   Program na
                 </span>
                 <h4 className="text-base font-bold text-[#191E1B]">
-                  {selectedDay
-                    ? `${monthLabel.split(' ')[0]} ${selectedDay}, ${year}`
-                    : 'Vyberte datum'}
+                  {selectedDateLabel}
                 </h4>
               </div>
               <Button
@@ -485,10 +504,21 @@ export function CalendarGrid() {
             {selectedEvents.length === 0 ? (
               <div className="py-8 text-center text-xs text-[#7D8B82]">
                 <CalendarIcon size={24} className="mx-auto text-[#A3AEA7] mb-2" />
-                <p className="font-semibold text-[#191E1B]">Dnes tu nic není.</p>
-                <p className="mt-0.5">
-                  Užijte si klidný den s vaším mazlíčkem.
-                </p>
+                {filterCategory !== 'all' ? (
+                  <>
+                    <p className="font-semibold text-[#191E1B]">Žádné události</p>
+                    <p className="mt-0.5">
+                      Pro tuto kategorii zatím nemáte naplánované žádné události.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-[#191E1B]">Dnes tu nic není.</p>
+                    <p className="mt-0.5">
+                      Užijte si klidný den s vaším mazlíčkem.
+                    </p>
+                  </>
+                )}
                 <Button
                   size="sm"
                   variant="secondary"
@@ -662,6 +692,17 @@ export function CalendarGrid() {
                         </p>
                       )}
 
+                      {event.visitReason &&
+                        event.calendarRole !== 'due' &&
+                        !isHeatEnd &&
+                        !isHeatActual &&
+                        !isHeatActive && (
+                          <p className="mt-1.5 text-[11px] text-[#5A6660]">
+                            Důvod:{' '}
+                            <strong className="text-[#191E1B]">{event.visitReason}</strong>
+                          </p>
+                        )}
+
                       {event.notes &&
                         event.calendarRole !== 'due' &&
                         !isHeatEnd &&
@@ -726,6 +767,110 @@ export function CalendarGrid() {
               </Button>
               <Button type="button" variant="primary" size="sm" onClick={confirmDelete}>
                 Smazat
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {simpleDeleteId && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DC] bg-white p-5 shadow-lg">
+            <h3 className="text-base font-bold text-[#191E1B]">Smazat událost?</h3>
+            <p className="mt-1 text-xs text-[#7D8B82]">
+              Událost bude trvale odstraněna z kalendáře.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSimpleDeleteId(null)}
+              >
+                Zrušit
+              </Button>
+              <Button type="button" variant="primary" size="sm" onClick={confirmSimpleDelete}>
+                Smazat
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dayListOpen && selectedDay != null && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl border border-[#E8E4DC] bg-white shadow-lg">
+            <div className="flex items-center justify-between gap-3 border-b border-[#F0EDE6] px-5 py-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                  Události dne
+                </p>
+                <h3 className="text-base font-bold text-[#191E1B]">{selectedDateLabel}</h3>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setDayListOpen(false)}
+              >
+                Zavřít
+              </Button>
+            </div>
+            <div className="overflow-y-auto px-5 py-4 space-y-2">
+              {selectedEvents.length === 0 ? (
+                <p className="text-sm text-[#7D8B82] text-center py-6">Žádné události</p>
+              ) : (
+                selectedEvents.map((event) => {
+                  const style = getEventVisualStyle(event.type)
+                  return (
+                    <button
+                      key={event.occurrenceId}
+                      type="button"
+                      onClick={() => {
+                        setDayListOpen(false)
+                        handleEdit(event)
+                      }}
+                      className="w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8] p-3 text-left transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border',
+                            style.bg,
+                            style.text,
+                            style.border,
+                          )}
+                        >
+                          {getCategoryLabel(getEventCategory(event.type))}
+                        </span>
+                        {event.time && (
+                          <span className="text-xs font-mono font-bold text-[#2C4A3E]">
+                            {event.time}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-sm font-bold text-[#191E1B]">{event.title}</p>
+                      <p className="mt-0.5 text-xs text-[#4A564F]">{event.petName}</p>
+                      {event.location && (
+                        <p className="mt-1 text-[11px] text-[#7D8B82]">{event.location}</p>
+                      )}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+            <div className="border-t border-[#F0EDE6] px-5 py-3">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  setDayListOpen(false)
+                  openAddForSelectedDay()
+                }}
+                className="w-full gap-1"
+              >
+                <Plus size={14} />
+                <span>Přidat událost</span>
               </Button>
             </div>
           </div>

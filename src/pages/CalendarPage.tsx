@@ -13,7 +13,7 @@ export function CalendarPage() {
         badge="Plán a rutiny"
         meta="Preventivní péče a denní připomínky"
         title="Kalendář"
-        description="Termíny, očkování, dávkování a rutiny synchronizované pro všechny mazlíčky."
+        description="Termíny péče, zdraví, aktivit a důležitých událostí všech vašich mazlíčků."
         actions={
           <Button
             variant="primary"
