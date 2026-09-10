@@ -29,6 +29,12 @@ import {
   petNameForRecord,
 } from '../lib/medicationReminders'
 import {
+  applySeriesExclude,
+  isRecurring,
+  normalizeRecurrence,
+  splitSeriesAt,
+} from '../lib/calendarRecurrence'
+import {
   DEFAULT_DISCOVER_CRITERIA,
   type DiscoverCriteria,
 } from '../lib/discoverCriteria'
@@ -73,6 +79,7 @@ import type {
   Pet,
   PetDocument,
   PetPhoto,
+  RecurrenceEditScope,
   ReportFlagReason,
   SafeApproxLocationShare,
   SafeContactChannel,
@@ -285,10 +292,21 @@ interface AppContextValue {
   calendarFocusDate: string | null
   clearCalendarFocusDate: () => void
   editingCalendarEventId: string | null
+  /** When editing a recurring series, the concrete occurrence date (YYYY-MM-DD). */
+  editingOccurrenceDate: string | null
   /** When opening bookVet for a new event, optionally preselect this event type. */
   calendarEventPrefillType: EventType | null
-  openEditCalendarEvent: (eventId: string) => void
-  openNewCalendarEvent: (options?: { petId?: string; type?: EventType }) => void
+  /** Prefill date when opening new event from a selected calendar day. */
+  calendarEventPrefillDate: string | null
+  openEditCalendarEvent: (
+    eventId: string,
+    options?: { occurrenceDate?: string },
+  ) => void
+  openNewCalendarEvent: (options?: {
+    petId?: string
+    type?: EventType
+    date?: string
+  }) => void
   /** When opening addHealthRecord, optionally preselect this record type. */
   healthRecordPrefillType: HealthRecordType | null
   openNewHealthRecord: (options?: { petId?: string; type?: HealthRecordType }) => void
@@ -399,6 +417,17 @@ interface AppContextValue {
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
   deleteCalendarEvent: (eventId: string) => void
+  updateCalendarOccurrence: (
+    eventId: string,
+    occurrenceDate: string,
+    scope: RecurrenceEditScope,
+    updates: Partial<Omit<CalendarEvent, 'id'>>,
+  ) => void
+  deleteCalendarOccurrence: (
+    eventId: string,
+    occurrenceDate: string,
+    scope: RecurrenceEditScope,
+  ) => void
   showToast: (title: string, description?: string, type?: ToastMessage['type']) => void
   removeToast: (id: string) => void
 }
@@ -454,9 +483,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null)
   const [editingCalendarEventId, setEditingCalendarEventId] = useState<string | null>(null)
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<string | null>(null)
   const [calendarEventPrefillType, setCalendarEventPrefillType] = useState<EventType | null>(
     null,
   )
+  const [calendarEventPrefillDate, setCalendarEventPrefillDate] = useState<string | null>(null)
   const [healthRecordPrefillType, setHealthRecordPrefillType] = useState<HealthRecordType | null>(
     null,
   )
@@ -634,27 +665,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setActiveModal = (modal: ModalType, petId?: string) => {
     if (modal !== 'bookVet') {
       setEditingCalendarEventId(null)
+      setEditingOccurrenceDate(null)
     } else {
       // Creating a new event via setActiveModal clears edit mode.
       setEditingCalendarEventId(null)
+      setEditingOccurrenceDate(null)
     }
     setCalendarEventPrefillType(null)
+    setCalendarEventPrefillDate(null)
     setHealthRecordPrefillType(null)
     setActiveModalState(modal)
     setModalPetId(modal ? petId ?? null : null)
   }
 
-  const openEditCalendarEvent = (eventId: string) => {
+  const openEditCalendarEvent = (
+    eventId: string,
+    options?: { occurrenceDate?: string },
+  ) => {
     setEditingCalendarEventId(eventId)
+    setEditingOccurrenceDate(options?.occurrenceDate ?? null)
     setCalendarEventPrefillType(null)
+    setCalendarEventPrefillDate(null)
     setHealthRecordPrefillType(null)
     setActiveModalState('bookVet')
     setModalPetId(null)
   }
 
-  const openNewCalendarEvent = (options?: { petId?: string; type?: EventType }) => {
+  const openNewCalendarEvent = (options?: {
+    petId?: string
+    type?: EventType
+    date?: string
+  }) => {
     setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
     setCalendarEventPrefillType(options?.type ?? null)
+    setCalendarEventPrefillDate(options?.date ?? null)
     setHealthRecordPrefillType(null)
     setActiveModalState('bookVet')
     setModalPetId(options?.petId ?? null)
@@ -662,7 +707,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const openNewHealthRecord = (options?: { petId?: string; type?: HealthRecordType }) => {
     setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
     setCalendarEventPrefillType(null)
+    setCalendarEventPrefillDate(null)
     setHealthRecordPrefillType(options?.type ?? 'vaccination')
     setActiveModalState('addHealthRecord')
     setModalPetId(options?.petId ?? null)
@@ -1010,7 +1057,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       scheduleTime: record.scheduleTime || '09:00',
       reminderDays: normalizeReminderDays(record.reminderDays),
     }
-    const events = buildMedicationReminderEvents(withDefaults, petName)
+    const events = buildMedicationReminderEvents(withDefaults, petName, record.petId)
     const notification = buildMedicationReminderNotification(withDefaults, petName)
 
     setCalendarEvents((prev) => [
@@ -2240,6 +2287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             reminderDays: normalizeReminderDays(record.reminderDays),
           },
           petNameForRecord(pets, record.petId),
+          record.petId,
         )
         next = [...next, ...events]
         changed = true
@@ -2365,12 +2413,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {
+    const recurrence = normalizeRecurrence(event.recurrence)
     setCalendarEvents((prev) => [
-      { ...event, id: `c_${Date.now()}` },
+      {
+        ...event,
+        id: `c_${Date.now()}`,
+        recurrence,
+      },
       ...prev,
     ])
     setCalendarFocusDate(event.date)
     setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
+    setCalendarEventPrefillDate(null)
     setActiveModal(null)
     showToast(
       `${event.title} naplánováno`,
@@ -2379,39 +2434,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const mergeCalendarEvent = (
+    event: CalendarEvent,
+    updates: Partial<Omit<CalendarEvent, 'id'>>,
+  ): CalendarEvent => {
+    const next: CalendarEvent = {
+      ...event,
+      ...updates,
+      id: event.id,
+      sourceRecordId: event.sourceRecordId,
+    }
+    if ('recurrence' in updates) {
+      next.recurrence = normalizeRecurrence(updates.recurrence)
+    }
+    return next
+  }
+
   const updateCalendarEvent = (
     eventId: string,
     updates: Partial<Omit<CalendarEvent, 'id'>>,
   ) => {
     const existing = calendarEvents.find((event) => event.id === eventId)
     setCalendarEvents((prev) =>
-      prev.map((event) => {
-        if (event.id !== eventId) return event
-        return {
-          id: event.id,
-          sourceRecordId: event.sourceRecordId,
-          title: updates.title ?? event.title,
-          petName: updates.petName ?? event.petName,
-          type: updates.type ?? event.type,
-          date: updates.date ?? event.date,
-          time: 'time' in updates ? updates.time : event.time,
-          location: 'location' in updates ? updates.location : event.location,
-          notes: 'notes' in updates ? updates.notes : event.notes,
-          reminderEnabled:
-            'reminderEnabled' in updates ? updates.reminderEnabled : event.reminderEnabled,
-          expectedBirthDate:
-            'expectedBirthDate' in updates
-              ? updates.expectedBirthDate
-              : event.expectedBirthDate,
-          expectedEndDate:
-            'expectedEndDate' in updates ? updates.expectedEndDate : event.expectedEndDate,
-          actualEndDate:
-            'actualEndDate' in updates ? updates.actualEndDate : event.actualEndDate,
-        }
-      }),
+      prev.map((event) => (event.id === eventId ? mergeCalendarEvent(event, updates) : event)),
     )
     if (updates.date) setCalendarFocusDate(updates.date)
     setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
     setActiveModalState(null)
     setModalPetId(null)
     showToast('Událost upravena', updates.title ?? existing?.title, 'gold')
@@ -2419,8 +2468,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteCalendarEvent = (eventId: string) => {
     const existing = calendarEvents.find((event) => event.id === eventId)
-    setCalendarEvents((prev) => prev.filter((event) => event.id !== eventId))
+    setCalendarEvents((prev) =>
+      prev.filter((event) => event.id !== eventId && event.seriesId !== eventId),
+    )
     setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
     setActiveModalState(null)
     setModalPetId(null)
     setCalendarEventPrefillType(null)
@@ -2429,6 +2481,120 @@ export function AppProvider({ children }: { children: ReactNode }) {
       existing ? `${existing.title} byla odstraněna z kalendáře.` : undefined,
       'info',
     )
+  }
+
+  const updateCalendarOccurrence = (
+    eventId: string,
+    occurrenceDate: string,
+    scope: RecurrenceEditScope,
+    updates: Partial<Omit<CalendarEvent, 'id'>>,
+  ) => {
+    const master = calendarEvents.find((event) => event.id === eventId)
+    if (!master) return
+
+    if (!isRecurring(master) || scope === 'series') {
+      updateCalendarEvent(eventId, {
+        ...updates,
+        date: scope === 'this' ? occurrenceDate : (updates.date ?? master.date),
+      })
+      return
+    }
+
+    if (scope === 'this') {
+      const excludedMaster = applySeriesExclude(master, occurrenceDate)
+      const detached: Omit<CalendarEvent, 'id'> = {
+        ...master,
+        ...updates,
+        date: updates.date ?? occurrenceDate,
+        seriesId: master.id,
+        originalDate: occurrenceDate,
+        recurrence: undefined,
+        excludedDates: undefined,
+        sourceRecordId: undefined,
+      }
+      setCalendarEvents((prev) => [
+        { ...detached, id: `c_${Date.now()}` },
+        ...prev.map((event) => (event.id === eventId ? excludedMaster : event)),
+      ])
+      setCalendarFocusDate(detached.date)
+      setEditingCalendarEventId(null)
+      setEditingOccurrenceDate(null)
+      setActiveModalState(null)
+      setModalPetId(null)
+      showToast('Událost upravena', updates.title ?? master.title, 'gold')
+      return
+    }
+
+    // following
+    const { updatedMaster, newSeries } = splitSeriesAt(master, occurrenceDate, updates)
+    setCalendarEvents((prev) => [
+      { ...newSeries, id: `c_${Date.now()}` },
+      ...prev.map((event) => (event.id === eventId ? updatedMaster : event)),
+    ])
+    setCalendarFocusDate(newSeries.date)
+    setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
+    setActiveModalState(null)
+    setModalPetId(null)
+    showToast('Série upravena', updates.title ?? master.title, 'gold')
+  }
+
+  const deleteCalendarOccurrence = (
+    eventId: string,
+    occurrenceDate: string,
+    scope: RecurrenceEditScope,
+  ) => {
+    const master = calendarEvents.find((event) => event.id === eventId)
+    if (!master) return
+
+    if (!isRecurring(master) || scope === 'series') {
+      deleteCalendarEvent(eventId)
+      return
+    }
+
+    if (scope === 'this') {
+      setCalendarEvents((prev) =>
+        prev.map((event) =>
+          event.id === eventId ? applySeriesExclude(event, occurrenceDate) : event,
+        ),
+      )
+      setEditingCalendarEventId(null)
+      setEditingOccurrenceDate(null)
+      setActiveModalState(null)
+      setModalPetId(null)
+      showToast('Výskyt smazán', `${master.title} — pouze tento den.`, 'info')
+      return
+    }
+
+    // following: end series the day before this occurrence
+    if (occurrenceDate <= master.date) {
+      deleteCalendarEvent(eventId)
+      return
+    }
+    const endBefore = (() => {
+      const d = new Date(`${occurrenceDate}T12:00:00`)
+      d.setDate(d.getDate() - 1)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    })()
+    setCalendarEvents((prev) =>
+      prev.map((event) => {
+        if (event.id !== eventId) return event
+        return {
+          ...event,
+          recurrence: event.recurrence
+            ? { ...event.recurrence, endDate: endBefore }
+            : undefined,
+        }
+      }),
+    )
+    setEditingCalendarEventId(null)
+    setEditingOccurrenceDate(null)
+    setActiveModalState(null)
+    setModalPetId(null)
+    showToast('Následující výskyty smazány', master.title, 'info')
   }
 
   return (
@@ -2452,7 +2618,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         calendarFocusDate,
         clearCalendarFocusDate,
         editingCalendarEventId,
+        editingOccurrenceDate,
         calendarEventPrefillType,
+        calendarEventPrefillDate,
         openEditCalendarEvent,
         openNewCalendarEvent,
         healthRecordPrefillType,
@@ -2510,6 +2678,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addCalendarEvent,
         updateCalendarEvent,
         deleteCalendarEvent,
+        updateCalendarOccurrence,
+        deleteCalendarOccurrence,
         showToast,
         removeToast,
       }}

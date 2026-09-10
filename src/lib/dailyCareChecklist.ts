@@ -1,11 +1,7 @@
 import type { CalendarEvent, HealthRecord, Pet } from '../types'
-import {
-  APP_TODAY,
-  isSameDay,
-  parseEventDate,
-  parseCzechDate,
-} from './dashboardDates'
+import { APP_TODAY, parseCzechDate } from './dashboardDates'
 import { getEventTypeLabel } from './calendarEventTypes'
+import { eventOccursOnDate } from './calendarRecurrence'
 import { isMedicationCurrentlyActive } from './medicationReminders'
 
 export type DailyCareTask = {
@@ -56,24 +52,18 @@ export function saveDailyCareCompleted(
 }
 
 function eventOccursOnDay(event: CalendarEvent, day: Date): boolean {
-  const start = parseEventDate(event.date)
-  if (Number.isNaN(start.getTime())) return false
+  const iso = toIsoDay(day)
 
   if (event.type === 'heat') {
-    const endIso = event.actualEndDate || event.expectedEndDate
-    if (!endIso) return isSameDay(start, day)
-    const end = parseEventDate(endIso)
-    const t = day.getTime()
-    return t >= start.getTime() && t <= end.getTime()
+    const endIso = event.actualEndDate || event.expectedEndDate || event.date
+    return iso >= event.date && iso <= endIso
   }
 
   if (event.type === 'pregnancy' && event.expectedBirthDate) {
-    const end = parseEventDate(event.expectedBirthDate)
-    const t = day.getTime()
-    return t >= start.getTime() && t <= end.getTime()
+    return iso >= event.date && iso <= event.expectedBirthDate
   }
 
-  return isSameDay(start, day)
+  return eventOccursOnDate(event, iso)
 }
 
 /** Tasks relevant for the pet on a given day (meds + calendar). */
@@ -90,7 +80,6 @@ export function buildDailyCareTasks(
   )
 
   for (const med of meds) {
-    // Only include if course covers today (active check already) and reminder/schedule exists or always daily for active meds
     const start = parseCzechDate(med.date)
     if (start && day.getTime() < start.getTime() - 12 * 60 * 60 * 1000) continue
 
@@ -104,11 +93,11 @@ export function buildDailyCareTasks(
   }
 
   const events = calendarEvents.filter(
-    (event) => event.petName === pet.name && eventOccursOnDay(event, day),
+    (event) =>
+      (event.petId === pet.id || event.petName === pet.name) && eventOccursOnDay(event, day),
   )
 
   for (const event of events) {
-    // Skip auto medication calendar clones if we already list the health record
     if (event.sourceRecordId && tasks.some((t) => t.id === `med:${event.sourceRecordId}`)) {
       continue
     }

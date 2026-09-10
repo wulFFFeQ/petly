@@ -37,7 +37,13 @@ export function OptionSelect({
   const listboxId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
-  const [panelStyle, setPanelStyle] = useState({ top: 0, left: 0, width: 0 })
+  const [panelStyle, setPanelStyle] = useState({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 0,
+    openUp: false,
+  })
 
   const selected = options.find((option) => option.value === value)
 
@@ -47,10 +53,16 @@ export function OptionSelect({
     const updatePosition = () => {
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
+      const listMax = 224 // ~max-h-56
+      const spaceBelow = window.innerHeight - rect.bottom - 12
+      const spaceAbove = rect.top - 12
+      const openUp = spaceBelow < Math.min(listMax, 160) && spaceAbove > spaceBelow
       setPanelStyle({
-        top: rect.bottom + 6,
+        top: openUp ? 0 : rect.bottom + 6,
+        bottom: openUp ? window.innerHeight - rect.top + 6 : 0,
         left: rect.left,
         width: rect.width,
+        openUp,
       })
     }
 
@@ -99,7 +111,8 @@ export function OptionSelect({
           aria-label={label}
           className="fixed z-[70] overflow-hidden rounded-xl border border-[#E8E4DC] bg-white shadow-[0_12px_32px_rgba(25,30,27,0.12)]"
           style={{
-            top: panelStyle.top,
+            top: panelStyle.openUp ? undefined : panelStyle.top,
+            bottom: panelStyle.openUp ? panelStyle.bottom : undefined,
             left: panelStyle.left,
             width: panelStyle.width,
           }}

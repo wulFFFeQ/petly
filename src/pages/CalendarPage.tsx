@@ -5,7 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
 
 export function CalendarPage() {
-  const { setActiveModal } = useApp()
+  const { openNewCalendarEvent } = useApp()
 
   return (
     <div className="space-y-8">
@@ -18,11 +18,11 @@ export function CalendarPage() {
           <Button
             variant="primary"
             size="md"
-            onClick={() => setActiveModal('bookVet')}
+            onClick={() => openNewCalendarEvent()}
             className="gap-2 shadow-sm"
           >
             <CalendarPlus size={16} />
-            <span>Nový termín</span>
+            <span>Nová událost</span>
           </Button>
         }
       />

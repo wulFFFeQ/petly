@@ -97,6 +97,42 @@ export type EventType =
   | 'community_meetup'
   | 'custom'
   | 'feeding'
+  | 'checkup'
+  | 'health_other'
+  | 'care_other'
+  | 'walk'
+  | 'sport'
+  | 'activity_other'
+  | 'judging'
+  | 'show_entry'
+  | 'show_other'
+  | 'pregnancy_check'
+  | 'weaning'
+  | 'breeding_other'
+
+/** How a calendar event series repeats. */
+export type RecurrenceFrequency =
+  | 'none'
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'yearly'
+  | 'custom'
+
+export interface EventRecurrence {
+  frequency: RecurrenceFrequency
+  /** Every N days/weeks/months/years (custom = every N days). Default 1. */
+  interval?: number
+  /** 0 = Mon … 6 = Sun (app calendar week). Used for weekly. */
+  weekDays?: number[]
+  /** Inclusive end date (YYYY-MM-DD). Omit for no end. */
+  endDate?: string
+}
+
+export type ReminderOffset = '15m' | '1h' | '1d' | '2d' | 'custom'
+
+/** Scope when editing/deleting a recurring occurrence. */
+export type RecurrenceEditScope = 'this' | 'following' | 'series'
 
 export type HealthRecordType =
   | 'vaccination'
@@ -402,6 +438,8 @@ export interface CalendarEvent {
   id: string
   title: string
   petName: string
+  /** Stable pet link for future pet filters (name kept for display / legacy). */
+  petId?: string
   type: EventType
   date: string
   time?: string
@@ -409,6 +447,15 @@ export interface CalendarEvent {
   notes?: string
   /** Optional reminder flag for medication / treatment calendar events. */
   reminderEnabled?: boolean
+  reminderOffset?: ReminderOffset
+  reminderCustomMinutes?: number
+  recurrence?: EventRecurrence
+  /** Dates skipped from a series (YYYY-MM-DD). */
+  excludedDates?: string[]
+  /** Detached occurrence: points at the series master. */
+  seriesId?: string
+  /** Original occurrence date this detached row replaces. */
+  originalDate?: string
   /** For pregnancy events: expected whelping / queening date. */
   expectedBirthDate?: string
   /** For heat events: estimated end of heat (auto-suggested ~21 days). */
@@ -417,6 +464,13 @@ export interface CalendarEvent {
   actualEndDate?: string
   /** Links medication reminder events to a health record. */
   sourceRecordId?: string
+  /** Type-specific details */
+  dosage?: string
+  medicationName?: string
+  vaccineName?: string
+  nextBoosterDate?: string
+  partnerName?: string
+  showClass?: string
 }
 
 export interface AppNotification {

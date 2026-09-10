@@ -14,23 +14,38 @@ import { BRAND_NAME } from '../../lib/brand'
 import {
   CALENDAR_CATEGORY_OPTIONS,
   eachIsoDateInclusive,
+  getCalendarChipTitle,
   getCategoryLabel,
   getEventCategory,
   getEventCategoryStyle,
   getEventVisualStyle,
   getHeatPeriodEndDate,
 } from '../../lib/calendarEventTypes'
+import {
+  expandEventsInRange,
+  isRecurring,
+  type CalendarOccurrence,
+} from '../../lib/calendarRecurrence'
+import { APP_TODAY } from '../../lib/dashboardDates'
 import { useApp } from '../../context/AppContext'
-import type { CalendarEvent, CalendarEventCategory } from '../../types'
+import type { CalendarEventCategory, RecurrenceEditScope } from '../../types'
 import { cn } from '../../lib/utils'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Card } from '../ui/Card'
+import { RECURRENCE_SCOPE_LABELS } from '../../lib/calendarRecurrence'
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
+const VISIBLE_CHIPS = 2
 
-type CalendarDayEvent = CalendarEvent & {
+type CalendarDayEvent = CalendarOccurrence & {
   calendarRole?: 'start' | 'due' | 'heat-active' | 'heat-end' | 'heat-actual'
+}
+
+function toIsoDay(year: number, month: number, day: number): string {
+  const m = String(month + 1).padStart(2, '0')
+  const d = String(day).padStart(2, '0')
+  return `${year}-${m}-${d}`
 }
 
 function getDaysInMonth(year: number, month: number) {
@@ -60,20 +75,31 @@ export function CalendarGrid() {
   const {
     calendarEvents,
     setActiveModal,
+    openNewCalendarEvent,
     showToast,
     calendarFocusDate,
     clearCalendarFocusDate,
     openEditCalendarEvent,
     deleteCalendarEvent,
+    deleteCalendarOccurrence,
   } = useApp()
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 8, 1))
-  const [selectedDay, setSelectedDay] = useState<number | null>(1)
+  const [currentDate, setCurrentDate] = useState(
+    () => new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), 1),
+  )
+  const [selectedDay, setSelectedDay] = useState<number | null>(APP_TODAY.getDate())
   const [filterCategory, setFilterCategory] = useState<CalendarEventCategory | 'all'>('all')
+  const [deletePrompt, setDeletePrompt] = useState<{
+    event: CalendarDayEvent
+    occurrenceDate: string
+  } | null>(null)
+  const [deleteScope, setDeleteScope] = useState<RecurrenceEditScope>('this')
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfMonth(year, month)
+  const rangeStart = toIsoDay(year, month, 1)
+  const rangeEnd = toIsoDay(year, month, daysInMonth)
 
   useEffect(() => {
     if (!calendarFocusDate) return
@@ -104,6 +130,7 @@ export function CalendarGrid() {
 
   const eventsByDay = useMemo(() => {
     const map: Record<number, CalendarDayEvent[]> = {}
+
     filteredEvents.forEach((event) => {
       const isPregnancy = event.type === 'pregnancy'
       const isHeat = event.type === 'heat'
@@ -131,27 +158,59 @@ export function CalendarGrid() {
             ...event,
             title,
             calendarRole,
+            occurrenceDate: iso,
+            occurrenceId: `${event.id}@${iso}`,
+            isRecurringOccurrence: false,
           })
         })
         return
       }
 
-      addEventToDayMap(map, event.date, year, month, {
-        ...event,
-        calendarRole: isPregnancy ? 'start' : undefined,
-      })
-      if (isPregnancy && event.expectedBirthDate) {
-        addEventToDayMap(map, event.expectedBirthDate, year, month, {
+      if (isPregnancy) {
+        addEventToDayMap(map, event.date, year, month, {
           ...event,
-          title: `Předpoklad porodu · ${event.petName}`,
-          calendarRole: 'due',
+          calendarRole: 'start',
+          occurrenceDate: event.date,
+          occurrenceId: `${event.id}@${event.date}`,
+          isRecurringOccurrence: false,
         })
+        if (event.expectedBirthDate) {
+          addEventToDayMap(map, event.expectedBirthDate, year, month, {
+            ...event,
+            title: `Předpoklad porodu · ${event.petName}`,
+            calendarRole: 'due',
+            occurrenceDate: event.expectedBirthDate,
+            occurrenceId: `${event.id}@due@${event.expectedBirthDate}`,
+            isRecurringOccurrence: false,
+          })
+        }
+        return
       }
+
+      const dates = expandEventsInRange([event], rangeStart, rangeEnd)
+      dates.forEach((occ) => {
+        addEventToDayMap(map, occ.occurrenceDate, year, month, {
+          ...occ,
+          calendarRole: undefined,
+        })
+      })
     })
+
+    Object.keys(map).forEach((key) => {
+      map[Number(key)].sort((a, b) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99'))
+    })
+
     return map
-  }, [filteredEvents, year, month])
+  }, [filteredEvents, year, month, rangeStart, rangeEnd])
 
   const selectedEvents = selectedDay ? eventsByDay[selectedDay] || [] : []
+  const selectedIso =
+    selectedDay != null ? toIsoDay(year, month, selectedDay) : null
+
+  const goToday = () => {
+    setCurrentDate(new Date(APP_TODAY.getFullYear(), APP_TODAY.getMonth(), 1))
+    setSelectedDay(APP_TODAY.getDate())
+  }
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
@@ -168,7 +227,48 @@ export function CalendarGrid() {
     )
   }
 
-  const filterCategories = CALENDAR_CATEGORY_OPTIONS
+  const openAddForSelectedDay = () => {
+    if (selectedIso) {
+      openNewCalendarEvent({ date: selectedIso })
+    } else {
+      setActiveModal('bookVet')
+    }
+  }
+
+  const handleEdit = (event: CalendarDayEvent) => {
+    if (event.type === 'heat' || event.type === 'pregnancy') {
+      const master = calendarEvents.find((e) => e.id === event.id)
+      openEditCalendarEvent(event.id, {
+        occurrenceDate: master?.date ?? event.date,
+      })
+      return
+    }
+    openEditCalendarEvent(event.id, { occurrenceDate: event.occurrenceDate })
+  }
+
+  const handleDeleteRequest = (event: CalendarDayEvent) => {
+    if (isRecurring(event) && !event.seriesId) {
+      setDeletePrompt({ event, occurrenceDate: event.occurrenceDate })
+      setDeleteScope('this')
+      return
+    }
+    deleteCalendarEvent(event.id)
+  }
+
+  const confirmDelete = () => {
+    if (!deletePrompt) return
+    deleteCalendarOccurrence(
+      deletePrompt.event.id,
+      deletePrompt.occurrenceDate,
+      deleteScope,
+    )
+    setDeletePrompt(null)
+  }
+
+  const isAppToday = (day: number) =>
+    day === APP_TODAY.getDate() &&
+    month === APP_TODAY.getMonth() &&
+    year === APP_TODAY.getFullYear()
 
   return (
     <div className="space-y-6">
@@ -185,7 +285,7 @@ export function CalendarGrid() {
         >
           Všechny události ({calendarEvents.length})
         </button>
-        {filterCategories.map((option) => {
+        {CALENDAR_CATEGORY_OPTIONS.map((option) => {
           const style = getEventCategoryStyle(option.value)
           const count = calendarEvents.filter(
             (e) => getEventCategory(e.type) === option.value,
@@ -218,7 +318,7 @@ export function CalendarGrid() {
                 {monthLabel}
               </h3>
               <Badge variant="gold" size="sm">
-                Harmonogram 2026
+                Harmonogram {year}
               </Badge>
             </div>
 
@@ -233,7 +333,7 @@ export function CalendarGrid() {
               </button>
               <button
                 type="button"
-                onClick={() => setCurrentDate(new Date(2026, 8, 1))}
+                onClick={goToday}
                 className="px-2.5 py-1 text-xs font-semibold text-[#2C4A3E] hover:bg-white rounded-lg transition-colors cursor-pointer"
               >
                 Dnes
@@ -270,18 +370,27 @@ export function CalendarGrid() {
               }
               const dayEvents = eventsByDay[day] || []
               const isSelected = selectedDay === day
-              const isToday = day === 1 && month === 8 && year === 2026
+              const today = isAppToday(day)
+              const visible = dayEvents.slice(0, VISIBLE_CHIPS)
+              const overflow = dayEvents.length - VISIBLE_CHIPS
 
               return (
-                <button
+                <div
                   key={day}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedDay(day)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedDay(day)
+                    }
+                  }}
                   className={cn(
                     'relative flex min-h-[85px] flex-col items-start rounded-xl p-2 text-left transition-all duration-200 cursor-pointer border',
                     isSelected
                       ? 'bg-[#EBF2EE] border-[#2C4A3E] shadow-sm ring-2 ring-[#2C4A3E]/20'
-                      : isToday
+                      : today
                         ? 'bg-white border-[#B8934A] shadow-xs'
                         : 'bg-white border-[#E8E4DC] hover:border-[#D1E0D8] hover:bg-[#FAF8F5]',
                   )}
@@ -290,7 +399,7 @@ export function CalendarGrid() {
                     <span
                       className={cn(
                         'text-xs font-bold',
-                        isToday
+                        today
                           ? 'text-[#B8934A]'
                           : isSelected
                             ? 'text-[#2C4A3E]'
@@ -299,7 +408,7 @@ export function CalendarGrid() {
                     >
                       {day}
                     </span>
-                    {isToday && (
+                    {today && (
                       <span className="text-[9px] font-bold uppercase text-[#B8934A] bg-[#FAF4E6] px-1 rounded">
                         Teď
                       </span>
@@ -307,29 +416,43 @@ export function CalendarGrid() {
                   </div>
 
                   <div className="mt-1.5 flex flex-col gap-1 w-full overflow-hidden">
-                    {dayEvents.slice(0, 3).map((event) => {
+                    {visible.map((event) => {
                       const style = getEventVisualStyle(event.type)
                       return (
-                        <div
-                          key={`${event.id}-${event.calendarRole ?? 'main'}`}
+                        <button
+                          key={event.occurrenceId}
+                          type="button"
+                          title={event.title}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedDay(day)
+                            handleEdit(event)
+                          }}
                           className={cn(
-                            'text-[10px] font-semibold truncate rounded px-1.5 py-0.5 border leading-tight',
+                            'text-[10px] font-semibold truncate rounded px-1.5 py-0.5 border leading-tight text-left w-full hover:opacity-90 transition-opacity cursor-pointer',
                             style.bg,
                             style.text,
                             style.border,
                           )}
                         >
-                          {event.title}
-                        </div>
+                          {getCalendarChipTitle(event)}
+                        </button>
                       )
                     })}
-                    {dayEvents.length > 3 && (
-                      <span className="text-[9px] font-bold text-[#7D8B82] pl-1">
-                        +{dayEvents.length - 3} dalších
-                      </span>
+                    {overflow > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedDay(day)
+                        }}
+                        className="text-[9px] font-bold text-[#7D8B82] pl-1 text-left hover:text-[#2C4A3E] cursor-pointer"
+                      >
+                        + {overflow} dalších
+                      </button>
                     )}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
@@ -351,7 +474,7 @@ export function CalendarGrid() {
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => setActiveModal('bookVet')}
+                onClick={openAddForSelectedDay}
                 className="gap-1 shadow-xs"
               >
                 <Plus size={14} />
@@ -362,10 +485,19 @@ export function CalendarGrid() {
             {selectedEvents.length === 0 ? (
               <div className="py-8 text-center text-xs text-[#7D8B82]">
                 <CalendarIcon size={24} className="mx-auto text-[#A3AEA7] mb-2" />
-                <p className="font-semibold text-[#191E1B]">Žádné naplánované události</p>
+                <p className="font-semibold text-[#191E1B]">Dnes tu nic není.</p>
                 <p className="mt-0.5">
-                  Klikněte na „Přidat událost“ pro záznam důležitého termínu.
+                  Užijte si klidný den s vaším mazlíčkem.
                 </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={openAddForSelectedDay}
+                  className="gap-1 mt-4"
+                >
+                  <Plus size={14} />
+                  <span>Přidat událost</span>
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -401,14 +533,14 @@ export function CalendarGrid() {
 
                   return (
                     <div
-                      key={`${event.id}-${event.calendarRole ?? 'main'}`}
+                      key={event.occurrenceId}
                       role="button"
                       tabIndex={0}
-                      onClick={() => openEditCalendarEvent(event.id)}
+                      onClick={() => handleEdit(event)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
-                          openEditCalendarEvent(event.id)
+                          handleEdit(event)
                         }
                       }}
                       className="rounded-2xl border border-[#E8E4DC] p-4 bg-[#FAF8F5] hover:bg-white hover:border-[#D1E0D8] hover:shadow-xs transition-all cursor-pointer text-left"
@@ -437,7 +569,7 @@ export function CalendarGrid() {
                             title="Upravit"
                             onClick={(e) => {
                               e.stopPropagation()
-                              openEditCalendarEvent(event.id)
+                              handleEdit(event)
                             }}
                             className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-[#EBF2EE] hover:text-[#2C4A3E] transition-colors cursor-pointer"
                           >
@@ -449,7 +581,7 @@ export function CalendarGrid() {
                             title="Smazat"
                             onClick={(e) => {
                               e.stopPropagation()
-                              deleteCalendarEvent(event.id)
+                              handleDeleteRequest(event)
                             }}
                             className="rounded-lg p-1.5 text-[#7D8B82] hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
                           >
@@ -479,7 +611,9 @@ export function CalendarGrid() {
                         <p className="mt-1.5 text-[11px] text-[#5A6660]">
                           Začátek březosti:{' '}
                           <strong className="text-[#191E1B]">
-                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                            {new Date(
+                              `${(calendarEvents.find((e) => e.id === event.id)?.date) ?? event.date}T12:00:00`,
+                            ).toLocaleDateString('cs-CZ')}
                           </strong>
                         </p>
                       )}
@@ -499,7 +633,9 @@ export function CalendarGrid() {
                         <p className="mt-1.5 text-[11px] text-[#5A6660]">
                           Období:{' '}
                           <strong className="text-[#191E1B]">
-                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                            {new Date(
+                              `${calendarEvents.find((e) => e.id === event.id)?.date ?? event.date}T12:00:00`,
+                            ).toLocaleDateString('cs-CZ')}
                             {' – '}
                             {new Date(
                               `${getHeatPeriodEndDate(event)}T12:00:00`,
@@ -508,22 +644,13 @@ export function CalendarGrid() {
                         </p>
                       )}
 
-                      {isHeatStart && event.actualEndDate && (
-                        <p className="mt-1 text-[11px] text-[#5A6660]">
-                          Skutečný konec:{' '}
-                          <strong className="text-[#191E1B]">
-                            {new Date(`${event.actualEndDate}T12:00:00`).toLocaleDateString(
-                              'cs-CZ',
-                            )}
-                          </strong>
-                        </p>
-                      )}
-
                       {(isHeatEnd || isHeatActual) && (
                         <p className="mt-1.5 text-[11px] text-[#5A6660]">
                           Začátek hárání:{' '}
                           <strong className="text-[#191E1B]">
-                            {new Date(`${event.date}T12:00:00`).toLocaleDateString('cs-CZ')}
+                            {new Date(
+                              `${calendarEvents.find((e) => e.id === event.id)?.date ?? event.date}T12:00:00`,
+                            ).toLocaleDateString('cs-CZ')}
                           </strong>
                         </p>
                       )}
@@ -540,14 +667,10 @@ export function CalendarGrid() {
                         !isHeatEnd &&
                         !isHeatActual &&
                         !isHeatActive && (
-                        <p className="mt-2 text-[11px] text-[#7D8B82] bg-white p-2 rounded-lg border border-[#E8E4DC]">
-                          {event.notes}
-                        </p>
-                      )}
-
-                      <p className="mt-2 text-[10px] font-medium text-[#A3AEA7]">
-                        Klepnutím upravíte
-                      </p>
+                          <p className="mt-2 text-[11px] text-[#7D8B82] bg-white p-2 rounded-lg border border-[#E8E4DC] line-clamp-2">
+                            {event.notes}
+                          </p>
+                        )}
                     </div>
                   )
                 })}
@@ -567,6 +690,47 @@ export function CalendarGrid() {
           </Card>
         </div>
       </div>
+
+      {deletePrompt && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DC] bg-white p-5 shadow-lg">
+            <h3 className="text-base font-bold text-[#191E1B]">Co chcete smazat?</h3>
+            <p className="mt-1 text-xs text-[#7D8B82]">
+              {deletePrompt.event.title} je součástí opakované série.
+            </p>
+            <div className="mt-4 space-y-2">
+              {(Object.keys(RECURRENCE_SCOPE_LABELS) as RecurrenceEditScope[]).map((scope) => (
+                <label
+                  key={scope}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm cursor-pointer transition-colors',
+                    deleteScope === scope
+                      ? 'border-[#2C4A3E] bg-[#EBF2EE] text-[#2C4A3E]'
+                      : 'border-[#E8E4DC] text-[#191E1B] hover:bg-[#FAF8F5]',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="delete-scope"
+                    checked={deleteScope === scope}
+                    onChange={() => setDeleteScope(scope)}
+                    className="text-[#2C4A3E] focus:ring-[#2C4A3E]/30"
+                  />
+                  {RECURRENCE_SCOPE_LABELS[scope]}
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setDeletePrompt(null)}>
+                Zrušit
+              </Button>
+              <Button type="button" variant="primary" size="sm" onClick={confirmDelete}>
+                Smazat
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

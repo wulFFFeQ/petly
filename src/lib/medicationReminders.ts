@@ -119,32 +119,45 @@ export function resolveReminderSchedule(record: HealthRecord): { date: string; t
 export function buildMedicationReminderEvents(
   record: HealthRecord,
   petName: string,
+  petId?: string,
 ): CalendarEvent[] {
   const { date, time } = resolveReminderSchedule(record)
   const days = normalizeReminderDays(record.reminderDays)
   const start = new Date(`${date}T12:00:00`)
+  const end = new Date(start)
+  end.setDate(start.getDate() + days - 1)
+  const endIso = toIsoDate(end)
+  const medName = record.subtitle?.trim() || record.title
 
-  return Array.from({ length: days }, (_, index) => {
-    const day = new Date(start)
-    day.setDate(start.getDate() + index)
-    return {
-      id: `cal_rem_${record.id}_${index}`,
-      title: `Lék · ${record.subtitle}`,
+  return [
+    {
+      id: `cal_rem_${record.id}`,
+      title: `Lék – ${medName}`,
       petName,
+      petId,
       type: 'medication' as const,
-      date: toIsoDate(day),
+      date,
       time,
       location: 'Doma',
       notes: [
-        `Den ${index + 1} z ${days}`,
         record.dosage ? `Dávkování: ${record.dosage}` : null,
+        `${formatReminderDaysLabel(days)} · do ${formatCzechShort(end)}`,
         'Připomínka z profilu mazlíčka',
       ]
         .filter(Boolean)
         .join(' · '),
+      dosage: record.dosage,
+      medicationName: medName,
+      reminderEnabled: true,
+      reminderOffset: '1h',
+      recurrence: {
+        frequency: 'daily',
+        interval: 1,
+        endDate: endIso,
+      },
       sourceRecordId: record.id,
-    }
-  })
+    },
+  ]
 }
 
 /** @deprecated use buildMedicationReminderEvents */

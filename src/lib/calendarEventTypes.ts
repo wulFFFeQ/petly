@@ -30,54 +30,66 @@ export const EVENT_TYPES_BY_CATEGORY: Record<
     { value: 'vet', label: 'Veterinář / preventivní prohlídka' },
     { value: 'vaccination', label: 'Očkování' },
     { value: 'deworming', label: 'Odčervení' },
-    { value: 'antiparasitic', label: 'Antiparazitní ochrana' },
+    { value: 'antiparasitic', label: 'Antiparazitární ochrana' },
     { value: 'medication', label: 'Léky / léčba' },
     { value: 'examination', label: 'Vyšetření' },
-    { value: 'lab', label: 'Laboratorní vyšetření' },
+    { value: 'checkup', label: 'Kontrola' },
+    { value: 'lab', label: 'Odběr / laboratorní vyšetření' },
+    { value: 'rehab', label: 'Rehabilitace' },
     { value: 'surgery', label: 'Operace / zákrok' },
-    { value: 'rehab', label: 'Rehabilitace / fyzioterapie' },
     { value: 'dental', label: 'Dentální péče' },
+    { value: 'health_other', label: 'Jiná zdravotní událost' },
   ],
   care: [
     { value: 'grooming', label: 'Grooming / stříhání' },
     { value: 'bathing', label: 'Koupání' },
-    { value: 'nail_trim', label: 'Stříhání drápků' },
     { value: 'teeth_cleaning', label: 'Čištění zubů' },
+    { value: 'nail_trim', label: 'Stříhání drápků' },
     { value: 'ear_cleaning', label: 'Čištění uší' },
-    { value: 'coat_care', label: 'Úprava srsti' },
+    { value: 'coat_care', label: 'Péče o srst' },
+    { value: 'care_other', label: 'Jiná péče' },
   ],
   activity: [
-    { value: 'training', label: 'Výcvik / trénink' },
-    { value: 'agility', label: 'Agility / sport' },
-    { value: 'socialization', label: 'Socializace' },
-    { value: 'course', label: 'Kurz / lekce' },
-    { value: 'doggy_daycare', label: 'Psí školka' },
-    { value: 'pet_sitting', label: 'Pet-sitting / hlídání' },
+    { value: 'training', label: 'Trénink' },
+    { value: 'course', label: 'Výcvik' },
+    { value: 'walk', label: 'Procházka' },
     { value: 'trip', label: 'Výlet' },
-    { value: 'travel', label: 'Cestování' },
     { value: 'swimming', label: 'Plavání' },
-    { value: 'roadtrip', label: 'Roadtrip / výlet autem' },
-    { value: 'foreign_travel', label: 'Zahraniční cesta' },
-    { value: 'pet_friend', label: 'Nový zvířecí kamarád' },
+    { value: 'socialization', label: 'Socializace' },
+    { value: 'sport', label: 'Sport' },
+    { value: 'agility', label: 'Agility' },
+    { value: 'doggy_daycare', label: 'Psí školka' },
+    { value: 'activity_other', label: 'Jiná aktivita' },
   ],
   show: [
     { value: 'exhibition', label: 'Výstava' },
-    { value: 'competition', label: 'Soutěž / závod' },
-    { value: 'exam', label: 'Zkouška / zkoušky' },
+    { value: 'competition', label: 'Soutěž' },
+    { value: 'exam', label: 'Závod / zkouška' },
+    { value: 'judging', label: 'Posuzování' },
+    { value: 'show_entry', label: 'Přihláška' },
     { value: 'seminar', label: 'Seminář / workshop' },
+    { value: 'show_other', label: 'Jiná výstavní událost' },
   ],
   breeding: [
     { value: 'heat', label: 'Hárání' },
     { value: 'mating', label: 'Krytí' },
     { value: 'pregnancy', label: 'Březost' },
-    { value: 'birth', label: 'Porod / vrh' },
-    { value: 'litter_check', label: 'Kontrola vrhu' },
+    { value: 'birth', label: 'Porod' },
+    { value: 'pregnancy_check', label: 'Kontrola březosti' },
+    { value: 'litter_check', label: 'Vrh / kontrola vrhu' },
+    { value: 'weaning', label: 'Odstav štěňat / koťat' },
+    { value: 'breeding_other', label: 'Jiná chovatelská událost' },
   ],
   other: [
     { value: 'birthday', label: 'Narozeniny' },
-    { value: 'adoption_anniversary', label: 'Adopční výročí' },
+    { value: 'adoption_anniversary', label: 'Výročí adopce' },
+    { value: 'travel', label: 'Cestování' },
+    { value: 'pet_sitting', label: 'Hlídání' },
+    { value: 'roadtrip', label: 'Roadtrip' },
+    { value: 'foreign_travel', label: 'Zahraniční cesta' },
+    { value: 'pet_friend', label: 'Nový zvířecí kamarád' },
     { value: 'community_meetup', label: 'Setkání komunity' },
-    { value: 'custom', label: 'Vlastní událost' },
+    { value: 'custom', label: 'Jiná událost' },
   ],
 }
 
@@ -88,37 +100,49 @@ const EVENT_TYPE_TO_CATEGORY: Record<EventType, CalendarEventCategory> = {
   antiparasitic: 'health',
   medication: 'health',
   examination: 'health',
+  checkup: 'health',
   lab: 'health',
   surgery: 'health',
   rehab: 'health',
   dental: 'health',
+  health_other: 'health',
   grooming: 'care',
   bathing: 'care',
   nail_trim: 'care',
   teeth_cleaning: 'care',
   ear_cleaning: 'care',
   coat_care: 'care',
+  care_other: 'care',
   training: 'activity',
   agility: 'activity',
   socialization: 'activity',
   course: 'activity',
   doggy_daycare: 'activity',
-  pet_sitting: 'activity',
+  walk: 'activity',
+  sport: 'activity',
   trip: 'activity',
-  travel: 'activity',
   swimming: 'activity',
-  roadtrip: 'activity',
-  foreign_travel: 'activity',
-  pet_friend: 'activity',
+  activity_other: 'activity',
+  pet_sitting: 'other',
+  travel: 'other',
+  roadtrip: 'other',
+  foreign_travel: 'other',
+  pet_friend: 'other',
   exhibition: 'show',
   competition: 'show',
   exam: 'show',
   seminar: 'show',
+  judging: 'show',
+  show_entry: 'show',
+  show_other: 'show',
   heat: 'breeding',
   mating: 'breeding',
   pregnancy: 'breeding',
   birth: 'breeding',
   litter_check: 'breeding',
+  pregnancy_check: 'breeding',
+  weaning: 'breeding',
+  breeding_other: 'breeding',
   birthday: 'other',
   adoption_anniversary: 'other',
   community_meetup: 'other',
@@ -130,44 +154,56 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   vet: 'Veterinář / preventivní prohlídka',
   vaccination: 'Očkování',
   deworming: 'Odčervení',
-  antiparasitic: 'Antiparazitní ochrana',
+  antiparasitic: 'Antiparazitární ochrana',
   medication: 'Léky / léčba',
   examination: 'Vyšetření',
-  lab: 'Laboratorní vyšetření',
+  checkup: 'Kontrola',
+  lab: 'Odběr / laboratorní vyšetření',
   surgery: 'Operace / zákrok',
-  rehab: 'Rehabilitace / fyzioterapie',
+  rehab: 'Rehabilitace',
   dental: 'Dentální péče',
+  health_other: 'Jiná zdravotní událost',
   grooming: 'Grooming / stříhání',
   bathing: 'Koupání',
   nail_trim: 'Stříhání drápků',
   teeth_cleaning: 'Čištění zubů',
   ear_cleaning: 'Čištění uší',
-  coat_care: 'Úprava srsti',
-  training: 'Výcvik / trénink',
-  agility: 'Agility / sport',
+  coat_care: 'Péče o srst',
+  care_other: 'Jiná péče',
+  training: 'Trénink',
+  agility: 'Agility',
   socialization: 'Socializace',
-  course: 'Kurz / lekce',
+  course: 'Výcvik',
   doggy_daycare: 'Psí školka',
-  pet_sitting: 'Pet-sitting / hlídání',
+  walk: 'Procházka',
+  sport: 'Sport',
+  activity_other: 'Jiná aktivita',
+  pet_sitting: 'Hlídání',
   trip: 'Výlet',
   travel: 'Cestování',
   swimming: 'Plavání',
-  roadtrip: 'Roadtrip / výlet autem',
+  roadtrip: 'Roadtrip',
   foreign_travel: 'Zahraniční cesta',
   pet_friend: 'Nový zvířecí kamarád',
   exhibition: 'Výstava',
-  competition: 'Soutěž / závod',
-  exam: 'Zkouška / zkoušky',
+  competition: 'Soutěž',
+  exam: 'Závod / zkouška',
   seminar: 'Seminář / workshop',
+  judging: 'Posuzování',
+  show_entry: 'Přihláška',
+  show_other: 'Jiná výstavní událost',
   heat: 'Hárání',
   mating: 'Krytí',
   pregnancy: 'Březost',
-  birth: 'Porod / vrh',
-  litter_check: 'Kontrola vrhu',
+  birth: 'Porod',
+  litter_check: 'Vrh / kontrola vrhu',
+  pregnancy_check: 'Kontrola březosti',
+  weaning: 'Odstav štěňat / koťat',
+  breeding_other: 'Jiná chovatelská událost',
   birthday: 'Narozeniny',
-  adoption_anniversary: 'Adopční výročí',
+  adoption_anniversary: 'Výročí adopce',
   community_meetup: 'Setkání komunity',
-  custom: 'Vlastní událost',
+  custom: 'Jiná událost',
   feeding: 'Krmení',
 }
 
@@ -198,12 +234,29 @@ export function getDefaultEventTitle(type: EventType): string {
 }
 
 export function getLocationFieldLabel(type: EventType): string {
-  if (type === 'exhibition' || type === 'competition' || type === 'seminar') {
+  if (
+    type === 'exhibition' ||
+    type === 'competition' ||
+    type === 'seminar' ||
+    type === 'judging' ||
+    type === 'show_entry'
+  ) {
     return 'Místo konání'
   }
-  if (type === 'vet' || type === 'vaccination' || type === 'surgery' || type === 'lab') {
-    return 'Místo (klinika)'
+  if (
+    type === 'vet' ||
+    type === 'vaccination' ||
+    type === 'surgery' ||
+    type === 'lab' ||
+    type === 'checkup' ||
+    type === 'examination'
+  ) {
+    return 'Klinika / veterinář'
   }
+  if (type === 'grooming' || type === 'bathing' || type === 'coat_care') {
+    return 'Poskytovatel / místo'
+  }
+  if (type === 'mating') return 'Místo'
   if (type === 'trip' || type === 'travel' || type === 'roadtrip' || type === 'foreign_travel') {
     return 'Destinace'
   }
@@ -241,8 +294,47 @@ export function getDefaultEventLocation(type: EventType): string {
   }
 }
 
-export function eventSupportsReminder(type: EventType): boolean {
-  return type === 'medication' || type === 'deworming' || type === 'antiparasitic'
+/** Reminder is available for virtually all calendar event types. */
+export function eventSupportsReminder(_type: EventType): boolean {
+  return true
+}
+
+/** Compact label for month-grid chips — prefer short readable names over truncated long titles. */
+export function getCalendarChipTitle(event: {
+  type: EventType
+  title: string
+  medicationName?: string
+  vaccineName?: string
+  partnerName?: string
+}): string {
+  if (event.type === 'medication') {
+    const name = event.medicationName?.trim()
+    if (name) return name.length > 18 ? `Lék – ${name.slice(0, 16)}…` : `Lék – ${name}`
+    const fromTitle = event.title.replace(/^Lék\s*[·–-]\s*/i, '').trim()
+    if (fromTitle && fromTitle !== event.title) {
+      return fromTitle.length > 16 ? `Lék – ${fromTitle.slice(0, 14)}…` : `Lék – ${fromTitle}`
+    }
+    return 'Lék'
+  }
+  if (event.type === 'vaccination' && event.vaccineName?.trim()) {
+    const v = event.vaccineName.trim()
+    return v.length > 18 ? v.slice(0, 17) + '…' : v
+  }
+  if (event.type === 'mating' && event.partnerName?.trim()) {
+    return `Krytí · ${event.partnerName.trim()}`
+  }
+  const shortType = getEventTypeLabel(event.type)
+  if (!event.title || event.title === shortType) {
+    // Prefer shorter chip for long type labels
+    if (event.type === 'vet') return 'Veterinář'
+    if (event.type === 'antiparasitic') return 'Antiparazitika'
+    if (event.type === 'deworming') return 'Odčervení'
+    if (event.type === 'grooming') return 'Grooming'
+    if (event.type === 'birthday') return 'Narozeniny'
+    return shortType.length > 20 ? shortType.slice(0, 18) + '…' : shortType
+  }
+  if (event.title.length <= 22) return event.title
+  return event.title.slice(0, 20) + '…'
 }
 
 export function getAvailableCategories(hasBreedingProfile: boolean): CalendarCategoryOption[] {
@@ -264,21 +356,12 @@ export function getEventTypesForCategory(
   return types.filter((option) => {
     // Males: only mating remains relevant among breeding events.
     if (!isFemale) {
-      return option.value === 'mating'
+      return option.value === 'mating' || option.value === 'breeding_other'
     }
 
     // Hárání is dog-specific terminology / flow for feny.
     if (option.value === 'heat') {
       return !petType || petType === 'dog'
-    }
-
-    // Pregnancy, birth, litter check: female dogs and cats only.
-    if (
-      option.value === 'pregnancy' ||
-      option.value === 'birth' ||
-      option.value === 'litter_check'
-    ) {
-      return true
     }
 
     return true

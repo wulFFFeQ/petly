@@ -1040,13 +1040,22 @@ export const calendarEvents: CalendarEvent[] = [
   },
   {
     id: 'c3',
-    title: 'Kloubní léky',
+    title: 'Lék – Glukosamin',
     petName: 'Bella',
     type: 'medication',
     date: '2026-09-01',
     time: '20:00',
     location: 'Doma',
     notes: '1 tableta glukosaminu s jídlem',
+    medicationName: 'Glukosamin',
+    dosage: '1 tableta s jídlem',
+    reminderEnabled: true,
+    reminderOffset: '1h',
+    recurrence: {
+      frequency: 'daily',
+      interval: 1,
+      endDate: '2026-09-30',
+    },
   },
   {
     id: 'c4',
@@ -1067,6 +1076,10 @@ export const calendarEvents: CalendarEvent[] = [
     time: '18:00',
     location: 'Doma',
     notes: 'Malá oslava s rodinou',
+    recurrence: {
+      frequency: 'yearly',
+      interval: 1,
+    },
   },
   {
     id: 'c6',
