@@ -13,6 +13,7 @@ import { BadgesSection } from '../components/badges/BadgesSection'
 import { MembershipSection } from '../components/entitlements/MembershipSection'
 import { PrivacyOverviewSection } from '../components/privacy/PrivacyOverviewSection'
 import { AccountVerificationSection } from '../components/verification/AccountVerificationSection'
+import { AccountRolesSection } from '../components/account/AccountRolesSection'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -217,6 +218,10 @@ export function SettingsPage() {
 
         <Card variant="elevated">
           <AccountVerificationSection />
+        </Card>
+
+        <Card variant="elevated">
+          <AccountRolesSection />
         </Card>
 
         <Card variant="elevated">

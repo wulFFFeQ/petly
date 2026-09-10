@@ -3,14 +3,17 @@ import { isProfessionalType } from './roles'
 import {
   ACCOUNT_KINDS,
   PROFESSIONAL_ACCESS_STATUSES,
+  PROFESSIONAL_PUBLIC_VISIBILITIES,
   type Account,
   type AccountKind,
   type AccountRole,
+  type Organization,
   type PetProfessionalAccess,
   type ProfessionalAccessLog,
   type ProfessionalAccessLogAction,
   type ProfessionalAccessStatus,
   type ProfessionalProfile,
+  type ProfessionalPublicVisibility,
   type ProfessionalType,
   type ProfessionalVerificationStatus,
 } from './types'
@@ -19,9 +22,11 @@ export const ACCOUNTS_STORAGE_KEY = 'lovedandknown.accounts'
 export const PROFESSIONAL_PROFILES_STORAGE_KEY = 'lovedandknown.professionalProfiles'
 export const PET_PROFESSIONAL_ACCESS_STORAGE_KEY = 'lovedandknown.petProfessionalAccess'
 export const PROFESSIONAL_ACCESS_LOGS_STORAGE_KEY = 'lovedandknown.professionalAccessLogs'
+export const ORGANIZATIONS_STORAGE_KEY = 'lovedandknown.organizations'
 
 const KIND_SET = new Set<string>(ACCOUNT_KINDS)
 const STATUS_SET = new Set<string>(PROFESSIONAL_ACCESS_STATUSES)
+const VISIBILITY_SET = new Set<string>(PROFESSIONAL_PUBLIC_VISIBILITIES)
 const VERIFICATION_STATUS_SET = new Set([
   'unverified',
   'pending',
@@ -143,6 +148,28 @@ export function normalizeProfessionalProfile(raw: unknown): ProfessionalProfile 
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
       .map((s) => s.trim())
   }
+  if (Array.isArray(raw.services)) {
+    profile.services = raw.services
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+      .map((s) => s.trim())
+  }
+  if (typeof raw.profilePhotoUrl === 'string' && raw.profilePhotoUrl.trim()) {
+    profile.profilePhotoUrl = raw.profilePhotoUrl.trim()
+  }
+  if (typeof raw.logoUrl === 'string' && raw.logoUrl.trim()) {
+    profile.logoUrl = raw.logoUrl.trim()
+  }
+  if (
+    typeof raw.publicVisibility === 'string' &&
+    VISIBILITY_SET.has(raw.publicVisibility)
+  ) {
+    profile.publicVisibility = raw.publicVisibility as ProfessionalPublicVisibility
+  } else {
+    profile.publicVisibility = 'private'
+  }
+  if (typeof raw.organizationId === 'string' && raw.organizationId.trim()) {
+    profile.organizationId = raw.organizationId.trim()
+  }
   if (isRecord(raw.professionalCredentials)) {
     const creds: NonNullable<ProfessionalProfile['professionalCredentials']> = {}
     if (typeof raw.professionalCredentials.licenseNumber === 'string') {
@@ -160,6 +187,50 @@ export function normalizeProfessionalProfile(raw: unknown): ProfessionalProfile 
   }
 
   return profile
+}
+
+export function normalizeOrganization(raw: unknown): Organization | null {
+  if (!isRecord(raw)) return null
+  const id = typeof raw.id === 'string' ? raw.id.trim() : ''
+  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  const typeRaw = typeof raw.type === 'string' ? raw.type.trim() : ''
+  if (!id || !name || !typeRaw || !isProfessionalType(typeRaw)) return null
+
+  const membersRaw = Array.isArray(raw.memberAccountIds) ? raw.memberAccountIds : []
+  const memberAccountIds: string[] = []
+  for (const m of membersRaw) {
+    if (typeof m !== 'string' || !m.trim()) continue
+    const mid = m.trim()
+    if (!memberAccountIds.includes(mid)) memberAccountIds.push(mid)
+  }
+
+  return {
+    id,
+    type: typeRaw as ProfessionalType,
+    name,
+    memberAccountIds,
+    createdAt:
+      typeof raw.createdAt === 'string' && raw.createdAt.trim()
+        ? raw.createdAt.trim()
+        : new Date(0).toISOString(),
+    updatedAt:
+      typeof raw.updatedAt === 'string' && raw.updatedAt.trim()
+        ? raw.updatedAt.trim()
+        : new Date(0).toISOString(),
+  }
+}
+
+export function normalizeOrganizations(raw: unknown): Organization[] {
+  if (!Array.isArray(raw)) return []
+  const out: Organization[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    const o = normalizeOrganization(item)
+    if (!o || seen.has(o.id)) continue
+    seen.add(o.id)
+    out.push(o)
+  }
+  return out
 }
 
 export function normalizeProfessionalProfiles(raw: unknown): ProfessionalProfile[] {
@@ -301,4 +372,12 @@ export function loadProfessionalAccessLogs(): ProfessionalAccessLog[] {
 
 export function saveProfessionalAccessLogs(list: ProfessionalAccessLog[]): void {
   saveJson(PROFESSIONAL_ACCESS_LOGS_STORAGE_KEY, normalizeAccessLogs(list))
+}
+
+export function loadOrganizations(): Organization[] {
+  return normalizeOrganizations(loadJson(ORGANIZATIONS_STORAGE_KEY))
+}
+
+export function saveOrganizations(list: Organization[]): void {
+  saveJson(ORGANIZATIONS_STORAGE_KEY, normalizeOrganizations(list))
 }

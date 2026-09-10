@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { OnboardingGate } from './components/account/OnboardingGate'
 import { AppLayout } from './components/layout/AppLayout'
 import { ScrollToTop } from './components/layout/ScrollToTop'
 import { ToastContainer } from './components/ui/Toast'
@@ -17,8 +18,10 @@ import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
 import { MessagesPage } from './pages/MessagesPage'
 import { MyPetsPage } from './pages/MyPetsPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { OwnerPublicPage } from './pages/OwnerPublicPage'
 import { PetProfilePage } from './pages/PetProfilePage'
+import { ProfessionalPublicPage } from './pages/ProfessionalPublicPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
 
@@ -49,6 +52,15 @@ function EmergencyPetLayout() {
   )
 }
 
+function OnboardingLayout() {
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]">
+      <OnboardingPage />
+      <ToastContainer />
+    </div>
+  )
+}
+
 function App() {
   const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
 
@@ -60,22 +72,29 @@ function App() {
           <Route path="found/:token" element={<FoundPetLayout />} />
           <Route path="lost/:token" element={<LostPetLayout />} />
           <Route path="pet/:slug/emergency" element={<EmergencyPetLayout />} />
-          <Route element={<AppLayout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="pets" element={<MyPetsPage />} />
-            <Route path="pets/:petId" element={<PetProfilePage />} />
-            <Route path="discover" element={<DiscoverPage />} />
-            <Route path="discover/:petId" element={<DiscoverPetPage />} />
-            <Route path="owners/:ownerId" element={<OwnerPublicPage />} />
-            <Route path="community" element={<CommunityPage />} />
-            <Route path="health" element={<HealthPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="messages" element={<MessagesPage />} />
-            <Route path="travel" element={<TravelPage />} />
-            <Route path="contacts" element={<ContactsPage />} />
-            <Route path="concierge" element={<ConciergePage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="help" element={<HelpPage />} />
+          <Route path="onboarding" element={<OnboardingLayout />} />
+          <Route element={<OnboardingGate />}>
+            <Route element={<AppLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="pets" element={<MyPetsPage />} />
+              <Route path="pets/:petId" element={<PetProfilePage />} />
+              <Route path="discover" element={<DiscoverPage />} />
+              <Route path="discover/:petId" element={<DiscoverPetPage />} />
+              <Route path="owners/:ownerId" element={<OwnerPublicPage />} />
+              <Route
+                path="professionals/:professionalId"
+                element={<ProfessionalPublicPage />}
+              />
+              <Route path="community" element={<CommunityPage />} />
+              <Route path="health" element={<HealthPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="messages" element={<MessagesPage />} />
+              <Route path="travel" element={<TravelPage />} />
+              <Route path="contacts" element={<ContactsPage />} />
+              <Route path="concierge" element={<ConciergePage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="help" element={<HelpPage />} />
+            </Route>
           </Route>
         </Routes>
       </AppProvider>

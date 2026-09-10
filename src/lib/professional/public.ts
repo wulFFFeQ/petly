@@ -10,12 +10,18 @@ export const PUBLIC_PROFESSIONAL_FORBIDDEN_KEYS = [
   'licenseNumber',
   'registrationId',
   'accountId',
+  'organizationId',
   'verifications',
   'metadata',
   'employee',
   'employees',
   'internalNotes',
   'verified',
+  'health',
+  'healthRecords',
+  'microchip',
+  'ownerContacts',
+  'publicVisibility',
 ] as const
 
 /**
@@ -51,11 +57,16 @@ export type ToPublicProfessionalOptions = {
 /**
  * Project a safe public professional profile.
  * Never includes street address, credentials, or DEMO trust as verified badge.
+ * Returns null when the profile is not publicly visible.
  */
 export function toPublicProfessionalProfile(
   profile: ProfessionalProfile,
   options: ToPublicProfessionalOptions = {},
-): PublicProfessionalProfile {
+): PublicProfessionalProfile | null {
+  if ((profile.publicVisibility ?? 'private') !== 'public') {
+    return null
+  }
+
   const includeContacts = options.includePublicContacts !== false
   const now = options.now ?? Date.now()
   const verifications = options.verifications ?? []
@@ -74,6 +85,15 @@ export function toPublicProfessionalProfile(
   }
   if (profile.specializations?.length) {
     pub.specializations = [...profile.specializations]
+  }
+  if (profile.services?.length) {
+    pub.services = [...profile.services]
+  }
+  if (profile.profilePhotoUrl?.trim()) {
+    pub.profilePhotoUrl = profile.profilePhotoUrl.trim()
+  }
+  if (profile.logoUrl?.trim()) {
+    pub.logoUrl = profile.logoUrl.trim()
   }
   if (profile.website?.trim()) {
     pub.website = profile.website.trim()

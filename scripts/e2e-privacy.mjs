@@ -53,6 +53,7 @@ async function runViewportSuite(browser, label, viewport) {
   await page.goto(BASE, { waitUntil: 'networkidle' })
   await page.evaluate(() => {
     localStorage.removeItem('lovedandknown.privacySettings')
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
   })
 
   await gotoSettings(page)

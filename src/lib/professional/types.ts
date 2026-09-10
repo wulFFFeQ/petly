@@ -3,6 +3,7 @@ export type {
   AccountKind,
   AccountRole,
   ConsumerRole,
+  Organization,
   PetProfessionalAccess,
   ProfessionalAccessLog,
   ProfessionalAccessLogAction,
@@ -10,6 +11,7 @@ export type {
   ProfessionalCredentials,
   ProfessionalPermission,
   ProfessionalProfile,
+  ProfessionalPublicVisibility,
   ProfessionalType,
   ProfessionalVerificationStatus,
   PublicProfessionalProfile,
@@ -24,7 +26,16 @@ export const KNOWN_PROFESSIONAL_TYPES = [
   'trainer',
   'breeder',
   'pet_hotel',
+  'pet_service',
 ] as const
+
+/** Organization-style roles (clinic / shelter / future salon teams). */
+export const ORGANIZATION_PROFESSIONAL_TYPES = [
+  'veterinary_clinic',
+  'shelter',
+] as const
+
+export const PROFESSIONAL_PUBLIC_VISIBILITIES = ['public', 'private'] as const
 
 export const CONSUMER_ROLES = ['owner'] as const
 

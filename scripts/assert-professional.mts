@@ -117,6 +117,7 @@ function baseProfile(overrides: Partial<ProfessionalProfile> = {}): Professional
       licenseNumber: 'VET-SECRET-999',
       registrationId: 'REG-HIDDEN',
     },
+    publicVisibility: 'public',
     verificationStatus: 'unverified',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -392,10 +393,11 @@ check('J – expired access stops applying', () => {
 check('K – public professional profile has no sensitive data', () => {
   const profile = baseProfile()
   const pub = toPublicProfessionalProfile(profile)
-  assertPublicProfessionalSafe(pub)
-  assert.equal(pub.displayName, 'MVDr. Novák')
-  assert.equal(pub.city, 'Praha')
-  assert.equal(pub.type, 'veterinarian')
+  assert.ok(pub)
+  assertPublicProfessionalSafe(pub!)
+  assert.equal(pub!.displayName, 'MVDr. Novák')
+  assert.equal(pub!.city, 'Praha')
+  assert.equal(pub!.type, 'veterinarian')
   const record = pub as Record<string, unknown>
   assert.equal(record.address, undefined)
   assert.equal(record.professionalCredentials, undefined)
@@ -408,7 +410,7 @@ check('K – public professional profile has no sensitive data', () => {
 check('L – verification badge not shown without real verified trust state', () => {
   const unverified = baseProfile({ verificationStatus: 'unverified' })
   assert.equal(hasProfessionalVerifiedBadge(unverified, []), false)
-  assert.equal(toPublicProfessionalProfile(unverified).verifiedBadge, undefined)
+  assert.equal(toPublicProfessionalProfile(unverified)?.verifiedBadge, undefined)
 
   const demoVer: Verification = {
     id: 'ver_demo_pro',
@@ -423,7 +425,10 @@ check('L – verification badge not shown without real verified trust state', ()
   const demoProfile = baseProfile({ verificationStatus: 'verified' })
   assert.equal(isActiveTrustVerification(demoVer), false)
   assert.equal(hasProfessionalVerifiedBadge(demoProfile, [demoVer]), false)
-  assert.equal(toPublicProfessionalProfile(demoProfile, { verifications: [demoVer] }).verifiedBadge, undefined)
+  assert.equal(
+    toPublicProfessionalProfile(demoProfile, { verifications: [demoVer] })?.verifiedBadge,
+    undefined,
+  )
 
   const trustVer: Verification = {
     id: 'ver_trust_pro',
@@ -437,7 +442,7 @@ check('L – verification badge not shown without real verified trust state', ()
   }
   assert.equal(hasProfessionalVerifiedBadge(demoProfile, [trustVer]), true)
   assert.equal(
-    toPublicProfessionalProfile(demoProfile, { verifications: [trustVer] }).verifiedBadge,
+    toPublicProfessionalProfile(demoProfile, { verifications: [trustVer] })?.verifiedBadge,
     true,
   )
 })

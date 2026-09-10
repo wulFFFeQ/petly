@@ -15,6 +15,7 @@ export type ProfessionalType =
   | 'trainer'
   | 'breeder'
   | 'pet_hotel'
+  | 'pet_service'
   | (string & {})
 
 /** Role on an account. Role ≠ data permission. */
@@ -45,6 +46,8 @@ export interface ProfessionalCredentials {
   specialties?: string[]
 }
 
+export type ProfessionalPublicVisibility = 'public' | 'private'
+
 export interface ProfessionalProfile {
   id: string
   accountId: string
@@ -62,8 +65,28 @@ export interface ProfessionalProfile {
   specializations?: string[]
   hoursSummary?: string
   professionalCredentials?: ProfessionalCredentials
+  profilePhotoUrl?: string
+  logoUrl?: string
+  services?: string[]
+  /** Default private — public route only when explicitly public. */
+  publicVisibility?: ProfessionalPublicVisibility
+  /** Optional link to Organization stub (clinic / shelter / salon). */
+  organizationId?: string
   /** Default unverified; DEMO vs trust handled via Verification records (KROK 16). */
   verificationStatus: ProfessionalVerificationStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Organization stub for clinics, shelters, salons, hotels.
+ * Team management is out of scope for KROK 19.
+ */
+export interface Organization {
+  id: string
+  type: ProfessionalType
+  name: string
+  memberAccountIds: string[]
   createdAt: string
   updatedAt: string
 }
@@ -133,6 +156,9 @@ export interface PublicProfessionalProfile {
   city?: string
   description?: string
   specializations?: string[]
+  services?: string[]
+  profilePhotoUrl?: string
+  logoUrl?: string
   publicEmail?: string
   publicPhone?: string
   website?: string

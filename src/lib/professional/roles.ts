@@ -47,3 +47,30 @@ export function isProfessionalAccount(account: Account | null | undefined): bool
 export function roleGrantsPetDataAccess(_role: AccountRole): false {
   return false
 }
+
+/**
+ * Idempotently add a role. Does not touch verification, entitlements, or pet access.
+ * Hybrid consumers keep kind `consumer`; org-only accounts stay `professional`.
+ */
+export function addAccountRole(account: Account, role: AccountRole): Account {
+  const roles = [...account.roles]
+  if (!roles.includes(role)) roles.push(role)
+
+  let kind = account.kind
+  if (role === 'owner') {
+    // Adding owner to a pro org account makes it a hybrid consumer-capable account.
+    kind = 'consumer'
+  } else if (isProfessionalType(role) && kind === 'consumer') {
+    // Stay consumer when already has owner (hybrid); kind stays consumer.
+    kind = 'consumer'
+  } else if (isProfessionalType(role) && !roles.includes('owner')) {
+    kind = 'professional'
+  }
+
+  return {
+    ...account,
+    kind,
+    roles,
+    updatedAt: new Date().toISOString(),
+  }
+}

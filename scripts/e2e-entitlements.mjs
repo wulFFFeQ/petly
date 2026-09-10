@@ -49,6 +49,7 @@ async function main() {
   await page.goto(BASE, { waitUntil: 'networkidle' })
   await page.evaluate(() => {
     localStorage.removeItem('lovedandknown.subscription')
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
   })
 
   await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle' })

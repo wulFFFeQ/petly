@@ -7,6 +7,7 @@ import {
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
+import { ensureDefaultSelfAccount } from '../lib/account'
 import {
   normalizeImportantContact,
   normalizeImportantContacts,
@@ -627,6 +628,10 @@ function loadInitialNotifications(): AppNotification[] {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // Bootstrap account before pets persist so fresh installs can show onboarding.
+  if (typeof window !== 'undefined') {
+    ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
+  }
   const [pets, setPets] = useState<Pet[]>(loadPets)
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
   const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
