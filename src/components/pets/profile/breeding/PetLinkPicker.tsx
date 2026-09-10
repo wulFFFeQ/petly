@@ -1,3 +1,4 @@
+import { useId, useState } from 'react'
 import type { Pet } from '../../../../types'
 import { OptionSelect } from '../../../ui/OptionSelect'
 import { Input } from '../../../ui/Input'
@@ -11,6 +12,7 @@ interface PetLinkPickerProps {
   onSelectName?: (name: string) => void
   label?: string
   allowNoneLabel?: string
+  id?: string
 }
 
 export function PetLinkPicker({
@@ -20,8 +22,10 @@ export function PetLinkPicker({
   onSelectPetId,
   onSelectName,
   label = 'Propojit s profilem v LOVED & KNOWN',
-  allowNoneLabel = 'Bez propojení (externí)',
+  allowNoneLabel = 'Bez propojení',
+  id,
 }: PetLinkPickerProps) {
+  const autoId = useId()
   const options = pets
     .filter((pet) => pet.id !== excludePetId)
     .map((pet) => ({
@@ -31,7 +35,7 @@ export function PetLinkPicker({
 
   return (
     <OptionSelect
-      id="breeding-pet-link"
+      id={id ?? autoId}
       label={label}
       value={selectedPetId ?? ''}
       onChange={(value) => {
@@ -49,6 +53,8 @@ export function PetLinkPicker({
   )
 }
 
+type PartnerSource = 'external' | 'linked'
+
 interface PartnerFieldsProps {
   pets: Pet[]
   excludePetId?: string
@@ -59,7 +65,10 @@ interface PartnerFieldsProps {
   nameLabel?: string
 }
 
-/** External name + optional L&K pet link (does not require creating a profile). */
+/**
+ * Explicit choice: either link an existing L&K pet, or enter an external partner.
+ * Never shows both inputs as competing primary fields at once.
+ */
 export function PartnerFields({
   pets,
   excludePetId,
@@ -69,23 +78,58 @@ export function PartnerFields({
   onPartnerPetIdChange,
   nameLabel = 'Partner / partnerka',
 }: PartnerFieldsProps) {
+  const sourceId = useId()
+  const [source, setSource] = useState<PartnerSource>(() =>
+    partnerPetId ? 'linked' : 'external',
+  )
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Input
-        id="breeding-partner-name"
-        label={nameLabel}
-        value={partnerName}
-        onChange={(e) => onPartnerNameChange(e.target.value)}
-        placeholder="Jméno (i externí)"
+    <div className="space-y-3">
+      <OptionSelect
+        id={sourceId}
+        label="Zdroj partnera"
+        value={source}
+        onChange={(value) => {
+          const next = value as PartnerSource
+          setSource(next)
+          if (next === 'external') {
+            onPartnerPetIdChange(undefined)
+          } else if (next === 'linked' && partnerPetId) {
+            const match = pets.find((pet) => pet.id === partnerPetId)
+            if (match) onPartnerNameChange(match.name)
+          }
+        }}
+        options={[
+          { value: 'external', label: 'Externí partner (ručně)' },
+          { value: 'linked', label: 'Existující profil v LOVED & KNOWN' },
+        ]}
       />
-      <PetLinkPicker
-        pets={pets}
-        excludePetId={excludePetId}
-        selectedPetId={partnerPetId}
-        onSelectPetId={onPartnerPetIdChange}
-        onSelectName={onPartnerNameChange}
-        label="Nebo vybrat existujícího mazlíčka"
-      />
+
+      {source === 'external' ? (
+        <Input
+          id={`${sourceId}-name`}
+          label={nameLabel}
+          value={partnerName}
+          onChange={(e) => onPartnerNameChange(e.target.value)}
+          placeholder="Jméno externího partnera"
+          hint="Profil v aplikaci se nevytváří."
+        />
+      ) : (
+        <PetLinkPicker
+          id={`${sourceId}-pet`}
+          pets={pets}
+          excludePetId={excludePetId}
+          selectedPetId={partnerPetId}
+          onSelectPetId={(id) => {
+            onPartnerPetIdChange(id)
+            if (!id) return
+            const match = pets.find((pet) => pet.id === id)
+            if (match) onPartnerNameChange(match.name)
+          }}
+          label={`Vybrat ${nameLabel.toLowerCase()}`}
+          allowNoneLabel="Vyberte mazlíčka…"
+        />
+      )}
     </div>
   )
 }

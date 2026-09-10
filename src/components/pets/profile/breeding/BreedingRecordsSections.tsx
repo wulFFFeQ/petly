@@ -17,6 +17,8 @@ import {
   removeListItem,
   setBreedingList,
   upsertListItem,
+  upsertPedigreeAncestor,
+  validateLitterCounts,
 } from '../../../../lib/breedingData'
 import { formatIsoDateToCzech } from '../../../../lib/petProfileUtils'
 import { Button } from '../../../ui/Button'
@@ -229,15 +231,11 @@ export function BreedingPedigreeSection({
                 linkedPetId: form.linkedPetId,
               }) as Partial<BreedingAncestor>),
             }
-            let nextList = list
-            if ((form.role === 'sire' || form.role === 'dam') && !editing) {
-              nextList = list.filter((a) => a.role !== form.role)
-            }
             onSave(
               setBreedingList(
                 pet.breeding,
                 'pedigree',
-                upsertListItem(nextList, base),
+                upsertPedigreeAncestor(list, base),
               ),
             )
             setOpen(false)
@@ -256,6 +254,16 @@ export function BreedingPedigreeSection({
               { value: 'other', label: 'Další předek' },
             ]}
           />
+          {(form.role === 'sire' || form.role === 'dam') &&
+            list.some(
+              (a) =>
+                a.role === form.role && a.id !== editing?.id,
+            ) && (
+              <p className="text-[11px] text-[#7D8B82]">
+                U tohoto profilu už {form.role === 'sire' ? 'otec' : 'matka'} existuje — uložením
+                se nahradí (nebude možné mít dva).
+              </p>
+            )}
           <Input
             id="anc-name"
             label="Jméno"
@@ -834,6 +842,7 @@ export function BreedingMatingsSection({
             onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
           />
           <PartnerFields
+            key={editing?.id ?? 'new-mating'}
             pets={pets}
             excludePetId={pet.id}
             partnerName={form.partnerName}
@@ -893,6 +902,7 @@ export function BreedingLittersSection({
   const list = pet.breeding?.litters ?? []
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<BreedingLitterRecord | null>(null)
+  const [countError, setCountError] = useState<string | null>(null)
   const [form, setForm] = useState({
     birthDate: '',
     totalCount: '',
@@ -908,6 +918,7 @@ export function BreedingLittersSection({
 
   const openNew = () => {
     setEditing(null)
+    setCountError(null)
     setForm({
       birthDate: '',
       totalCount: '',
@@ -923,6 +934,7 @@ export function BreedingLittersSection({
 
   const openEdit = (row: BreedingLitterRecord) => {
     setEditing(row)
+    setCountError(null)
     setForm({
       birthDate: row.birthDate ?? '',
       totalCount: row.totalCount != null ? String(row.totalCount) : '',
@@ -1006,14 +1018,23 @@ export function BreedingLittersSection({
               const n = Number(raw)
               return raw.trim() && !Number.isNaN(n) ? Math.max(0, Math.floor(n)) : undefined
             }
+            const totalCount = toNum(form.totalCount)
+            const maleCount = toNum(form.maleCount)
+            const femaleCount = toNum(form.femaleCount)
+            const countsCheck = validateLitterCounts({ totalCount, maleCount, femaleCount })
+            if (!countsCheck.ok) {
+              setCountError(countsCheck.message)
+              return
+            }
+            setCountError(null)
             const item: BreedingLitterRecord = {
               id: editing?.id ?? newBreedingRecordId('lit'),
               calendarEventId: editing?.calendarEventId,
               photoIds: editing?.photoIds,
               offspringPetIds: editing?.offspringPetIds,
-              totalCount: toNum(form.totalCount),
-              maleCount: toNum(form.maleCount),
-              femaleCount: toNum(form.femaleCount),
+              totalCount,
+              maleCount,
+              femaleCount,
               ...(pruneEmptyStrings({
                 birthDate: form.birthDate,
                 sireName: form.sireName,
@@ -1040,7 +1061,10 @@ export function BreedingLittersSection({
               type="number"
               min={0}
               value={form.totalCount}
-              onChange={(e) => setForm((prev) => ({ ...prev, totalCount: e.target.value }))}
+              onChange={(e) => {
+                setCountError(null)
+                setForm((prev) => ({ ...prev, totalCount: e.target.value }))
+              }}
             />
             <Input
               id="lit-m"
@@ -1048,7 +1072,11 @@ export function BreedingLittersSection({
               type="number"
               min={0}
               value={form.maleCount}
-              onChange={(e) => setForm((prev) => ({ ...prev, maleCount: e.target.value }))}
+              onChange={(e) => {
+                setCountError(null)
+                setForm((prev) => ({ ...prev, maleCount: e.target.value }))
+              }}
+              hint="Volitelné, pokud ještě není známé"
             />
             <Input
               id="lit-f"
@@ -1056,10 +1084,23 @@ export function BreedingLittersSection({
               type="number"
               min={0}
               value={form.femaleCount}
-              onChange={(e) => setForm((prev) => ({ ...prev, femaleCount: e.target.value }))}
+              onChange={(e) => {
+                setCountError(null)
+                setForm((prev) => ({ ...prev, femaleCount: e.target.value }))
+              }}
+              hint="Volitelné, pokud ještě není známé"
             />
           </div>
+          {countError && (
+            <p
+              role="alert"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800"
+            >
+              {countError}
+            </p>
+          )}
           <PartnerFields
+            key={editing?.id ?? 'new-litter'}
             pets={pets}
             excludePetId={pet.id}
             partnerName={form.sireName}

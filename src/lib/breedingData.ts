@@ -206,3 +206,48 @@ export function documentIdsLabel(count: number): string {
   if (count >= 2 && count <= 4) return `${count} dokumenty`
   return `${count} dokumentů`
 }
+
+/**
+ * Ensure at most one sire and one dam in the pedigree list.
+ * Replaces any existing ancestor with the same parental role (keeps history of other roles).
+ */
+export function upsertPedigreeAncestor(
+  list: BreedingAncestor[] | undefined,
+  ancestor: BreedingAncestor,
+): BreedingAncestor[] {
+  const current = list ?? []
+  const withoutSelf = current.filter((row) => row.id !== ancestor.id)
+  const withoutConflictingRole =
+    ancestor.role === 'sire' || ancestor.role === 'dam'
+      ? withoutSelf.filter((row) => row.role !== ancestor.role)
+      : withoutSelf
+  return [...withoutConflictingRole, ancestor]
+}
+
+/**
+ * When total + male + female are all provided, they must satisfy male + female === total.
+ * Missing gender counts are allowed (unknown).
+ */
+export function validateLitterCounts(input: {
+  totalCount?: number
+  maleCount?: number
+  femaleCount?: number
+}): { ok: true } | { ok: false; message: string } {
+  const { totalCount, maleCount, femaleCount } = input
+  const hasTotal = totalCount != null
+  const hasMale = maleCount != null
+  const hasFemale = femaleCount != null
+
+  if (!hasTotal || !hasMale || !hasFemale) {
+    return { ok: true }
+  }
+
+  if (maleCount! + femaleCount! !== totalCount!) {
+    return {
+      ok: false,
+      message: `Počet samců (${maleCount}) + počet fen (${femaleCount}) musí být ${totalCount} (počet mláďat).`,
+    }
+  }
+
+  return { ok: true }
+}
