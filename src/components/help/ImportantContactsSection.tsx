@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { contactTypeLabel } from '../../lib/contacts/normalize'
 import { cn } from '../../lib/utils'
@@ -209,16 +210,39 @@ export function ImportantContactsSection({ hideHeader = false }: { hideHeader?: 
               options={petFilterOptions}
             />
           </div>
-          <Button
-            variant="primary"
-            size="sm"
-            className="gap-1.5 shrink-0"
-            onClick={openCreate}
-            data-testid="contacts-add"
-          >
-            <Plus size={14} />
-            Přidat kontakt
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Link
+              to="/professionals?role=veterinarian"
+              data-testid="contacts-find-veterinarian"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#E8E4DC] bg-white px-3.5 py-1.5 text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#EBF2EE]"
+            >
+              Najít veterináře
+            </Link>
+            <Link
+              to="/professionals?role=groomer"
+              data-testid="contacts-find-groomer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#E8E4DC] bg-white px-3.5 py-1.5 text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#EBF2EE]"
+            >
+              Najít groomera
+            </Link>
+            <Link
+              to="/professionals?role=trainer"
+              data-testid="contacts-find-trainer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#E8E4DC] bg-white px-3.5 py-1.5 text-xs font-medium text-[#191E1B] transition-colors hover:bg-[#EBF2EE]"
+            >
+              Najít trenéra
+            </Link>
+            <Button
+              variant="primary"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={openCreate}
+              data-testid="contacts-add"
+            >
+              <Plus size={14} />
+              Přidat kontakt
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2" data-testid="contacts-list">

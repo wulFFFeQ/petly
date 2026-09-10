@@ -119,6 +119,25 @@ export {
 } from './public'
 
 export {
+  CATALOG_ROLE_FILTERS,
+  CATALOG_ROLE_SET,
+  buildCatalogSearchParams,
+  catalogHasActiveFilters,
+  catalogRelevanceScore,
+  filterPublicProfessionals,
+  getCatalogRoleFilter,
+  listPublicProfessionals,
+  matchProfessionalCatalogQuery,
+  parseCatalogSearchParams,
+  queryPublicProfessionals,
+  sortPublicProfessionals,
+  type CatalogRoleFilter,
+  type CatalogSpeciesFilter,
+  type ProfessionalCatalogCriteria,
+  type ProfessionalCatalogCriteriaFunctional,
+} from './directory'
+
+export {
   ACCOUNTS_STORAGE_KEY,
   ORGANIZATIONS_STORAGE_KEY,
   PET_PROFESSIONAL_ACCESS_STORAGE_KEY,

@@ -27,9 +27,9 @@ export function ProfessionalPublicPage() {
           variant="primary"
           size="sm"
           className="mt-4"
-          onClick={() => navigate('/discover')}
+          onClick={() => navigate('/professionals')}
         >
-          Zpět na Objevovat
+          Zpět na katalog
         </Button>
       </Card>
     )
@@ -41,10 +41,11 @@ export function ProfessionalPublicPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-8" data-testid="professional-public-page">
       <Link
-        to="/discover"
+        to="/professionals"
         className="inline-flex text-xs font-semibold text-[#5A6660] hover:text-[#234B54]"
+        data-testid="professional-public-back"
       >
-        ← Objevovat
+        ← Katalog profesionálů
       </Link>
 
       <Card variant="elevated" padding="none" className="overflow-hidden">

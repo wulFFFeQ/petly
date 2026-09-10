@@ -79,6 +79,7 @@ async function main() {
 
   await page.goto(BASE, { waitUntil: 'networkidle' })
   await page.evaluate(() => {
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
     localStorage.setItem('lovedandknown.userCity', 'Kolín')
   })
 

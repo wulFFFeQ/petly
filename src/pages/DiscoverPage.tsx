@@ -1,7 +1,9 @@
-import { Compass } from 'lucide-react'
+import { Compass, Stethoscope } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { DiscoverCard } from '../components/discover/DiscoverCard'
 import { DiscoverFilters } from '../components/discover/DiscoverFilters'
+import { Card } from '../components/ui/Card'
 import { EmptyState } from '../components/ui/EmptyState'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useApp } from '../context/AppContext'
@@ -99,6 +101,36 @@ export function DiscoverPage() {
         title="Objevovat"
         description="Poznávejte mazlíčky, lidi a místa ve vašem okolí. Najděte svého pet parťáka."
       />
+
+      <Card
+        variant="elevated"
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        data-testid="discover-professionals-cta"
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EBF2EE] text-[#2C4A3E]">
+            <Stethoscope size={18} />
+          </span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#234B54]">
+              Profesionálové
+            </p>
+            <h3 className="text-sm font-bold text-[#191E1B]">
+              Profesionálové ve vašem okolí
+            </h3>
+            <p className="mt-0.5 text-xs text-[#7D8B82]">
+              Veterinář, groomer, trenér a další služby pro mazlíčky.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/professionals"
+          data-testid="discover-find-professional"
+          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#20362E]/20 bg-[#2C4A3E] px-3.5 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-[#20362E] active:scale-[0.98]"
+        >
+          Najít profesionála
+        </Link>
+      </Card>
 
       <DiscoverFilters resultCount={filtered.length} />
 

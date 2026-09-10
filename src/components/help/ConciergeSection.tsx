@@ -9,6 +9,7 @@ import {
   HelpCircle,
 } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -29,12 +30,17 @@ const CONCIERGE_TYPES: {
   label: string
   desc: string
   icon: typeof Stethoscope
+  /** Optional deep-link into the professional catalog. */
+  catalogHref?: string
+  catalogLabel?: string
 }[] = [
   {
     id: 'vet_care',
     label: 'Pomoc s veterinární péčí',
     desc: 'Objednání, doporučení, navazující péče',
     icon: Stethoscope,
+    catalogHref: '/professionals?role=veterinarian',
+    catalogLabel: 'Najít veterináře',
   },
   {
     id: 'travel',
@@ -47,12 +53,16 @@ const CONCIERGE_TYPES: {
     label: 'Pet-friendly ubytování',
     desc: 'Hotely a místa, kam smí mazlíček',
     icon: Home,
+    catalogHref: '/professionals?role=pet_hotel',
+    catalogLabel: 'Najít ubytování',
   },
   {
     id: 'trainer_groomer',
     label: 'Trenér / groomer',
     desc: 'Výběr odborníka v okolí',
     icon: Scissors,
+    catalogHref: '/professionals',
+    catalogLabel: 'Najít v katalogu',
   },
   {
     id: 'documents_admin',
@@ -186,28 +196,44 @@ export function ConciergeSection({ hideHeader = false }: { hideHeader?: boolean 
                 const Icon = topic.icon
                 const selected = selectedType === topic.id
                 return (
-                  <button
+                  <div
                     key={topic.id}
-                    type="button"
-                    onClick={() => openForm(topic.id)}
-                    data-testid={`concierge-type-${topic.id}`}
                     className={cn(
-                      'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors',
+                      'flex flex-col rounded-xl border p-3 transition-colors',
                       selected
                         ? 'border-[#B8934A] bg-[#FAF4E6]'
                         : 'border-[#E8E4DC] bg-white hover:border-[#B8934A]/40',
                     )}
                   >
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FAF8F5] text-[#234B54]">
-                      <Icon size={16} />
-                    </span>
-                    <span>
-                      <span className="block text-xs font-bold text-[#191E1B]">{topic.label}</span>
-                      <span className="mt-0.5 block text-[11px] text-[#7D8B82] leading-relaxed">
-                        {topic.desc}
+                    <button
+                      type="button"
+                      onClick={() => openForm(topic.id)}
+                      data-testid={`concierge-type-${topic.id}`}
+                      className="flex items-start gap-3 text-left"
+                    >
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FAF8F5] text-[#234B54]">
+                        <Icon size={16} />
                       </span>
-                    </span>
-                  </button>
+                      <span>
+                        <span className="block text-xs font-bold text-[#191E1B]">
+                          {topic.label}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-[#7D8B82] leading-relaxed">
+                          {topic.desc}
+                        </span>
+                      </span>
+                    </button>
+                    {topic.catalogHref && topic.catalogLabel ? (
+                      <Link
+                        to={topic.catalogHref}
+                        data-testid={`concierge-catalog-${topic.id}`}
+                        className="mt-2 ml-11 text-[11px] font-semibold text-[#234B54] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {topic.catalogLabel}
+                      </Link>
+                    ) : null}
+                  </div>
                 )
               })}
             </div>
