@@ -39,6 +39,7 @@ import { ProfessionalBookingsPage } from './pages/professional/ProfessionalBooki
 import { ProfessionalBookingDetailPage } from './pages/professional/ProfessionalBookingDetailPage'
 import { ProfessionalServicesPage } from './pages/professional/ProfessionalServicesPage'
 import { ProfessionalAvailabilityPage } from './pages/professional/ProfessionalAvailabilityPage'
+import { MembershipPage } from './pages/MembershipPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
 
@@ -134,6 +135,7 @@ function App() {
               <Route path="contacts" element={<ContactsPage />} />
               <Route path="concierge" element={<ConciergePage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="membership" element={<MembershipPage />} />
               <Route path="help" element={<HelpPage />} />
             </Route>
           </Route>

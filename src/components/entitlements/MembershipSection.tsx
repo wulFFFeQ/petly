@@ -1,27 +1,47 @@
 import { Crown } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { UpgradePrompt } from './UpgradePrompt'
 import {
   FEATURE_CATALOG,
-  PLAN_IDS,
-  clearDemoPlan,
   demoDisclaimer,
+  effectivePlan,
   getPlanMeta,
   hasEntitlement,
   isDemoSubscription,
   loadSubscription,
-  setDemoPlan,
   toPublicMembershipSummary,
-  type PlanId,
   type SubscriptionRecord,
 } from '../../lib/entitlements'
 
+function formatDate(iso?: string): string | null {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return new Date(t).toLocaleDateString('cs-CZ')
+}
+
+function statusLabel(sub: SubscriptionRecord, isDemo: boolean): string {
+  if (isDemo) return 'DEMO režim'
+  switch (sub.status) {
+    case 'active':
+      return 'Aktivní'
+    case 'canceled':
+      return 'Zrušeno'
+    case 'expired':
+      return 'Vypršelo'
+    case 'none':
+      return 'Bez placeného předplatného'
+    default:
+      return sub.status
+  }
+}
+
 /**
- * Settings → Členství / Tarif.
- * Shows current plan, feature list, future upgrade placeholder, and DEMO switch.
- * Never presents DEMO as a real paid subscription.
+ * Settings → Členství — summary only.
+ * Full plan picker lives on /membership.
  */
 export function MembershipSection() {
   const [sub, setSub] = useState<SubscriptionRecord>(() => loadSubscription())
@@ -35,24 +55,17 @@ export function MembershipSection() {
   }, [reload])
 
   const summary = toPublicMembershipSummary(sub)
-  const planMeta = getPlanMeta(summary.plan)
+  const plan = effectivePlan(sub)
+  const planMeta = getPlanMeta(plan)
   const isDemo = isDemoSubscription(sub) || summary.isDemo
-
-  const handleDemoChange = (value: string) => {
-    if (value === 'clear' || value === 'free_default') {
-      setSub(clearDemoPlan())
-      return
-    }
-    if ((PLAN_IDS as readonly string[]).includes(value)) {
-      setSub(setDemoPlan(value as PlanId))
-    }
-  }
 
   const featureLabels = summary.featureIds
     .map((id) => FEATURE_CATALOG[id]?.label)
     .filter(Boolean)
     .slice(0, 12)
 
+  const started = formatDate(sub.startedAt)
+  const expires = formatDate(sub.expiresAt)
   const showUpgradeSample = !hasEntitlement(sub, 'statistics')
 
   return (
@@ -64,19 +77,15 @@ export function MembershipSection() {
       <div className="flex flex-wrap items-start gap-2">
         <h3 className="text-base font-bold text-[#191E1B] flex items-center gap-2">
           <Crown size={18} className="text-[#B8934A]" />
-          <span>Členství / Tarif</span>
+          <span>Členství</span>
         </h3>
         {isDemo ? (
           <span data-testid="membership-demo-badge">
             <Badge variant="warning" size="sm">
-              DEMO
+              DEMO režim
             </Badge>
           </span>
-        ) : (
-          <Badge variant="outline" size="sm">
-            připraveno
-          </Badge>
-        )}
+        ) : null}
       </div>
 
       <p className="text-xs text-[#4A564F] leading-relaxed">
@@ -88,7 +97,7 @@ export function MembershipSection() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-xs font-bold text-[#7D8B82] uppercase tracking-wide">
-              Aktuální tarif
+              Aktuální plán
             </p>
             <p
               className="text-sm font-bold text-[#191E1B] mt-0.5"
@@ -106,11 +115,24 @@ export function MembershipSection() {
             </p>
           )}
         </div>
+        <p className="text-xs text-[#4A564F]" data-testid="membership-status">
+          Stav: {statusLabel(sub, isDemo)}
+        </p>
+        {started && (
+          <p className="text-xs text-[#4A564F]" data-testid="membership-started">
+            Aktivace: {started}
+          </p>
+        )}
+        {expires && (
+          <p className="text-xs text-[#4A564F]" data-testid="membership-expires">
+            Expirace: {expires}
+          </p>
+        )}
         <p className="text-xs text-[#4A564F] leading-relaxed">{planMeta.description}</p>
       </div>
 
       <div>
-        <p className="text-xs font-bold text-[#191E1B] mb-2">Co tarif obsahuje</p>
+        <p className="text-xs font-bold text-[#191E1B] mb-2">Dostupné funkce</p>
         <ul className="grid gap-1.5 sm:grid-cols-2 text-[11px] text-[#4A564F]">
           {featureLabels.map((label) => (
             <li
@@ -128,50 +150,14 @@ export function MembershipSection() {
         </ul>
       </div>
 
-      <div className="rounded-xl border border-dashed border-[#E8E4DC] p-3.5 space-y-1">
-        <p className="text-xs font-bold text-[#191E1B]">Upgrade</p>
-        <p className="text-[11px] text-[#7D8B82] leading-relaxed">
-          Skutečné předplatné a platba budou dostupné později. Zde nebude falešný checkout
-          ani tvrzení, že jste něco zaplatili.
-        </p>
-        <Button variant="secondary" size="sm" disabled className="mt-1 opacity-60">
-          Upgrade — brzy
+      <Link to="/membership">
+        <Button variant="secondary" size="sm" data-testid="manage-membership-cta">
+          <Crown size={14} className="mr-1.5" />
+          Spravovat členství
         </Button>
-      </div>
+      </Link>
 
-      {showUpgradeSample && (
-        <UpgradePrompt featureId="statistics" />
-      )}
-
-      <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-3.5 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-bold text-[#191E1B]">DEMO přepínač tarifu</p>
-          <Badge variant="warning" size="sm">
-            DEMO
-          </Badge>
-        </div>
-        <p className="text-[11px] text-[#7D8B82] leading-relaxed">
-          Pouze pro lokální testování entitlements. Není to platba ani aktivace
-          skutečného předplatného.
-        </p>
-        <label className="block text-[11px] font-bold text-[#4A564F]" htmlFor="demo-plan-select">
-          Testovací plán
-        </label>
-        <select
-          id="demo-plan-select"
-          data-testid="membership-demo-select"
-          className="w-full max-w-xs rounded-lg border border-[#E8E4DC] bg-white px-3 py-2 text-xs text-[#191E1B]"
-          value={isDemo ? sub.plan : 'free_default'}
-          onChange={(e) => handleDemoChange(e.target.value)}
-        >
-          <option value="free_default">Free (výchozí, bez DEMO)</option>
-          <option value="free">Free (DEMO)</option>
-          <option value="premium">Premium (DEMO)</option>
-          <option value="family">Family (DEMO)</option>
-          <option value="breeder_pro">Breeder Pro (DEMO)</option>
-          <option value="clear">Vymazat DEMO → Free</option>
-        </select>
-      </div>
+      {showUpgradeSample && <UpgradePrompt featureId="statistics" />}
     </div>
   )
 }

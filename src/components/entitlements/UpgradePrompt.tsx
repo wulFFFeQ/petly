@@ -19,7 +19,7 @@ export interface UpgradePromptProps {
 
 /**
  * Soft upgrade nudge — never a full-page paywall, never blocks safety features.
- * Not wired across the app yet; ready for future gated Premium surfaces.
+ * Never shows raw entitlement IDs to the user.
  */
 export function UpgradePrompt({
   featureId,
@@ -29,11 +29,11 @@ export function UpgradePrompt({
 }: UpgradePromptProps) {
   const meta = isFeatureId(featureId) ? FEATURE_CATALOG[featureId] : null
   const suggested = suggestedPlanForFeature(featureId)
-  const planMeta = suggested && suggested !== 'free' ? getPlanMeta(suggested) : getPlanMeta('premium')
-  const heading =
-    title ??
-    `Tato funkce je součástí ${planMeta.label}.`
+  const planMeta =
+    suggested && suggested !== 'free' ? getPlanMeta(suggested) : getPlanMeta('premium')
+  const heading = title ?? `Tato funkce je součástí ${planMeta.label}.`
   const body = benefit ?? meta?.benefit ?? planMeta.description
+  const ctaLabel = `Zobrazit ${planMeta.label}`
 
   return (
     <div
@@ -52,10 +52,10 @@ export function UpgradePrompt({
         </Badge>
       </div>
       <p className="text-xs text-[#4A564F] leading-relaxed">{body}</p>
-      <Link to="/settings#membership">
-        <Button variant="secondary" size="sm" className="mt-1">
+      <Link to="/membership">
+        <Button variant="secondary" size="sm" className="mt-1" data-testid="upgrade-prompt-cta">
           <Crown size={14} className="mr-1.5" />
-          Zobrazit tarif
+          {ctaLabel}
         </Button>
       </Link>
     </div>

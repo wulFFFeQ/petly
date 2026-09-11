@@ -379,7 +379,7 @@ check('L – DEMO subscription není prezentováno jako skutečná platba', () =
   )
 })
 
-check('effectivePlan: none/canceled → free; active → plan', () => {
+check('effectivePlan: none → free; canceled without expiry → free; active → plan; canceled grace', () => {
   assert.equal(effectivePlan(createDefaultSubscription()), 'free')
   assert.equal(
     effectivePlan({
@@ -390,6 +390,28 @@ check('effectivePlan: none/canceled → free; active → plan', () => {
     'free',
   )
   assert.equal(effectivePlan(activeSub('family')), 'family')
+
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  assert.equal(
+    effectivePlan({
+      ...createDefaultSubscription(),
+      plan: 'premium',
+      status: 'canceled',
+      expiresAt: future,
+    }),
+    'premium',
+  )
+  assert.equal(
+    effectivePlan({
+      ...createDefaultSubscription(),
+      plan: 'premium',
+      status: 'canceled',
+      expiresAt: past,
+    }),
+    'free',
+  )
 })
 
 console.log('')

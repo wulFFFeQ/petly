@@ -8,7 +8,10 @@ import type {
   SubscriptionRecord,
 } from './types'
 
-/** Keys forbidden on any public / UI membership summary. */
+/**
+ * Keys forbidden on any public / Discover / owner-public membership payload.
+ * PublicMembershipSummary may expose planLabel + isDemo only — never raw billing.
+ */
 export const PUBLIC_MEMBERSHIP_FORBIDDEN_KEYS = [
   'providerCustomerId',
   'stripeCustomerId',
@@ -18,6 +21,16 @@ export const PUBLIC_MEMBERSHIP_FORBIDDEN_KEYS = [
   'receipt',
   'paid',
   'purchaseToken',
+  'provider',
+  'status',
+  'expiresAt',
+  'startedAt',
+  'updatedAt',
+  'billingHistory',
+  'paymentInformation',
+  'subscription',
+  'subscriptionStatus',
+  'subscriptionPlan',
 ] as const
 
 /**

@@ -1,5 +1,5 @@
 /**
- * E2E: Membership / entitlements UI (KROK 18)
+ * E2E: Membership / entitlements UI (KROK 18 + 27)
  * Run: node scripts/e2e-entitlements.mjs
  * Requires: npm run dev (BASE_URL default http://localhost:5173)
  */
@@ -58,7 +58,7 @@ async function main() {
   const section = page.locator('[data-testid="membership-section"]')
   assert(await section.isVisible(), 'membership section visible')
 
-  const heading = page.getByText('Členství / Tarif')
+  const heading = page.getByText('Členství', { exact: true }).first()
   assert(await heading.isVisible(), 'membership heading visible')
 
   const planLabel = page.locator('[data-testid="membership-current-plan"]')
@@ -68,14 +68,22 @@ async function main() {
     'default plan is Free',
   )
 
+  const manageCta = page.locator('[data-testid="manage-membership-cta"]')
+  assert(await manageCta.isVisible(), 'manage membership CTA')
+  await manageCta.click()
+  await page.waitForURL(/\/membership/)
+  await page.waitForTimeout(400)
+
   const select = page.locator('[data-testid="membership-demo-select"]')
-  assert(await select.isVisible(), 'DEMO plan select visible')
+  assert(await select.isVisible(), 'DEMO plan select visible on /membership')
 
   await select.selectOption('premium')
   await page.waitForTimeout(200)
 
   assert(
-    ((await planLabel.textContent()) || '').includes('Premium'),
+    ((await page.locator('[data-testid="membership-current-plan"]').textContent()) || '').includes(
+      'Premium',
+    ),
     'UI shows Premium after DEMO switch',
   )
 
@@ -100,15 +108,14 @@ async function main() {
   assert(stored.plan === 'premium', 'storage plan is premium')
   assert(stored.provider === 'demo', 'storage provider is demo')
   assert(stored.status === 'demo', 'storage status is demo')
-  assert(
-    !stored.providerCustomerId,
-    'no fake providerCustomerId on DEMO',
-  )
+  assert(!stored.providerCustomerId, 'no fake providerCustomerId on DEMO')
 
   await select.selectOption('clear')
   await page.waitForTimeout(200)
   assert(
-    ((await planLabel.textContent()) || '').includes('Free'),
+    ((await page.locator('[data-testid="membership-current-plan"]').textContent()) || '').includes(
+      'Free',
+    ),
     'clear DEMO returns to Free',
   )
   const afterClear = await readSubscription(page)
