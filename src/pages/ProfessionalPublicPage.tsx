@@ -11,6 +11,7 @@ import { ProfessionalLocation } from '../components/professionals/profile/Profes
 import { ProfessionalServices } from '../components/professionals/profile/ProfessionalServices'
 import { ProfessionalSpecializations } from '../components/professionals/profile/ProfessionalSpecializations'
 import { ProfessionalTrust } from '../components/professionals/profile/ProfessionalTrust'
+import { ProfessionalReviewsSection } from '../components/professionals/profile/ProfessionalReviewsSection'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import {
@@ -199,6 +200,12 @@ export function ProfessionalPublicPage() {
       />
 
       <ProfessionalTrust items={trustItems} />
+      <ProfessionalReviewsSection
+        professionalId={profile.id}
+        isOwnProfile={isOwnProfile}
+        viewerAccountId={selfAccount?.id}
+        upsertNotification={upsertNotification}
+      />
       <ProfessionalAbout pub={pub} />
       <ProfessionalServices pub={pub} onContact={() => setConnectOpen(true)} />
       <ProfessionalSpecializations pub={pub} />

@@ -167,6 +167,8 @@ export {
 export {
   CATALOG_ROLE_FILTERS,
   CATALOG_ROLE_SET,
+  CATALOG_MIN_RATING_OPTIONS,
+  CATALOG_SORT_OPTIONS,
   buildCatalogSearchParams,
   catalogHasActiveFilters,
   catalogRelevanceScore,
@@ -177,6 +179,7 @@ export {
   parseCatalogSearchParams,
   queryPublicProfessionals,
   sortPublicProfessionals,
+  type CatalogProfessionalCard,
   type CatalogRoleFilter,
   type CatalogSpeciesFilter,
   type ProfessionalCatalogCriteria,

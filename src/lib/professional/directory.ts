@@ -1,5 +1,12 @@
 import type { Verification } from '../verification/types'
 import { loadVerifications } from '../verification/storage'
+import {
+  buildReviewSummaryMap,
+  type CatalogMinRatingFilter,
+  type CatalogReviewSort,
+  type ProfessionalReviewSummary,
+} from '../reviews'
+import { loadProfessionalReviews } from '../reviews/storage'
 import { getRoleMeta } from './catalog'
 import { toPublicProfessionalProfile } from './public'
 import { isProfessionalType } from './roles'
@@ -34,11 +41,31 @@ export const CATALOG_ROLE_SET = new Set<string>(
   CATALOG_ROLE_FILTERS.map((c) => c.role),
 )
 
+export const CATALOG_MIN_RATING_OPTIONS: readonly {
+  value: CatalogMinRatingFilter | ''
+  label: string
+}[] = [
+  { value: '', label: 'Libovolné' },
+  { value: 4.5, label: '4,5+' },
+  { value: 4.0, label: '4,0+' },
+  { value: 3.5, label: '3,5+' },
+  { value: 'none', label: 'Bez hodnocení' },
+] as const
+
+export const CATALOG_SORT_OPTIONS: readonly {
+  value: CatalogReviewSort
+  label: string
+}[] = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'rating', label: 'Hodnocení' },
+  { value: 'reviewCount', label: 'Počet hodnocení' },
+] as const
+
 export type CatalogSpeciesFilter = 'all' | 'dog' | 'cat'
 
 /**
  * Catalog filter criteria.
- * Functional: role, q, city, verifiedOnly, serviceQuery.
+ * Functional: role, q, city, verifiedOnly, serviceQuery, minRating, sortBy.
  * Prepared but ignored (no model data yet): distanceKm, species.
  */
 export type ProfessionalCatalogCriteria = {
@@ -47,15 +74,24 @@ export type ProfessionalCatalogCriteria = {
   city?: string
   verifiedOnly?: boolean
   serviceQuery?: string
+  /** Real review average threshold — or 'none' for zero reviews. */
+  minRating?: CatalogMinRatingFilter | ''
+  /** Sort mode — rating uses confidenceScore, not raw average alone. */
+  sortBy?: CatalogReviewSort
   /** Prepared — not applied until lat/lng exist on public projection. */
   distanceKm?: number | null
   /** Prepared — not applied until species exists on professional profiles. */
   species?: CatalogSpeciesFilter
 }
 
+/** Public profile + optional review summary enrichment (never mixes with verification). */
+export type CatalogProfessionalCard = PublicProfessionalProfile & {
+  reviewSummary?: ProfessionalReviewSummary
+}
+
 export type ProfessionalCatalogCriteriaFunctional = Pick<
   ProfessionalCatalogCriteria,
-  'role' | 'q' | 'city' | 'verifiedOnly' | 'serviceQuery'
+  'role' | 'q' | 'city' | 'verifiedOnly' | 'serviceQuery' | 'minRating' | 'sortBy'
 >
 
 function normalizeNeedle(value: string | undefined | null): string {
@@ -114,10 +150,22 @@ function matchesServiceQuery(
   return false
 }
 
+function matchesMinRating(
+  summary: ProfessionalReviewSummary | undefined,
+  minRating: CatalogMinRatingFilter | '' | undefined,
+): boolean {
+  if (minRating === undefined || minRating === '') return true
+  if (minRating === 'none') return !summary || summary.count === 0
+  const avg = summary?.average
+  if (avg == null || !summary || summary.count === 0) return false
+  return avg >= minRating
+}
+
 /** Filter public professionals. Distance / species are intentionally ignored. */
 export function filterPublicProfessionals(
   list: PublicProfessionalProfile[],
   criteria: ProfessionalCatalogCriteria = {},
+  reviewSummaries?: Map<string, ProfessionalReviewSummary>,
 ): PublicProfessionalProfile[] {
   const role = (criteria.role ?? '').trim()
   const cityNeedle = normalizeNeedle(criteria.city)
@@ -129,6 +177,11 @@ export function filterPublicProfessionals(
     if (cityNeedle && !includesNeedle(pub.city, cityNeedle)) return false
     if (verifiedOnly && pub.verifiedBadge !== true) return false
     if (!matchesServiceQuery(pub, criteria.serviceQuery)) return false
+    if (reviewSummaries) {
+      if (!matchesMinRating(reviewSummaries.get(pub.id), criteria.minRating)) return false
+    } else if (criteria.minRating) {
+      if (criteria.minRating !== 'none') return false
+    }
     return true
   })
 }
@@ -159,21 +212,39 @@ export function catalogRelevanceScore(
 
 /**
  * Deterministic sort:
- * 1. search relevance
- * 2. selected category match
- * 3. verified badge
- * 4. city match
- * 5. displayName + id fallback
+ * - sortBy rating → confidenceScore (Bayesian-ready), then count
+ * - sortBy reviewCount → count, then confidence
+ * - default relevance: search → role → verified → city → name
  */
 export function sortPublicProfessionals(
   list: PublicProfessionalProfile[],
   criteria: ProfessionalCatalogCriteria = {},
+  reviewSummaries?: Map<string, ProfessionalReviewSummary>,
 ): PublicProfessionalProfile[] {
   const role = (criteria.role ?? '').trim()
   const cityNeedle = normalizeNeedle(criteria.city)
   const q = criteria.q
+  const sortBy = criteria.sortBy ?? 'relevance'
 
   return [...list].sort((a, b) => {
+    if (sortBy === 'rating' && reviewSummaries) {
+      const aConf = reviewSummaries.get(a.id)?.confidenceScore ?? -1
+      const bConf = reviewSummaries.get(b.id)?.confidenceScore ?? -1
+      if (bConf !== aConf) return bConf - aConf
+      const aCount = reviewSummaries.get(a.id)?.count ?? 0
+      const bCount = reviewSummaries.get(b.id)?.count ?? 0
+      if (bCount !== aCount) return bCount - aCount
+    }
+
+    if (sortBy === 'reviewCount' && reviewSummaries) {
+      const aCount = reviewSummaries.get(a.id)?.count ?? 0
+      const bCount = reviewSummaries.get(b.id)?.count ?? 0
+      if (bCount !== aCount) return bCount - aCount
+      const aConf = reviewSummaries.get(a.id)?.confidenceScore ?? -1
+      const bConf = reviewSummaries.get(b.id)?.confidenceScore ?? -1
+      if (bConf !== aConf) return bConf - aConf
+    }
+
     const rel = catalogRelevanceScore(b, q) - catalogRelevanceScore(a, q)
     if (rel !== 0) return rel
 
@@ -201,13 +272,47 @@ export function sortPublicProfessionals(
   })
 }
 
-/** List → filter → sort in one call. */
+function enrichWithReviews(
+  list: PublicProfessionalProfile[],
+  reviewSummaries: Map<string, ProfessionalReviewSummary>,
+): CatalogProfessionalCard[] {
+  return list.map((pub) => ({
+    ...pub,
+    reviewSummary: reviewSummaries.get(pub.id),
+  }))
+}
+
+/** List → filter → sort in one call (with real review enrichment). */
 export function queryPublicProfessionals(
   criteria: ProfessionalCatalogCriteria = {},
   verifications: Verification[] = loadVerifications(),
-): PublicProfessionalProfile[] {
+): CatalogProfessionalCard[] {
   const all = listPublicProfessionals(verifications)
-  return sortPublicProfessionals(filterPublicProfessionals(all, criteria), criteria)
+  const reviews = loadProfessionalReviews()
+  const reviewSummaries = buildReviewSummaryMap(
+    all.map((p) => p.id),
+    reviews,
+  )
+  const filtered = filterPublicProfessionals(all, criteria, reviewSummaries)
+  const sorted = sortPublicProfessionals(filtered, criteria, reviewSummaries)
+  return enrichWithReviews(sorted, reviewSummaries)
+}
+
+function parseMinRating(raw: string): CatalogMinRatingFilter | '' {
+  const v = raw.trim().toLowerCase()
+  if (!v) return ''
+  if (v === 'none' || v === 'bez') return 'none'
+  if (v === '4.5' || v === '4,5') return 4.5
+  if (v === '4.0' || v === '4' || v === '4,0') return 4.0
+  if (v === '3.5' || v === '3,5') return 3.5
+  return ''
+}
+
+function parseSortBy(raw: string): CatalogReviewSort {
+  const v = raw.trim().toLowerCase()
+  if (v === 'rating') return 'rating'
+  if (v === 'reviewcount' || v === 'reviews' || v === 'count') return 'reviewCount'
+  return 'relevance'
 }
 
 export function parseCatalogSearchParams(
@@ -229,13 +334,17 @@ export function parseCatalogSearchParams(
   const verifiedOnly =
     verifiedRaw === '1' || verifiedRaw === 'true' || verifiedRaw === 'yes'
 
+  const minRating = parseMinRating(get('rating'))
+  const sortBy = parseSortBy(get('sort'))
+
   return {
     role: role || '',
     q: get('q').trim(),
     city: location,
     verifiedOnly,
     serviceQuery: get('service').trim(),
-    // Prepared-only — parsed if present but never applied by filter.
+    minRating,
+    sortBy,
     distanceKm: null,
     species: 'all',
   }
@@ -254,6 +363,13 @@ export function buildCatalogSearchParams(
   if (criteria.verifiedOnly) params.set('verified', '1')
   const service = (criteria.serviceQuery ?? '').trim()
   if (service) params.set('service', service)
+  if (criteria.minRating === 'none') params.set('rating', 'none')
+  else if (typeof criteria.minRating === 'number') {
+    params.set('rating', String(criteria.minRating))
+  }
+  if (criteria.sortBy && criteria.sortBy !== 'relevance') {
+    params.set('sort', criteria.sortBy === 'reviewCount' ? 'reviewCount' : 'rating')
+  }
   return params
 }
 
@@ -263,7 +379,9 @@ export function catalogHasActiveFilters(criteria: ProfessionalCatalogCriteria): 
       (criteria.q ?? '').trim() ||
       (criteria.city ?? '').trim() ||
       criteria.verifiedOnly ||
-      (criteria.serviceQuery ?? '').trim(),
+      (criteria.serviceQuery ?? '').trim() ||
+      (criteria.minRating !== undefined && criteria.minRating !== '') ||
+      (criteria.sortBy && criteria.sortBy !== 'relevance'),
   )
 }
 

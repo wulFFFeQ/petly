@@ -1,14 +1,15 @@
 import { BadgeCheck, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getRoleMeta, isOrganizationProfessionalType } from '../../lib/professional'
-import type { PublicProfessionalProfile } from '../../lib/professional'
+import type { CatalogProfessionalCard } from '../../lib/professional'
+import { formatReviewAverage, ratingStars } from '../../lib/reviews'
 import { cn } from '../../lib/utils'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import { Card } from '../ui/Card'
 
 interface ProfessionalCatalogCardProps {
-  profile: PublicProfessionalProfile
+  profile: CatalogProfessionalCard
 }
 
 function truncate(text: string, max: number): string {
@@ -35,6 +36,9 @@ export function ProfessionalCatalogCard({ profile }: ProfessionalCatalogCardProp
   const typeHeadline = profile.verifiedBadge
     ? `Ověřený ${roleMeta.label}`.toUpperCase()
     : roleMeta.label.toUpperCase()
+
+  const summary = profile.reviewSummary
+  const hasReviews = Boolean(summary && summary.count > 0 && summary.average != null)
 
   return (
     <Card
@@ -93,6 +97,21 @@ export function ProfessionalCatalogCard({ profile }: ProfessionalCatalogCardProp
             </span>
           </p>
         ) : null}
+
+        <p
+          className="mb-2 text-[11px] font-medium text-[#5A6660]"
+          data-testid={`professional-catalog-rating-${profile.id}`}
+        >
+          {hasReviews ? (
+            <>
+              <span className="text-[#B8934A]">{ratingStars(Math.round(summary!.average!))}</span>{' '}
+              <span>{formatReviewAverage(summary!.average)}</span>
+              <span className="text-[#A3AEA7]"> · {summary!.count} hodnocení</span>
+            </>
+          ) : (
+            <span className="text-[#A3AEA7]">Zatím bez hodnocení</span>
+          )}
+        </p>
 
         {profile.description ? (
           <p className="mb-2 text-[11px] leading-relaxed text-[#7D8B82]">

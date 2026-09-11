@@ -688,6 +688,8 @@ export type NotificationType =
   | 'booking_cancelled'
   | 'booking_completed'
   | 'booking_reminder'
+  | 'professional_review_received'
+  | 'professional_review_reply'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 

@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { useApp } from '../../context/AppContext'
 import {
   cancelBookingRequest,
+  completeBookingRequest,
   confirmBookingRequest,
   declineBookingRequest,
   getBooking,
@@ -99,6 +100,9 @@ export function ProfessionalBookingDetailPage() {
             }
             onDecline={() =>
               run(() => declineBookingRequest(booking.id, profile.id, opts))
+            }
+            onComplete={() =>
+              run(() => completeBookingRequest(booking.id, profile.id, opts))
             }
             onCancel={() => setCancelOpen(true)}
           />

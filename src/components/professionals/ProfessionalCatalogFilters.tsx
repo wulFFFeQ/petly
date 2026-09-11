@@ -1,7 +1,9 @@
 import { ChevronDown, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import {
+  CATALOG_MIN_RATING_OPTIONS,
   CATALOG_ROLE_FILTERS,
+  CATALOG_SORT_OPTIONS,
   catalogHasActiveFilters,
   type ProfessionalCatalogCriteria,
 } from '../../lib/professional'
@@ -48,6 +50,8 @@ export function ProfessionalCatalogFilters({
       city: '',
       verifiedOnly: false,
       serviceQuery: '',
+      minRating: '',
+      sortBy: 'relevance',
       distanceKm: null,
       species: 'all',
     })
@@ -160,6 +164,56 @@ export function ProfessionalCatalogFilters({
           className="space-y-3 rounded-2xl border border-[#E8E4DC] bg-white p-4"
           data-testid="professional-catalog-advanced"
         >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Hodnocení
+              </span>
+              <select
+                value={
+                  criteria.minRating === undefined || criteria.minRating === ''
+                    ? ''
+                    : String(criteria.minRating)
+                }
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === '') patch({ minRating: '' })
+                  else if (raw === 'none') patch({ minRating: 'none' })
+                  else patch({ minRating: Number(raw) as 4.5 | 4.0 | 3.5 })
+                }}
+                data-testid="professional-catalog-rating-filter"
+                className="h-10 w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 text-sm text-[#191E1B] outline-none focus:ring-2 focus:ring-[#2C4A3E]/15"
+              >
+                {CATALOG_MIN_RATING_OPTIONS.map((opt) => (
+                  <option key={String(opt.value)} value={String(opt.value)}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Řazení
+              </span>
+              <select
+                value={criteria.sortBy ?? 'relevance'}
+                onChange={(e) =>
+                  patch({
+                    sortBy: e.target.value as 'relevance' | 'rating' | 'reviewCount',
+                  })
+                }
+                data-testid="professional-catalog-sort"
+                className="h-10 w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 text-sm text-[#191E1B] outline-none focus:ring-2 focus:ring-[#2C4A3E]/15"
+              >
+                {CATALOG_SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">

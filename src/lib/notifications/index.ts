@@ -41,4 +41,12 @@ export {
   type BookingNotificationContext,
   type BookingNotificationEvent,
 } from './fromBooking'
+export {
+  buildProfessionalReviewNotification,
+  emitProfessionalReviewNotification,
+  isSafeReviewNotificationPayload,
+  reviewDedupeKey,
+  type ProfessionalReviewNotificationContext,
+  type ProfessionalReviewNotificationEvent,
+} from './fromReview'
 export { buildSeedNotifications } from './seed'

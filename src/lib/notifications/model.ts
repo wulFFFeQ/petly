@@ -49,6 +49,8 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'booking_cancelled',
   'booking_completed',
   'booking_reminder',
+  'professional_review_received',
+  'professional_review_reply',
 ]
 
 function resolveType(raw: Record<string, unknown>): NotificationType {
@@ -222,6 +224,15 @@ export function notificationHrefFallback(item: AppNotification): string | null {
       return `/bookings/${item.relatedBookingId}`
     }
     return '/bookings'
+  }
+  if (
+    item.type === 'professional_review_received' ||
+    item.type === 'professional_review_reply'
+  ) {
+    if (item.relatedProfessionalId) {
+      return `/professionals/${item.relatedProfessionalId}#reviews`
+    }
+    return '/professionals'
   }
   return null
 }
