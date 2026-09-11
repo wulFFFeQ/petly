@@ -32,6 +32,8 @@ export interface HouseholdPetView {
   documentsWriteAllowed?: boolean
   profileWriteAllowed?: boolean
   householdManageAllowed?: boolean
+  lostManageAllowed?: boolean
+  emergencyWriteAllowed?: boolean
 }
 
 export type ProjectHouseholdPetOptions = {
@@ -99,6 +101,8 @@ export function projectPetForHousehold(
     view.documentsWriteAllowed = true
     view.profileWriteAllowed = true
     view.householdManageAllowed = true
+    view.lostManageAllowed = true
+    view.emergencyWriteAllowed = true
     void options.ownerContacts
     void pet.microchip
     assertHouseholdViewSafe(view)
@@ -145,6 +149,8 @@ export function projectPetForHousehold(
   view.galleryWriteAllowed = hasHouseholdPermission(access, 'gallery_write', now)
   view.profileWriteAllowed = hasHouseholdPermission(access, 'pet_profile_write', now)
   view.householdManageAllowed = hasHouseholdPermission(access, 'household_manage', now)
+  view.lostManageAllowed = hasHouseholdPermission(access, 'lost_manage', now)
+  view.emergencyWriteAllowed = hasHouseholdPermission(access, 'emergency_write', now)
 
   // Explicit runtime guard: never attach microchip or owner contacts.
   void options.ownerContacts

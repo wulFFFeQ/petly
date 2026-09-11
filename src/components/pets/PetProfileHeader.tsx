@@ -54,6 +54,9 @@ import { VerifyMicrochipModal } from './microchip/VerifyMicrochipModal'
 import { MarkLostModal } from './lost/MarkLostModal'
 import { LostPetStatusBadge } from './lost/LostPetStatusBadge'
 import { EmergencyCardModal } from './emergency/EmergencyCardModal'
+import { getSelfAccount } from '../../lib/account'
+import { canManagePetLostFound, loadPetHouseholdAccess } from '../../lib/household'
+import { SELF_OWNER_ID } from '../../lib/discover/owner'
 
 interface PetProfileHeaderProps {
   pet: Pet
@@ -126,6 +129,9 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
   const bannerInputRef = useRef<HTMLInputElement>(null)
   const { setActiveModal, showToast, updatePetImage, updatePetCoverImage, updatePet, deletePet, refreshBadges, resolveLostAnnouncement } =
     useApp()
+
+  const actorAccountId = getSelfAccount()?.id ?? SELF_OWNER_ID
+  const canManageLost = canManagePetLostFound(pet, actorAccountId, loadPetHouseholdAccess())
 
   useEffect(() => {
     if (!detailsOpen) setDetailsForm(buildDetailsForm(pet))
@@ -307,21 +313,49 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
       {/* Prominent action bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         {pet.lostStatus === 'lost' ? (
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => setResolveConfirmOpen(true)}
-            className="flex-1 gap-2 font-bold shadow-sm bg-emerald-700 hover:bg-emerald-800"
-          >
-            <Home size={18} />
-            Mazlíček je doma
-          </Button>
-        ) : (
+          canManageLost ? (
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => setResolveConfirmOpen(true)}
+              className="flex-1 gap-2 font-bold shadow-sm bg-emerald-700 hover:bg-emerald-800"
+              data-testid="resolve-lost-button"
+            >
+              <Home size={18} />
+              Mazlíček je doma
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="lg"
+              disabled
+              title="Vyžaduje oprávnění Lost & Found (lost_manage)"
+              className="flex-1 gap-2 font-bold shadow-sm opacity-60"
+              data-testid="resolve-lost-disabled"
+            >
+              <Home size={18} />
+              Mazlíček je doma
+            </Button>
+          )
+        ) : canManageLost ? (
           <Button
             variant="danger"
             size="lg"
             onClick={() => setMarkLostOpen(true)}
             className="flex-1 gap-2 font-bold shadow-sm"
+            data-testid="mark-lost-button"
+          >
+            <Search size={18} />
+            Ztratil se!
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            disabled
+            title="Vyžaduje oprávnění Lost & Found (lost_manage)"
+            className="flex-1 gap-2 font-bold shadow-sm opacity-60"
+            data-testid="mark-lost-disabled"
           >
             <Search size={18} />
             Ztratil se!
@@ -341,6 +375,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           size="lg"
           onClick={() => setEmergencyOpen(true)}
           className="flex-1 gap-2 font-bold border-[#234B54]/30 text-[#234B54] hover:bg-[#E0EAEC]"
+          data-testid="emergency-card-button"
         >
           <ShieldAlert size={18} />
           Nouzová karta

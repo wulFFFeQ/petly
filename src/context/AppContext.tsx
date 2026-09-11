@@ -131,6 +131,11 @@ import {
   type NotificationDraft,
 } from '../lib/notifications'
 import { ensurePetOwnerAccountId } from '../lib/pets'
+import {
+  canManagePetLostFound,
+  canWritePetEmergency,
+  loadPetHouseholdAccess,
+} from '../lib/household'
 import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
@@ -1286,9 +1291,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const resolveActorAccountId = () => getSelfAccount()?.id ?? SELF_OWNER_ID
+
   const updatePet = (petId: string, updates: Partial<Pet>) => {
     let breedingJustEnabledPet: Pet | null = null
     let petForVerification: Pet | null = null
+
+    // Emergency Card write — Owner or household emergency_write (domain boundary).
+    if (Object.prototype.hasOwnProperty.call(updates, 'emergencyCard')) {
+      const pet = pets.find((item) => item.id === petId)
+      if (!pet) return
+      if (!canWritePetEmergency(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+        showToast(
+          'Nedostatečná oprávnění',
+          'Nemáte oprávnění upravovat nouzovou kartu tohoto mazlíčka.',
+          'info',
+        )
+        return
+      }
+    }
 
     setPets((prev) =>
       prev.map((pet) => {
@@ -2073,6 +2094,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): string | null => {
     const pet = pets.find((item) => item.id === petId)
     if (!pet) return null
+    if (!canManagePetLostFound(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+      showToast(
+        'Nedostatečná oprávnění',
+        'Označit mazlíčka jako ztraceného může majitel nebo člen domácnosti s oprávněním Lost & Found.',
+        'info',
+      )
+      return null
+    }
     if (lostAnnouncements.some((item) => item.petId === petId && item.status === 'lost')) {
       showToast('Aktivní oznámení už existuje', `${pet.name} už je označen/a jako ztracený.`, 'info')
       return null
@@ -2139,7 +2168,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const announcement = lostAnnouncements.find((item) => item.id === announcementId)
     if (!announcement || announcement.status !== 'lost') return false
     const pet = pets.find((item) => item.id === announcement.petId)
-    const petName = pet?.name ?? 'Mazlíček'
+    if (!pet) return false
+    if (!canManagePetLostFound(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+      showToast(
+        'Nedostatečná oprávnění',
+        'Ukončit pátrání může majitel nebo člen domácnosti s oprávněním Lost & Found.',
+        'info',
+      )
+      return false
+    }
+    const petName = pet.name
     const now = new Date().toISOString()
 
     setLostAnnouncements((prev) =>
@@ -2247,6 +2285,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const closeLostAnnouncement = (announcementId: string): boolean => {
     const announcement = lostAnnouncements.find((item) => item.id === announcementId)
     if (!announcement) return false
+    const pet = pets.find((item) => item.id === announcement.petId)
+    if (!pet) return false
+    if (!canManagePetLostFound(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+      showToast(
+        'Nedostatečná oprávnění',
+        'Ukončit oznámení může majitel nebo člen domácnosti s oprávněním Lost & Found.',
+        'info',
+      )
+      return false
+    }
     const now = new Date().toISOString()
     setLostAnnouncements((prev) =>
       prev.map((item) =>
@@ -2529,6 +2577,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): boolean => {
     const report = lostReports.find((item) => item.id === reportId)
     if (!report) return false
+    const pet = pets.find((item) => item.id === report.petId)
+    if (!pet) return false
+    if (!canManagePetLostFound(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+      showToast(
+        'Nedostatečná oprávnění',
+        'Hlášení může označit majitel nebo člen domácnosti s oprávněním Lost & Found.',
+        'info',
+      )
+      return false
+    }
     setLostReports((prev) =>
       prev.map((item) =>
         item.id === reportId

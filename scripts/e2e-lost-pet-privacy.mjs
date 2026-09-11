@@ -40,6 +40,7 @@ async function main() {
 
   await page.goto(BASE)
   await page.evaluate(() => {
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
     for (const key of [
       'lovedandknown.lostPetAnnouncements',
       'lovedandknown.lostPetReports',

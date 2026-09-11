@@ -15,6 +15,7 @@ export const HOUSEHOLD_PERMISSION_LABELS: Record<HouseholdPetPermission, string>
   timeline_write: 'Upravovat timeline',
   emergency_read: 'Číst emergency',
   emergency_write: 'Spravovat emergency',
+  lost_manage: 'Spravovat Lost & Found',
   household_manage: 'Spravovat domácnost',
 }
 

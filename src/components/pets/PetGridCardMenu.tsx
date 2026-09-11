@@ -31,6 +31,9 @@ import { Modal } from '../ui/Modal'
 import { FoundQrModal } from './found/PetFoundQrCard'
 import { MarkLostModal } from './lost/MarkLostModal'
 import { EmergencyCardModal } from './emergency/EmergencyCardModal'
+import { getSelfAccount } from '../../lib/account'
+import { canManagePetLostFound, loadPetHouseholdAccess } from '../../lib/household'
+import { SELF_OWNER_ID } from '../../lib/discover/owner'
 
 interface PetGridCardMenuProps {
   pet: Pet
@@ -65,6 +68,8 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
   const qrAvailable = Boolean(pet.foundContactToken) && pet.qrContactEnabled !== false
   const isLost = pet.lostStatus === 'lost'
   const microchipValue = pet.microchip?.trim() ?? ''
+  const actorAccountId = getSelfAccount()?.id ?? SELF_OWNER_ID
+  const canManageLost = canManagePetLostFound(pet, actorAccountId, loadPetHouseholdAccess())
 
   useEffect(() => {
     if (!open || !triggerRef.current) return
@@ -138,6 +143,14 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
         setEmergencyOpen(true)
         break
       case 'lost':
+        if (!canManageLost) {
+          showToast(
+            'Nedostatečná oprávnění',
+            'Označit mazlíčka jako ztraceného může majitel nebo člen domácnosti s oprávněním Lost & Found.',
+            'info',
+          )
+          break
+        }
         if (isLost) navigate(`/pets/${pet.id}`)
         else setMarkLostOpen(true)
         break
@@ -174,6 +187,7 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
     label: string
     icon: typeof Eye
     danger?: boolean
+    disabled?: boolean
   }[] = [
     { action: 'view', label: 'Zobrazit profil', icon: Eye },
     { action: 'edit', label: 'Upravit profil', icon: Pencil },
@@ -184,6 +198,7 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
       action: 'lost',
       label: isLost ? 'Otevřít pátrání' : 'Označit jako ztraceného',
       icon: Search,
+      disabled: !canManageLost && !isLost,
     },
     { action: 'privacy', label: 'Nastavení soukromí', icon: Settings2 },
     { action: 'delete', label: 'Smazat profil', icon: Trash2, danger: true },
@@ -224,13 +239,25 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runAction(item.action)}
+                    disabled={item.disabled}
+                    title={
+                      item.disabled
+                        ? 'Vyžaduje oprávnění Lost & Found (lost_manage)'
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (item.disabled) return
+                      runAction(item.action)
+                    }}
                     className={cn(
                       'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
+                      item.disabled && 'cursor-not-allowed opacity-50',
                       item.danger
                         ? 'font-semibold text-[#A85B4A] hover:bg-rose-50'
                         : 'text-[#191E1B] hover:bg-[#FAF8F5]',
+                      item.disabled && 'hover:bg-transparent',
                     )}
+                    data-testid={item.action === 'lost' ? 'menu-mark-lost' : undefined}
                   >
                     <Icon size={14} className="shrink-0 opacity-70" />
                     {item.label}

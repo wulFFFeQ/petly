@@ -22,6 +22,7 @@ export type HouseholdPetPermission =
   | 'timeline_write'
   | 'emergency_read'
   | 'emergency_write'
+  | 'lost_manage'
   | 'household_manage'
 
 export const HOUSEHOLD_PET_PERMISSIONS: HouseholdPetPermission[] = [
@@ -39,6 +40,7 @@ export const HOUSEHOLD_PET_PERMISSIONS: HouseholdPetPermission[] = [
   'timeline_write',
   'emergency_read',
   'emergency_write',
+  'lost_manage',
   'household_manage',
 ]
 

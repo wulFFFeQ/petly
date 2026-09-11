@@ -35,12 +35,18 @@ export {
 
 export {
   actorHasHouseholdPermission,
+  assertCanManagePetLostFound,
   assertCannotRemoveOrTransferOwner,
+  assertCanWritePetEmergency,
+  canManagePetLostFound,
+  canReadPetEmergency,
+  canWritePetEmergency,
   createHouseholdAccessId,
   findHouseholdAccess,
   findOpenHouseholdAccess,
   grantHouseholdAccess,
   hasHouseholdPermission,
+  HouseholdPermissionError,
   isHouseholdAccessEffective,
   listHouseholdAccessForAccount,
   listHouseholdAccessForPet,

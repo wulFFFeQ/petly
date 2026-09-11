@@ -77,6 +77,7 @@ async function main() {
   // Clear leftover lost state for clean run
   await page.goto(BASE)
   await page.evaluate(() => {
+    localStorage.setItem('lovedandknown.onboardingCompleted', 'true')
     for (const key of [
       'lovedandknown.lostPetAnnouncements',
       'lovedandknown.lostPetReports',

@@ -75,6 +75,88 @@ export function actorHasHouseholdPermission(
   return hasHouseholdPermission(access, permission, now)
 }
 
+export class HouseholdPermissionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'HouseholdPermissionError'
+  }
+}
+
+/**
+ * Lost & Found mark/resolve/close — Owner OR active household access + lost_manage.
+ * Role alone is never enough; Professional Access is not consulted.
+ */
+export function canManagePetLostFound(
+  pet: Pet,
+  actorAccountId: string,
+  accessList: PetHouseholdAccess[],
+  now: number = Date.now(),
+): boolean {
+  const actor = typeof actorAccountId === 'string' ? actorAccountId.trim() : ''
+  if (!actor) return false
+  if (isPetOwner(pet, actor)) return true
+  const access = findHouseholdAccess(accessList, pet.id, actor)
+  return hasHouseholdPermission(access, 'lost_manage', now)
+}
+
+export function assertCanManagePetLostFound(
+  pet: Pet,
+  actorAccountId: string,
+  accessList: PetHouseholdAccess[],
+  now: number = Date.now(),
+): Pet {
+  if (!canManagePetLostFound(pet, actorAccountId, accessList, now)) {
+    throw new HouseholdPermissionError(
+      'Only the pet owner or a household member with lost_manage may manage Lost & Found',
+    )
+  }
+  return pet
+}
+
+/**
+ * Emergency Card write — Owner OR active household access + emergency_write.
+ */
+export function canWritePetEmergency(
+  pet: Pet,
+  actorAccountId: string,
+  accessList: PetHouseholdAccess[],
+  now: number = Date.now(),
+): boolean {
+  const actor = typeof actorAccountId === 'string' ? actorAccountId.trim() : ''
+  if (!actor) return false
+  if (isPetOwner(pet, actor)) return true
+  const access = findHouseholdAccess(accessList, pet.id, actor)
+  return hasHouseholdPermission(access, 'emergency_write', now)
+}
+
+export function assertCanWritePetEmergency(
+  pet: Pet,
+  actorAccountId: string,
+  accessList: PetHouseholdAccess[],
+  now: number = Date.now(),
+): Pet {
+  if (!canWritePetEmergency(pet, actorAccountId, accessList, now)) {
+    throw new HouseholdPermissionError(
+      'Only the pet owner or a household member with emergency_write may edit the Emergency Card',
+    )
+  }
+  return pet
+}
+
+/** Emergency Card read — Owner OR active household access + emergency_read. */
+export function canReadPetEmergency(
+  pet: Pet,
+  actorAccountId: string,
+  accessList: PetHouseholdAccess[],
+  now: number = Date.now(),
+): boolean {
+  const actor = typeof actorAccountId === 'string' ? actorAccountId.trim() : ''
+  if (!actor) return false
+  if (isPetOwner(pet, actor)) return true
+  const access = findHouseholdAccess(accessList, pet.id, actor)
+  return hasHouseholdPermission(access, 'emergency_read', now)
+}
+
 export function listHouseholdAccessForPet(
   accessList: PetHouseholdAccess[],
   petId: string,
