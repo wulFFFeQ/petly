@@ -40,6 +40,9 @@ export type {
   OrganizationMembership,
   OrganizationMembershipStatus,
   OrganizationPermission,
+  OrganizationPetAccess,
+  OrganizationPetAccessStatus,
+  OrganizationPetVisibilityMode,
   OrganizationPublicVisibility,
   OrganizationRole,
   OrganizationStatus,
@@ -704,6 +707,9 @@ export type NotificationType =
   | 'organization_membership_accepted'
   | 'organization_membership_role_changed'
   | 'organization_membership_removed'
+  | 'organization_access_requested'
+  | 'organization_access_granted'
+  | 'organization_access_revoked'
   | 'booking_requested'
   | 'booking_confirmed'
   | 'booking_declined'

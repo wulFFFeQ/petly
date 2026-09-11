@@ -3,6 +3,9 @@ export type {
   OrganizationMembership,
   OrganizationMembershipStatus,
   OrganizationPermission,
+  OrganizationPetAccess,
+  OrganizationPetAccessStatus,
+  OrganizationPetVisibilityMode,
   OrganizationPublicVisibility,
   OrganizationRole,
   OrganizationStatus,
@@ -11,8 +14,11 @@ export type {
 } from './types'
 
 export {
+  DEFAULT_ORGANIZATION_PET_ELIGIBLE_ROLES,
   ORGANIZATION_MEMBERSHIP_STATUSES,
   ORGANIZATION_PERMISSIONS,
+  ORGANIZATION_PET_ACCESS_STATUSES,
+  ORGANIZATION_PET_VISIBILITY_MODES,
   ORGANIZATION_PUBLIC_VISIBILITIES,
   ORGANIZATION_ROLES,
   ORGANIZATION_STATUSES,
@@ -84,3 +90,67 @@ export {
   assertOrganizationProjectionSafe,
   toPublicOrganization,
 } from './project'
+
+export {
+  ORGANIZATION_PET_ACCESS_STORAGE_KEY,
+  createOrganizationPetAccessId,
+  loadOrganizationPetAccess,
+  normalizeOrganizationPetAccess,
+  normalizeOrganizationPetAccessList,
+  saveOrganizationPetAccess,
+} from './petAccessStorage'
+
+export {
+  OrganizationPetAccessError,
+  activateOrganizationPetAccess,
+  actorHasOrganizationPetPermission,
+  assertCanOrganizationAddHealthRecord,
+  canOrganizationActorAddHealthRecord,
+  canOrganizationActorAddNote,
+  canOrganizationActorAddVaccination,
+  canOrganizationActorAddVisit,
+  canOrganizationActorViewDocuments,
+  canOrganizationActorViewHealth,
+  canOrganizationActorViewMedications,
+  canOrganizationActorViewVaccinations,
+  expireOrganizationPetAccess,
+  findOpenOrganizationPetAccess,
+  findOrganizationPetAccess,
+  grantOrganizationPetAccess,
+  hasOrganizationPetPermission,
+  isMemberPetEligible,
+  isOrganizationPetAccessEffective,
+  listOrganizationPetAccessForOrganization,
+  listOrganizationPetAccessForPet,
+  requestOrganizationPetAccess,
+  resolveActorOrganizationPetAccess,
+  resolveOrganizationPetAccessStatus,
+  revokeOrganizationPetAccess,
+  updateOrganizationPetAccessAssignments,
+  type ActorOrgPetAccessContext,
+  type GrantOrganizationPetAccessInput,
+  type OrganizationPetAccessMutationResult,
+  type RequestOrganizationPetAccessInput,
+} from './petAccess'
+
+export {
+  approveOrganizationPetAccess,
+  expireOwnerOrganizationPetAccess,
+  grantClinicPetAccess,
+  grantOwnerOrganizationPetAccess,
+  listStoredOrganizationPetAccessForOrganization,
+  listStoredOrganizationPetAccessForPet,
+  loadOrganizationPetAccessState,
+  requestOwnerOrganizationPetAccess,
+  revokeOwnerOrganizationPetAccess,
+  setOrganizationPetAccessAssignments,
+  type OrganizationPetAccessSessionResult,
+} from './petAccessSession'
+
+export {
+  ORGANIZATION_PET_VIEW_FORBIDDEN_KEYS,
+  assertOrganizationPetViewSafe,
+  projectPetForOrganization,
+  type OrganizationPetView,
+  type ProjectOrganizationPetOptions,
+} from './petProject'

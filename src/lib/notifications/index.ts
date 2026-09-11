@@ -51,6 +51,14 @@ export {
   type OrganizationMembershipNotificationEvent,
 } from './fromOrganizationMembership'
 export {
+  buildOrganizationPetAccessNotification,
+  emitOrganizationPetAccessNotification,
+  isSafeOrganizationPetAccessNotificationPayload,
+  organizationPetAccessDedupeKey,
+  type OrganizationPetAccessNotificationContext,
+  type OrganizationPetAccessNotificationEvent,
+} from './fromOrganizationPetAccess'
+export {
   buildBookingNotification,
   emitBookingNotification,
   isSafeBookingNotificationPayload,

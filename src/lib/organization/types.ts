@@ -1,5 +1,5 @@
 /**
- * Organization domain types + const arrays (K42).
+ * Organization domain types + const arrays (K42 / K44).
  */
 
 export type {
@@ -7,6 +7,9 @@ export type {
   OrganizationMembership,
   OrganizationMembershipStatus,
   OrganizationPermission,
+  OrganizationPetAccess,
+  OrganizationPetAccessStatus,
+  OrganizationPetVisibilityMode,
   OrganizationPublicVisibility,
   OrganizationRole,
   OrganizationStatus,
@@ -56,3 +59,18 @@ export const ORGANIZATION_PERMISSIONS = [
   'organization_members_manage',
   'organization_settings_manage',
 ] as const
+
+export const ORGANIZATION_PET_ACCESS_STATUSES = [
+  'pending',
+  'active',
+  'revoked',
+  'expired',
+] as const
+
+export const ORGANIZATION_PET_VISIBILITY_MODES = [
+  'assigned_only',
+  'role_eligible',
+] as const
+
+/** Default eligible roles when visibilityMode is role_eligible. */
+export const DEFAULT_ORGANIZATION_PET_ELIGIBLE_ROLES = ['professional'] as const
