@@ -224,6 +224,12 @@ export interface Pet {
   type: PetType
   breed: string
   image: string
+  /**
+   * Canonical owner Account.id.
+   * DEMO: migrated from implicit lovedandknown.pets → owner_self ownership.
+   * Missing values resolve via ensurePetOwnerAccountId / resolvePetOwnerAccountId.
+   */
+  ownerAccountId?: string
   coverColor?: string
   coverImage?: string
   age?: number
@@ -682,6 +688,10 @@ export type NotificationType =
   | 'professional_access_rejected'
   | 'professional_access_revoked'
   | 'professional_access_expired'
+  | 'household_access_granted'
+  | 'household_access_revoked'
+  | 'household_role_changed'
+  | 'household_access_invited'
   | 'booking_requested'
   | 'booking_confirmed'
   | 'booking_declined'

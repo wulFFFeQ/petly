@@ -35,6 +35,14 @@ export {
   type ProfessionalAccessNotificationEvent,
 } from './fromProfessionalAccess'
 export {
+  buildHouseholdAccessNotification,
+  emitHouseholdAccessNotification,
+  isSafeHouseholdAccessNotificationPayload,
+  householdAccessDedupeKey,
+  type HouseholdAccessNotificationContext,
+  type HouseholdAccessNotificationEvent,
+} from './fromHouseholdAccess'
+export {
   buildBookingNotification,
   emitBookingNotification,
   isSafeBookingNotificationPayload,

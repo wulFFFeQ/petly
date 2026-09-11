@@ -581,7 +581,7 @@ export function OverviewTab({
         </Card>
       </div>
 
-      <WhoHasAccessSection petId={pet.id} petName={pet.name} />
+      <WhoHasAccessSection pet={pet} />
 
       <BadgesSection scope="pet" petId={pet.id} earnedBadges={earnedBadges} />
     </div>

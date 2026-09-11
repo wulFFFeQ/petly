@@ -43,6 +43,10 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'professional_access_rejected',
   'professional_access_revoked',
   'professional_access_expired',
+  'household_access_granted',
+  'household_access_revoked',
+  'household_role_changed',
+  'household_access_invited',
   'booking_requested',
   'booking_confirmed',
   'booking_declined',
@@ -202,6 +206,15 @@ export function notificationHrefFallback(item: AppNotification): string | null {
     return '/pets'
   }
   if (item.type === 'professional_access_requested' && item.petId) {
+    return `/pets/${item.petId}?tab=overview#who-has-access`
+  }
+  if (
+    (item.type === 'household_access_granted' ||
+      item.type === 'household_access_revoked' ||
+      item.type === 'household_role_changed' ||
+      item.type === 'household_access_invited') &&
+    item.petId
+  ) {
     return `/pets/${item.petId}?tab=overview#who-has-access`
   }
   if (

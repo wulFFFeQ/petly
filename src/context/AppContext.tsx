@@ -7,7 +7,7 @@ import {
   petDocuments as initialPetDocuments,
   petPhotos as initialPetPhotos,
 } from '../data/mockData'
-import { ensureDefaultSelfAccount, findProfessionalProfileById } from '../lib/account'
+import { ensureDefaultSelfAccount, findProfessionalProfileById, getSelfAccount } from '../lib/account'
 import {
   normalizeImportantContact,
   normalizeImportantContacts,
@@ -130,7 +130,9 @@ import {
   pruneStaleDerivedNotifications,
   type NotificationDraft,
 } from '../lib/notifications'
+import { ensurePetOwnerAccountId } from '../lib/pets'
 import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
+import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
@@ -187,13 +189,17 @@ function normalizeLifestyleField(value: unknown): string[] | undefined {
 
 function loadPets(): Pet[] {
   if (typeof window === 'undefined') {
-    return initialPets.map(sanitizePetBreedingProfile)
+    return initialPets.map((p) => ensurePetOwnerAccountId(sanitizePetBreedingProfile(p)))
   }
   try {
     const raw = window.localStorage.getItem(PETS_STORAGE_KEY)
-    if (!raw) return initialPets.map(sanitizePetBreedingProfile)
+    if (!raw) {
+      return initialPets.map((p) => ensurePetOwnerAccountId(sanitizePetBreedingProfile(p)))
+    }
     const parsed = JSON.parse(raw) as Pet[]
-    if (!Array.isArray(parsed) || parsed.length === 0) return initialPets
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return initialPets.map((p) => ensurePetOwnerAccountId(sanitizePetBreedingProfile(p)))
+    }
     return parsed.map((pet) => {
       const seed = initialPets.find((item) => item.id === pet.id)
       const { lifestyleExtras: _removed, ...rest } = pet as Pet & {
@@ -259,7 +265,8 @@ function loadPets(): Pet[] {
             ? pet.profileUpdatedAt.trim()
             : seed?.profileUpdatedAt,
       }
-      return sanitizePetBreedingProfile(merged)
+      // Ownership migration: only from existing implicit store→owner_self rule.
+      return ensurePetOwnerAccountId(sanitizePetBreedingProfile(merged))
     }).map((pet) =>
       ensurePetEmergencyCard({
         ...pet,
@@ -268,7 +275,7 @@ function loadPets(): Pet[] {
       }),
     )
   } catch {
-    return initialPets.map(sanitizePetBreedingProfile)
+    return initialPets.map((p) => ensurePetOwnerAccountId(sanitizePetBreedingProfile(p)))
   }
 }
 
@@ -1220,6 +1227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       breed: form.breed,
       image: getDefaultBreedImage(form.type, form.breed),
       coverColor: pickRandomCoverColor(),
+      ownerAccountId: getSelfAccount()?.id ?? SELF_OWNER_ID,
       foundContactToken: createFoundContactToken(),
       qrContactEnabled: true,
       profileUpdatedAt: new Date().toISOString(),
