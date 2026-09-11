@@ -3,6 +3,19 @@ import type { Verification } from '../verification/types'
 import { toSafePublicLabel } from '../lostPet/privacy'
 import type { ProfessionalProfile, PublicProfessionalProfile } from './types'
 
+/** Safe public trust row for professional profile UI (labels only — no private metadata). */
+export type PublicProfessionalTrustItem = {
+  id: 'professional' | 'email' | 'phone' | 'veterinary'
+  label: string
+}
+
+const TRUST_LABELS: Record<PublicProfessionalTrustItem['id'], string> = {
+  professional: 'Ověřený profesionální profil',
+  email: 'Ověřený e-mail',
+  phone: 'Ověřený telefon',
+  veterinary: 'Veterinární ověření',
+}
+
 /** Keys forbidden on any public professional payload. */
 export const PUBLIC_PROFESSIONAL_FORBIDDEN_KEYS = [
   'address',
@@ -132,4 +145,58 @@ export function assertPublicProfessionalSafe(pub: PublicProfessionalProfile): vo
   if (record.verified === true) {
     throw new Error('PublicProfessionalProfile must not use hardcoded verified=true')
   }
+}
+
+/**
+ * Public trust checklist for a professional profile.
+ * Derived only from real active trust Verifications + professional badge rules.
+ * DEMO / pending / expired / revoked never appear. Role alone never creates trust.
+ * Never returns accountId or verification metadata.
+ */
+export function listPublicProfessionalTrustItems(
+  profile: ProfessionalProfile,
+  verifications: Verification[] = [],
+  now: number = Date.now(),
+): PublicProfessionalTrustItem[] {
+  const items: PublicProfessionalTrustItem[] = []
+
+  if (hasProfessionalVerifiedBadge(profile, verifications, now)) {
+    items.push({ id: 'professional', label: TRUST_LABELS.professional })
+  }
+
+  const accountId = profile.accountId
+  const hasEmail = verifications.some(
+    (v) =>
+      v.type === 'email' &&
+      v.subjectType === 'user' &&
+      v.subjectId === accountId &&
+      isActiveTrustVerification(v, now),
+  )
+  if (hasEmail) {
+    items.push({ id: 'email', label: TRUST_LABELS.email })
+  }
+
+  const hasPhone = verifications.some(
+    (v) =>
+      v.type === 'phone' &&
+      v.subjectType === 'user' &&
+      v.subjectId === accountId &&
+      isActiveTrustVerification(v, now),
+  )
+  if (hasPhone) {
+    items.push({ id: 'phone', label: TRUST_LABELS.phone })
+  }
+
+  const hasVeterinary = verifications.some(
+    (v) =>
+      v.type === 'veterinary' &&
+      v.subjectType === 'professional' &&
+      v.subjectId === profile.id &&
+      isActiveTrustVerification(v, now),
+  )
+  if (hasVeterinary) {
+    items.push({ id: 'veterinary', label: TRUST_LABELS.veterinary })
+  }
+
+  return items
 }

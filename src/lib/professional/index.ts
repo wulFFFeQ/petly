@@ -148,9 +148,21 @@ export {
   PUBLIC_PROFESSIONAL_FORBIDDEN_KEYS,
   assertPublicProfessionalSafe,
   hasProfessionalVerifiedBadge,
+  listPublicProfessionalTrustItems,
   toPublicProfessionalProfile,
+  type PublicProfessionalTrustItem,
   type ToPublicProfessionalOptions,
 } from './public'
+
+export {
+  PUBLIC_BREEDER_SHOWCASE_FORBIDDEN_KEYS,
+  assertPublicBreederAnimalSafe,
+  assertPublicBreederShowcaseSafe,
+  toPublicBreederShowcase,
+  type PublicBreederAnimal,
+  type PublicBreederShowcase,
+  type ToPublicBreederShowcaseOptions,
+} from './breederShowcase'
 
 export {
   CATALOG_ROLE_FILTERS,
