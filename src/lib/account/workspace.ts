@@ -35,3 +35,13 @@ export function setUiWorkspace(mode: UiWorkspace): UiWorkspace {
 export function isProfessionalUiWorkspace(): boolean {
   return getUiWorkspace() === 'professional'
 }
+
+/** Clear session-scoped UI workspace only (logout). Does not touch account data. */
+export function clearUiWorkspace(): void {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    sessionStorage.removeItem(UI_WORKSPACE_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}

@@ -60,7 +60,16 @@ async function main() {
   await shot(page, 'onboarding')
 
   await page.locator('[data-testid="onboarding-choice-owner"]').click()
-  await page.waitForTimeout(500)
+  await page.waitForTimeout(400)
+  // KROK 36: owner path includes privacy + optional pet
+  if (await page.locator('[data-testid="onboarding-privacy"]').isVisible().catch(() => false)) {
+    await page.locator('[data-testid="onboarding-privacy-continue"]').click()
+    await page.waitForTimeout(200)
+  }
+  if (await page.locator('[data-testid="onboarding-skip-pet"]').isVisible().catch(() => false)) {
+    await page.locator('[data-testid="onboarding-skip-pet"]').click()
+    await page.waitForTimeout(400)
+  }
 
   assert(!page.url().includes('/onboarding'), 'owner path leaves onboarding')
   const accountsAfterOwner = await readAccounts(page)

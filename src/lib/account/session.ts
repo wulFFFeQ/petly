@@ -5,7 +5,7 @@ import {
   type OnboardingChoiceId,
   rolesForOnboardingChoice,
 } from '../professional/catalog'
-import { addAccountRole, isProfessionalType } from '../professional/roles'
+import { addAccountRole, isProfessionalAccount, isProfessionalType } from '../professional/roles'
 import {
   createProfessionalId,
   loadAccounts,
@@ -23,8 +23,12 @@ import type {
   ProfessionalProfile,
   ProfessionalType,
 } from '../professional/types'
+import { clearUiWorkspace } from './workspace'
 
 export const ONBOARDING_COMPLETED_KEY = 'lovedandknown.onboardingCompleted'
+
+/** DEMO session flag in the same account/session layer (not a parallel auth system). */
+export const SESSION_ACTIVE_KEY = 'lovedandknown.sessionActive'
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -52,6 +56,47 @@ export function markOnboardingCompleted(): void {
 /** DEMO / E2E — clear completion so the wizard shows again. */
 export function resetOnboardingDemo(): void {
   writeOnboardingFlag(false)
+}
+
+/**
+ * DEMO session activity.
+ * Missing key = active (legacy installs / e2e that only seed onboarding).
+ * Explicit logout writes 'false'.
+ */
+export function isSessionActive(): boolean {
+  if (typeof localStorage === 'undefined') return true
+  return localStorage.getItem(SESSION_ACTIVE_KEY) !== 'false'
+}
+
+function writeSessionActive(active: boolean): void {
+  if (typeof localStorage === 'undefined') return
+  if (active) localStorage.setItem(SESSION_ACTIVE_KEY, 'true')
+  else localStorage.setItem(SESSION_ACTIVE_KEY, 'false')
+}
+
+/**
+ * Activate DEMO session for the existing self account.
+ * Does not wipe pets or other domain data.
+ */
+export function loginSelfSession(): Account {
+  writeSessionActive(true)
+  return ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
+}
+
+/**
+ * Deactivate DEMO session and clear session-scoped UI workspace only.
+ * Does not delete pets, bookings, messages, health, membership, profiles, or onboarding flag.
+ */
+export function logoutSelfSession(): void {
+  writeSessionActive(false)
+  clearUiWorkspace()
+}
+
+/** Route for account menu "Můj profil" — no dedicated /profile page. */
+export function getMyProfilePath(account?: Account | null): string {
+  const self = account ?? getSelfAccount()
+  if (isProfessionalAccount(self)) return '/professional/profile'
+  return '/settings'
 }
 
 export function getSelfAccount(): Account | null {

@@ -1,13 +1,18 @@
 export {
   ONBOARDING_COMPLETED_KEY,
+  SESSION_ACTIVE_KEY,
   accountNeedsOnboarding,
   addSelfAccountRole,
   completeOnboarding,
   ensureDefaultSelfAccount,
   findProfessionalProfileById,
+  getMyProfilePath,
   getSelfAccount,
   isOnboardingCompleted,
+  isSessionActive,
   listSelfProfessionalProfiles,
+  loginSelfSession,
+  logoutSelfSession,
   markOnboardingCompleted,
   resetOnboardingDemo,
   saveSelfAccount,
@@ -19,6 +24,7 @@ export {
 
 export {
   UI_WORKSPACE_STORAGE_KEY,
+  clearUiWorkspace,
   getUiWorkspace,
   isProfessionalUiWorkspace,
   normalizeUiWorkspace,

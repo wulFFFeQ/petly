@@ -22,7 +22,7 @@ import {
 } from '../../lib/notifications'
 import { canSwitchWorkspace } from '../../lib/professional/dashboard'
 import type { AppNotification, NotificationType } from '../../types'
-import { Avatar } from '../ui/Avatar'
+import { AccountMenu } from '../account/AccountMenu'
 import { SearchInput } from '../ui/SearchInput'
 
 /** Dropdown shows a recent preview; full list via „Zobrazit všechny“. */
@@ -369,12 +369,7 @@ export function Header({ variant = 'consumer' }: { variant?: 'consumer' | 'profe
             )}
           </div>
 
-          <Avatar
-            src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
-            alt="Tereza V."
-            size="sm"
-            goldRing
-          />
+          <AccountMenu size="sm" goldRing />
         </div>
       </div>
     </header>

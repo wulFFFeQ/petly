@@ -12,12 +12,12 @@ import {
   Search,
   Settings,
   Users,
-  Sparkles,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import { petCountLabel } from '../../lib/dashboardDates'
 import { cn } from '../../lib/utils'
-import { Avatar } from '../ui/Avatar'
+import { AccountMenu } from '../account/AccountMenu'
 import { SidebarBrandHeader } from './Logo'
 
 export function Sidebar() {
@@ -182,22 +182,13 @@ export function Sidebar() {
         </div>
 
         <div>
-          <div className="mt-4 pt-4 border-t border-[#F0EDE6]">
-            <div className="flex items-center gap-3 rounded-xl p-2 bg-white/70 border border-[#E8E4DC]/80">
-              <Avatar
-                src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
-                alt="Tereza V."
-                size="sm"
-                goldRing
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <p className="text-xs font-semibold text-[#191E1B] truncate">Tereza V.</p>
-                  <Sparkles size={11} className="text-[#B8934A]" />
-                </div>
-                <p className="text-[10px] text-[#7D8B82] font-medium">3 mazlíčci v rodině</p>
-              </div>
-            </div>
+          <div className="mt-4 border-t border-[#F0EDE6] pt-4">
+            <AccountMenu
+              showLabel
+              size="sm"
+              goldRing
+              subtitle={petCountLabel(pets.length)}
+            />
           </div>
         </div>
       </div>

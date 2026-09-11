@@ -19,7 +19,7 @@ import { getSelfAccount, setUiWorkspace } from '../../lib/account'
 import { canSwitchWorkspace } from '../../lib/professional/dashboard'
 import { getUnreadCountForAccount } from '../../lib/messaging'
 import { cn } from '../../lib/utils'
-import { Avatar } from '../ui/Avatar'
+import { AccountMenu } from '../account/AccountMenu'
 import { SidebarBrandHeader } from './Logo'
 
 const mainNav = [
@@ -153,17 +153,7 @@ export function ProfessionalSidebar() {
               Přepnout na účet majitele
             </NavLink>
           ) : null}
-          <div className="flex items-center gap-3 rounded-xl bg-white/70 px-3 py-2.5">
-            <Avatar
-              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=85"
-              alt="Profil"
-              size="sm"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-[#191E1B]">Profesionální účet</p>
-              <p className="truncate text-[10px] text-[#7D8B82]">Pracovní prostředí</p>
-            </div>
-          </div>
+          <AccountMenu showLabel size="sm" goldRing={false} subtitle="Pracovní prostředí" />
         </div>
       </div>
     </aside>

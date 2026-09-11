@@ -1,11 +1,18 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { OnboardingGate } from './components/account/OnboardingGate'
 import { ProfessionalGate } from './components/account/ProfessionalGate'
 import { AppLayout } from './components/layout/AppLayout'
 import { ProfessionalLayout } from './components/layout/ProfessionalLayout'
 import { ScrollToTop } from './components/layout/ScrollToTop'
+import { Modals } from './components/modals/Modals'
 import { ToastContainer } from './components/ui/Toast'
 import { AppProvider } from './context/AppContext'
+import {
+  isOnboardingCompleted,
+  isSessionActive,
+  loginSelfSession,
+} from './lib/account'
 import { CalendarPage } from './pages/CalendarPage'
 import { CommunityPage } from './pages/CommunityPage'
 import { ConciergePage } from './pages/ConciergePage'
@@ -20,6 +27,7 @@ import { LostPetPage } from './pages/LostPetPage'
 import { EmergencyPetPage } from './pages/EmergencyPetPage'
 import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
+import { LoginPage } from './pages/LoginPage'
 import { MessagesPage } from './pages/MessagesPage'
 import { MyPetsPage } from './pages/MyPetsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -75,10 +83,37 @@ function EmergencyPetLayout() {
   )
 }
 
+function LoginLayout() {
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]">
+      <LoginPage />
+      <ToastContainer />
+    </div>
+  )
+}
+
+/** Onboarding requires active session; Modals host enables existing Add Pet flow. */
 function OnboardingLayout() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isSessionActive()) {
+      navigate('/login', { replace: true })
+      return
+    }
+    if (isOnboardingCompleted()) {
+      navigate('/', { replace: true })
+      return
+    }
+    loginSelfSession()
+  }, [navigate])
+
+  if (!isSessionActive()) return null
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]">
       <OnboardingPage />
+      <Modals />
       <ToastContainer />
     </div>
   )
@@ -95,6 +130,7 @@ function App() {
           <Route path="found/:token" element={<FoundPetLayout />} />
           <Route path="lost/:token" element={<LostPetLayout />} />
           <Route path="pet/:slug/emergency" element={<EmergencyPetLayout />} />
+          <Route path="login" element={<LoginLayout />} />
           <Route path="onboarding" element={<OnboardingLayout />} />
           <Route element={<OnboardingGate />}>
             <Route path="professional" element={<ProfessionalGate />}>
