@@ -41,6 +41,7 @@ import { ProfessionalServicesPage } from './pages/professional/ProfessionalServi
 import { ProfessionalAvailabilityPage } from './pages/professional/ProfessionalAvailabilityPage'
 import { ProfessionalBookingRulesPage } from './pages/professional/ProfessionalBookingRulesPage'
 import { ProfessionalMessagesPage } from './pages/professional/ProfessionalMessagesPage'
+import { ProfessionalPaymentsPage } from './pages/professional/ProfessionalPaymentsPage'
 import { MembershipPage } from './pages/MembershipPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
@@ -106,6 +107,7 @@ function App() {
                 <Route path="services" element={<ProfessionalServicesPage />} />
                 <Route path="availability" element={<ProfessionalAvailabilityPage />} />
                 <Route path="booking-rules" element={<ProfessionalBookingRulesPage />} />
+                <Route path="payments" element={<ProfessionalPaymentsPage />} />
                 <Route path="calendar" element={<ProfessionalCalendarPage />} />
                 <Route path="records" element={<ProfessionalRecordsPage />} />
                 <Route path="profile" element={<ProfessionalProfilePage />} />

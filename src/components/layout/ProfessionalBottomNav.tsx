@@ -25,6 +25,7 @@ const moreItems = [
   { to: '/professional/pets', label: 'Propojení' },
   { to: '/professional/services', label: 'Služby' },
   { to: '/professional/availability', label: 'Dostupnost' },
+  { to: '/professional/payments', label: 'Platby' },
   { to: '/professional/records', label: 'Záznamy' },
   { to: '/professional/profile', label: 'Veřejný profil' },
   { to: '/professional/settings', label: 'Nastavení' },

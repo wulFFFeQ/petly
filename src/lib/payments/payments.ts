@@ -9,6 +9,7 @@ import {
   toMinorUnits,
 } from './money'
 import { getPaymentProvider } from './providerRegistry'
+import { calculatePaymentRouting, planRefundRouting } from './routing'
 import {
   createPaymentId,
   loadPayments,
@@ -22,6 +23,7 @@ import type {
   PaymentResult,
   PaymentType,
 } from './types'
+import type { RefundRoutingPlan } from './connectTypes'
 
 export function listPaymentsForBooking(bookingId: string): Payment[] {
   return loadPayments()
@@ -102,18 +104,40 @@ export function createPaymentRecord(input: CreatePaymentIntentInput): PaymentRes
     return { ok: false, error: 'invalid_input', message: 'amountMinor musí být nezáporné celé číslo.' }
   }
 
+  const currency = normalizeCurrency(
+    input.currency ?? input.currencySnapshot ?? DEFAULT_CURRENCY,
+  )
+  const routing =
+    input.platformFeeMinor !== undefined && input.professionalAmountMinor !== undefined
+      ? {
+          amountMinor: input.amountMinor,
+          platformFeeMinor: input.platformFeeMinor,
+          professionalAmountMinor: input.professionalAmountMinor,
+          chargePattern:
+            input.chargePattern ??
+            calculatePaymentRouting(input.amountMinor, { currency }).chargePattern,
+          currency,
+        }
+      : calculatePaymentRouting(input.amountMinor, {
+          currency,
+          chargePattern: input.chargePattern,
+        })
+
   const now = new Date().toISOString()
   const payment: Payment = {
     id: createPaymentId('pay'),
     bookingId: input.bookingId,
     ownerAccountId: input.ownerAccountId,
     professionalId: input.professionalId,
-    amountMinor: input.amountMinor,
-    currency: normalizeCurrency(input.currency ?? input.currencySnapshot ?? DEFAULT_CURRENCY),
+    amountMinor: routing.amountMinor,
+    currency: routing.currency,
     paymentType: input.paymentType,
     status: 'pending',
     purpose: 'BOOKING_PAYMENT',
     isDemoPayment: input.isDemoPayment !== false,
+    platformFeeMinor: routing.platformFeeMinor,
+    professionalAmountMinor: routing.professionalAmountMinor,
+    chargePattern: routing.chargePattern,
     createdAt: now,
     updatedAt: now,
   }
@@ -242,6 +266,9 @@ export function createRefund(
   // Extension: call provider.refundPayment — Demo returns demo_only without mutating to paid.
   void getPaymentProvider().refundPayment(paymentId, refundAmount)
 
+  // Future Stripe: reverse platform fee + professional transfer (no live call yet).
+  const refundPlan = planRefundForPayment(original, refundAmount)
+
   const now = new Date().toISOString()
   const refund: Payment = {
     id: createPaymentId('pay'),
@@ -259,10 +286,35 @@ export function createRefund(
     serviceNameSnapshot: original.serviceNameSnapshot,
     priceSnapshotMajor: original.priceSnapshotMajor,
     currencySnapshot: original.currencySnapshot,
+    platformFeeMinor: refundPlan.reversePlatformFeeMinor,
+    professionalAmountMinor: refundPlan.reverseProfessionalTransferMinor,
+    chargePattern: original.chargePattern,
     createdAt: now,
     updatedAt: now,
   }
   return { ok: true, value: upsertPayment(refund) }
+}
+
+/**
+ * Plan refund reverse amounts for a payment (customer / fee / professional).
+ * Does not call Stripe.
+ */
+export function planRefundForPayment(
+  original: Payment,
+  refundCustomerMinor?: number,
+): RefundRoutingPlan {
+  const amount = refundCustomerMinor ?? original.amountMinor
+  const platformFeeMinor = original.platformFeeMinor ?? 0
+  const professionalAmountMinor =
+    original.professionalAmountMinor ?? original.amountMinor - platformFeeMinor
+  return planRefundRouting(
+    {
+      amountMinor: original.amountMinor,
+      platformFeeMinor,
+      professionalAmountMinor,
+    },
+    amount,
+  )
 }
 
 export function updatePaymentStatus(

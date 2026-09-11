@@ -3,7 +3,10 @@ import type { PaymentProvider } from './provider'
 
 let activeProvider: PaymentProvider | null = null
 
-/** Active booking-payment provider — DEMO until a real provider is wired. */
+/**
+ * Active booking-payment provider — DEMO until a real provider is wired.
+ * Config may request stripe, but runtime stays on Demo (no SDK / keys in K34).
+ */
 export function getPaymentProvider(): PaymentProvider {
   if (!activeProvider) {
     activeProvider = new DemoPaymentProvider()

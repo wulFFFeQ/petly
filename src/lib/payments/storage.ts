@@ -1,3 +1,4 @@
+import type { ChargePattern } from './connectTypes'
 import {
   assertAmountMinor,
   DEFAULT_CURRENCY,
@@ -19,6 +20,10 @@ const TYPE_SET = new Set<string>(PAYMENT_TYPES)
 const STATUS_SET = new Set<string>(PAYMENT_STATUSES)
 const PURPOSE_SET = new Set<string>(['BOOKING_PAYMENT', 'MEMBERSHIP_PAYMENT'])
 const PROVIDER_SET = new Set<string>(['demo', 'stripe', 'none'])
+const CHARGE_PATTERN_SET = new Set<string>([
+  'destination_charge',
+  'separate_charge_and_transfer',
+])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -111,6 +116,22 @@ export function normalizePayment(raw: unknown): Payment | null {
   }
   if (asString(raw.refundOfPaymentId)) {
     payment.refundOfPaymentId = asString(raw.refundOfPaymentId)
+  }
+
+  const platformFeeMinor = asNumber(raw.platformFeeMinor)
+  if (platformFeeMinor !== undefined && assertAmountMinor(platformFeeMinor)) {
+    payment.platformFeeMinor = Math.trunc(platformFeeMinor)
+  }
+  const professionalAmountMinor = asNumber(raw.professionalAmountMinor)
+  if (
+    professionalAmountMinor !== undefined &&
+    assertAmountMinor(professionalAmountMinor)
+  ) {
+    payment.professionalAmountMinor = Math.trunc(professionalAmountMinor)
+  }
+  const chargePattern = asString(raw.chargePattern)
+  if (chargePattern && CHARGE_PATTERN_SET.has(chargePattern)) {
+    payment.chargePattern = chargePattern as ChargePattern
   }
 
   return payment

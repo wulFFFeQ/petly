@@ -2,22 +2,25 @@ import { useMemo } from 'react'
 import {
   deriveBookingPaymentSummary,
   formatMinorMoney,
+  getPaymentProviderConfig,
+  isPaymentProviderActive,
   listPaymentsForBooking,
   toPublicPayment,
+  type BookingPaymentSummary,
 } from '../../lib/payments'
 
-const SUMMARY_LABEL: Record<string, string> = {
-  unpaid: 'Nezaplaceno / platba na místě',
-  deposit_pending: 'Záloha připravena (DEMO)',
-  partially_paid: 'Částečně zaplaceno',
+const SUMMARY_LABEL: Record<BookingPaymentSummary, string> = {
+  unpaid: 'Platba není vyžadována',
+  deposit_pending: 'Čeká na platbu',
+  partially_paid: 'Částečně vráceno',
   paid: 'Zaplaceno',
-  refund_pending: 'Refundace připravena',
-  refunded: 'Refundováno',
+  refund_pending: 'Čeká na platbu',
+  refunded: 'Vráceno',
 }
 
 /**
  * Read-only payment info for a booking.
- * Never shows "Platba proběhla" for DEMO; never offers a Pay button.
+ * Never shows fake checkout; DEMO never claims real paid.
  */
 export function BookingPaymentSection({
   bookingId,
@@ -32,6 +35,23 @@ export function BookingPaymentSection({
   )
   const summary = deriveBookingPaymentSummary(payments)
   const publicPayments = payments.map(toPublicPayment)
+  const config = getPaymentProviderConfig()
+  const providerActive = isPaymentProviderActive()
+
+  const displayLabel = (() => {
+    if (publicPayments.length === 0) return 'Platba není vyžadována'
+    if (summary === 'deposit_pending' || summary === 'unpaid') {
+      const hasPending = publicPayments.some((p) => p.status === 'pending')
+      if (hasPending) return 'Čeká na platbu'
+    }
+    if (summary === 'partially_paid') {
+      const hasPartialRefund = publicPayments.some(
+        (p) => p.paymentType === 'refund' || p.status === 'partially_refunded',
+      )
+      return hasPartialRefund ? 'Částečně vráceno' : 'Čeká na platbu'
+    }
+    return SUMMARY_LABEL[summary] ?? summary
+  })()
 
   return (
     <div
@@ -42,8 +62,13 @@ export function BookingPaymentSection({
         Platba
       </p>
       <p className="mt-1 text-sm font-semibold text-[#191E1B]" data-testid="booking-payment-summary">
-        {SUMMARY_LABEL[summary] ?? summary}
+        {displayLabel}
       </p>
+      {!providerActive ? (
+        <p className="mt-2 text-xs text-[#7D8B82]" data-testid="booking-payment-provider-inactive">
+          Online platby budou dostupné později.
+        </p>
+      ) : null}
       {publicPayments.length === 0 ? (
         <p className="mt-2 text-xs text-[#7D8B82]" data-testid="booking-payment-none">
           Platební systém připravujeme. Platba probíhá dle dohody (např. na místě).
@@ -79,7 +104,9 @@ export function BookingPaymentSection({
         </ul>
       )}
       <p className="mt-3 text-[11px] text-[#7D8B82]" data-testid="booking-payment-disclaimer">
-        Platby budou dostupné později. Toto není potvrzení úhrady.
+        {config.isDemo
+          ? 'DEMO / Připravujeme. Toto není potvrzení úhrady.'
+          : 'Platby budou dostupné později. Toto není potvrzení úhrady.'}
       </p>
     </div>
   )

@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   UserRound,
+  Wallet,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { getSelfAccount, setUiWorkspace } from '../../lib/account'
@@ -35,6 +36,7 @@ const bottomNav = [
   { to: '/professional/services', label: 'Služby', icon: Sparkles },
   { to: '/professional/availability', label: 'Dostupnost', icon: Clock },
   { to: '/professional/booking-rules', label: 'Pravidla rezervací', icon: ScrollText },
+  { to: '/professional/payments', label: 'Platby', icon: Wallet },
   { to: '/professional/settings', label: 'Nastavení', icon: Settings },
   { to: '/professional/help', label: 'Nápověda', icon: HelpCircle },
 ]

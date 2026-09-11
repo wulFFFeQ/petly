@@ -1,7 +1,10 @@
 /**
  * Booking payment layer — separate from Booking lifecycle and Membership billing.
  * Payment records are the source of truth for financial state.
+ * Stripe Connect routing fields prepare marketplace splits without charging in DEMO.
  */
+
+import type { ChargePattern } from './connectTypes'
 
 export type PaymentType = 'full' | 'deposit' | 'cancellation_fee' | 'refund'
 
@@ -72,7 +75,7 @@ export interface Payment {
   bookingId: string
   ownerAccountId: string
   professionalId: string
-  /** Integer in smallest currency unit (e.g. haléře for CZK). */
+  /** Integer in smallest currency unit (e.g. haléře for CZK). Customer payment total. */
   amountMinor: number
   currency: string
   paymentType: PaymentType
@@ -89,6 +92,12 @@ export interface Payment {
   currencySnapshot?: string
   /** Audit link: refund Payment points at original Payment. */
   refundOfPaymentId?: string
+  /** Explicit platform fee (application_fee) — never hidden inside amountMinor. */
+  platformFeeMinor?: number
+  /** amountMinor - platformFeeMinor — professional share. */
+  professionalAmountMinor?: number
+  /** Default destination_charge; separate_charge_and_transfer reserved. */
+  chargePattern?: ChargePattern
   createdAt: string
   updatedAt: string
 }
@@ -132,6 +141,9 @@ export type CreatePaymentIntentInput = {
   priceSnapshotMajor?: number
   currencySnapshot?: string
   isDemoPayment?: boolean
+  platformFeeMinor?: number
+  professionalAmountMinor?: number
+  chargePattern?: ChargePattern
 }
 
 export type CancellationFeeResult = {

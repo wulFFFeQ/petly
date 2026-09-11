@@ -1,8 +1,15 @@
 import type { Payment, PublicPayment } from './types'
+import type {
+  ProfessionalPaymentAccount,
+  PublicProfessionalPaymentAccount,
+} from './connectTypes'
 
 /** Keys that must never appear on a public payment projection. */
 export const FORBIDDEN_PAYMENT_PUBLIC_KEYS = [
   'providerPaymentId',
+  'providerAccountId',
+  'providerPayoutId',
+  'providerEventId',
   'ownerAccountId',
   'accountId',
   'paymentMethod',
@@ -12,10 +19,14 @@ export const FORBIDDEN_PAYMENT_PUBLIC_KEYS = [
   'cvc',
   'iban',
   'bankAccount',
+  'bankCredentials',
   'billing',
   'billingIdentifier',
   'clientSecret',
   'stripeCustomerId',
+  'stripeAccountId',
+  'stripeSecretKey',
+  'webhookSecret',
   'raw',
   'metadata',
 ] as const
@@ -58,10 +69,40 @@ export function toPublicPayment(payment: Payment): PublicPayment {
   return pub
 }
 
-/** Never store card / CVV / full bank details on Payment records. */
+export function toPublicProfessionalPaymentAccount(
+  account: ProfessionalPaymentAccount,
+): PublicProfessionalPaymentAccount {
+  return {
+    id: account.id,
+    professionalId: account.professionalId,
+    provider: account.provider,
+    status: account.status,
+    chargesEnabled: account.chargesEnabled,
+    payoutsEnabled: account.payoutsEnabled,
+    detailsSubmitted: account.detailsSubmitted,
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt,
+  }
+}
+
+/** Never store card / CVV / full bank details / Stripe secrets on Payment records. */
 export function assertNoSensitivePaymentData(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return true
   const keys = Object.keys(raw as object).map((k) => k.toLowerCase())
-  const banned = ['cardnumber', 'cvv', 'cvc', 'iban', 'pan', 'expirymonth', 'expiryyear']
+  const banned = [
+    'cardnumber',
+    'cvv',
+    'cvc',
+    'iban',
+    'pan',
+    'expirymonth',
+    'expiryyear',
+    'stripesecret',
+    'webhooksecret',
+    'sk_live',
+    'sk_test',
+    'whsec_',
+    'bankcredentials',
+  ]
   return !banned.some((b) => keys.some((k) => k.includes(b)))
 }
