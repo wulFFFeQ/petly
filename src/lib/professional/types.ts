@@ -4,6 +4,13 @@ export type {
   AccountRole,
   ConsumerRole,
   Organization,
+  OrganizationMembership,
+  OrganizationMembershipStatus,
+  OrganizationPermission,
+  OrganizationPublicVisibility,
+  OrganizationRole,
+  OrganizationStatus,
+  OrganizationType,
   PetProfessionalAccess,
   ProfessionalAccessLog,
   ProfessionalAccessLogAction,
@@ -14,6 +21,7 @@ export type {
   ProfessionalPublicVisibility,
   ProfessionalType,
   ProfessionalVerificationStatus,
+  PublicOrganization,
   PublicProfessionalProfile,
 } from '../../types/professional'
 

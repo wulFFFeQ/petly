@@ -1,4 +1,15 @@
 import type { VerificationStatus } from './verification'
+export type {
+  Organization,
+  OrganizationMembership,
+  OrganizationMembershipStatus,
+  OrganizationPermission,
+  OrganizationPublicVisibility,
+  OrganizationRole,
+  OrganizationStatus,
+  OrganizationType,
+  PublicOrganization,
+} from './organization'
 
 /** Everyday pet-owner role (consumer). */
 export type ConsumerRole = 'owner'
@@ -74,19 +85,6 @@ export interface ProfessionalProfile {
   organizationId?: string
   /** Default unverified; DEMO vs trust handled via Verification records (KROK 16). */
   verificationStatus: ProfessionalVerificationStatus
-  createdAt: string
-  updatedAt: string
-}
-
-/**
- * Organization stub for clinics, shelters, salons, hotels.
- * Team management is out of scope for KROK 19.
- */
-export interface Organization {
-  id: string
-  type: ProfessionalType
-  name: string
-  memberAccountIds: string[]
   createdAt: string
   updatedAt: string
 }

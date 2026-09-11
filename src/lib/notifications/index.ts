@@ -43,6 +43,14 @@ export {
   type HouseholdAccessNotificationEvent,
 } from './fromHouseholdAccess'
 export {
+  buildOrganizationMembershipNotification,
+  emitOrganizationMembershipNotification,
+  isSafeOrganizationMembershipNotificationPayload,
+  organizationMembershipDedupeKey,
+  type OrganizationMembershipNotificationContext,
+  type OrganizationMembershipNotificationEvent,
+} from './fromOrganizationMembership'
+export {
   buildBookingNotification,
   emitBookingNotification,
   isSafeBookingNotificationPayload,

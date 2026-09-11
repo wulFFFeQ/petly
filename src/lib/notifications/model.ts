@@ -47,6 +47,10 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'household_access_revoked',
   'household_role_changed',
   'household_access_invited',
+  'organization_membership_invited',
+  'organization_membership_accepted',
+  'organization_membership_role_changed',
+  'organization_membership_removed',
   'booking_requested',
   'booking_confirmed',
   'booking_declined',
@@ -216,6 +220,14 @@ export function notificationHrefFallback(item: AppNotification): string | null {
     item.petId
   ) {
     return `/pets/${item.petId}?tab=overview#who-has-access`
+  }
+  if (
+    item.type === 'organization_membership_invited' ||
+    item.type === 'organization_membership_accepted' ||
+    item.type === 'organization_membership_role_changed' ||
+    item.type === 'organization_membership_removed'
+  ) {
+    return '/organization-invitations'
   }
   if (
     (item.type === 'professional_access_approved' ||

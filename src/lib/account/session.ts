@@ -16,6 +16,10 @@ import {
   saveOrganizations,
   saveProfessionalProfiles,
 } from '../professional/storage'
+import {
+  ensureFounderOrganizationMembership,
+  createOrganizationId,
+} from '../organization'
 import type {
   Account,
   AccountRole,
@@ -230,28 +234,43 @@ export function upsertProfessionalIdentity(
       displayName
     const existingOrg =
       (organizationId && orgs.find((o) => o.id === organizationId)) ||
-      orgs.find((o) => o.type === type && o.memberAccountIds.includes(account.id))
+      orgs.find(
+        (o) =>
+          (o.organizationType === type || o.type === type) &&
+          o.memberAccountIds.includes(account.id),
+      )
 
     if (existingOrg) {
       organization = {
         ...existingOrg,
+        displayName: orgName,
         name: orgName,
+        organizationType: existingOrg.organizationType || type,
+        type: existingOrg.organizationType || type,
         updatedAt: ts,
       }
       const nextOrgs = orgs.map((o) => (o.id === organization!.id ? organization! : o))
       saveOrganizations(nextOrgs)
       organizationId = organization.id
+      ensureFounderOrganizationMembership(organization.id, account.id)
+      organization = loadOrganizations().find((o) => o.id === organizationId!) ?? organization
     } else {
       organization = {
-        id: createProfessionalId('org'),
-        type,
+        id: createOrganizationId('org'),
+        displayName: orgName,
         name: orgName,
+        organizationType: type,
+        type,
+        status: 'active',
+        publicVisibility: 'private',
         memberAccountIds: [account.id],
         createdAt: ts,
         updatedAt: ts,
       }
       saveOrganizations([...orgs, organization])
       organizationId = organization.id
+      ensureFounderOrganizationMembership(organization.id, account.id)
+      organization = loadOrganizations().find((o) => o.id === organizationId!) ?? organization
     }
   }
 

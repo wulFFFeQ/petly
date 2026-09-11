@@ -37,6 +37,13 @@ export type {
   AccountRole,
   ConsumerRole,
   Organization,
+  OrganizationMembership,
+  OrganizationMembershipStatus,
+  OrganizationPermission,
+  OrganizationPublicVisibility,
+  OrganizationRole,
+  OrganizationStatus,
+  OrganizationType,
   PetProfessionalAccess,
   ProfessionalAccessLog,
   ProfessionalAccessLogAction,
@@ -47,6 +54,7 @@ export type {
   ProfessionalPublicVisibility,
   ProfessionalType,
   ProfessionalVerificationStatus,
+  PublicOrganization,
   PublicProfessionalProfile,
 } from './professional'
 export type {
@@ -692,6 +700,10 @@ export type NotificationType =
   | 'household_access_revoked'
   | 'household_role_changed'
   | 'household_access_invited'
+  | 'organization_membership_invited'
+  | 'organization_membership_accepted'
+  | 'organization_membership_role_changed'
+  | 'organization_membership_removed'
   | 'booking_requested'
   | 'booking_confirmed'
   | 'booking_declined'

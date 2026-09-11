@@ -13,6 +13,7 @@ import {
   Sparkles,
   UserRound,
   Wallet,
+  Building2,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { getSelfAccount, setUiWorkspace } from '../../lib/account'
@@ -37,6 +38,7 @@ const bottomNav = [
   { to: '/professional/availability', label: 'Dostupnost', icon: Clock },
   { to: '/professional/booking-rules', label: 'Pravidla rezervací', icon: ScrollText },
   { to: '/professional/payments', label: 'Platby', icon: Wallet },
+  { to: '/professional/organizations', label: 'Organizace', icon: Building2 },
   { to: '/professional/settings', label: 'Nastavení', icon: Settings },
   { to: '/professional/help', label: 'Nápověda', icon: HelpCircle },
 ]

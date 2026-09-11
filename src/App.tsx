@@ -50,6 +50,9 @@ import { ProfessionalAvailabilityPage } from './pages/professional/ProfessionalA
 import { ProfessionalBookingRulesPage } from './pages/professional/ProfessionalBookingRulesPage'
 import { ProfessionalMessagesPage } from './pages/professional/ProfessionalMessagesPage'
 import { ProfessionalPaymentsPage } from './pages/professional/ProfessionalPaymentsPage'
+import { ProfessionalOrganizationsPage } from './pages/professional/ProfessionalOrganizationsPage'
+import { ProfessionalOrganizationDetailPage } from './pages/professional/ProfessionalOrganizationDetailPage'
+import { OrganizationInvitationsPage } from './pages/OrganizationInvitationsPage'
 import { MembershipPage } from './pages/MembershipPage'
 import { PaymentCancelPage } from './pages/payment/PaymentCancelPage'
 import { PaymentSuccessPage } from './pages/payment/PaymentSuccessPage'
@@ -146,6 +149,11 @@ function App() {
                 <Route path="availability" element={<ProfessionalAvailabilityPage />} />
                 <Route path="booking-rules" element={<ProfessionalBookingRulesPage />} />
                 <Route path="payments" element={<ProfessionalPaymentsPage />} />
+                <Route path="organizations" element={<ProfessionalOrganizationsPage />} />
+                <Route
+                  path="organizations/:organizationId"
+                  element={<ProfessionalOrganizationDetailPage />}
+                />
                 <Route path="calendar" element={<ProfessionalCalendarPage />} />
                 <Route path="records" element={<ProfessionalRecordsPage />} />
                 <Route path="profile" element={<ProfessionalProfilePage />} />
@@ -179,6 +187,7 @@ function App() {
               <Route path="contacts" element={<ContactsPage />} />
               <Route path="concierge" element={<ConciergePage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="organization-invitations" element={<OrganizationInvitationsPage />} />
               <Route path="membership" element={<MembershipPage />} />
               <Route path="payment/success" element={<PaymentSuccessPage />} />
               <Route path="payment/cancel" element={<PaymentCancelPage />} />

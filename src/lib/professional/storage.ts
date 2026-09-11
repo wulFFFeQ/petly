@@ -1,6 +1,13 @@
 import { normalizePermissions } from './permissions'
 import { isProfessionalType } from './roles'
 import {
+  ORGANIZATIONS_STORAGE_KEY as ORG_DOMAIN_STORAGE_KEY,
+  loadOrganizations as loadOrganizationsFromDomain,
+  normalizeOrganization as normalizeOrganizationFromDomain,
+  normalizeOrganizations as normalizeOrganizationsFromDomain,
+  saveOrganizations as saveOrganizationsFromDomain,
+} from '../organization/storage'
+import {
   ACCOUNT_KINDS,
   PROFESSIONAL_ACCESS_STATUSES,
   PROFESSIONAL_PUBLIC_VISIBILITIES,
@@ -22,7 +29,8 @@ export const ACCOUNTS_STORAGE_KEY = 'lovedandknown.accounts'
 export const PROFESSIONAL_PROFILES_STORAGE_KEY = 'lovedandknown.professionalProfiles'
 export const PET_PROFESSIONAL_ACCESS_STORAGE_KEY = 'lovedandknown.petProfessionalAccess'
 export const PROFESSIONAL_ACCESS_LOGS_STORAGE_KEY = 'lovedandknown.professionalAccessLogs'
-export const ORGANIZATIONS_STORAGE_KEY = 'lovedandknown.organizations'
+/** @deprecated Prefer organization domain — same key, owned by src/lib/organization. */
+export const ORGANIZATIONS_STORAGE_KEY = ORG_DOMAIN_STORAGE_KEY
 
 const KIND_SET = new Set<string>(ACCOUNT_KINDS)
 const STATUS_SET = new Set<string>(PROFESSIONAL_ACCESS_STATUSES)
@@ -190,47 +198,11 @@ export function normalizeProfessionalProfile(raw: unknown): ProfessionalProfile 
 }
 
 export function normalizeOrganization(raw: unknown): Organization | null {
-  if (!isRecord(raw)) return null
-  const id = typeof raw.id === 'string' ? raw.id.trim() : ''
-  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
-  const typeRaw = typeof raw.type === 'string' ? raw.type.trim() : ''
-  if (!id || !name || !typeRaw || !isProfessionalType(typeRaw)) return null
-
-  const membersRaw = Array.isArray(raw.memberAccountIds) ? raw.memberAccountIds : []
-  const memberAccountIds: string[] = []
-  for (const m of membersRaw) {
-    if (typeof m !== 'string' || !m.trim()) continue
-    const mid = m.trim()
-    if (!memberAccountIds.includes(mid)) memberAccountIds.push(mid)
-  }
-
-  return {
-    id,
-    type: typeRaw as ProfessionalType,
-    name,
-    memberAccountIds,
-    createdAt:
-      typeof raw.createdAt === 'string' && raw.createdAt.trim()
-        ? raw.createdAt.trim()
-        : new Date(0).toISOString(),
-    updatedAt:
-      typeof raw.updatedAt === 'string' && raw.updatedAt.trim()
-        ? raw.updatedAt.trim()
-        : new Date(0).toISOString(),
-  }
+  return normalizeOrganizationFromDomain(raw)
 }
 
 export function normalizeOrganizations(raw: unknown): Organization[] {
-  if (!Array.isArray(raw)) return []
-  const out: Organization[] = []
-  const seen = new Set<string>()
-  for (const item of raw) {
-    const o = normalizeOrganization(item)
-    if (!o || seen.has(o.id)) continue
-    seen.add(o.id)
-    out.push(o)
-  }
-  return out
+  return normalizeOrganizationsFromDomain(raw)
 }
 
 export function normalizeProfessionalProfiles(raw: unknown): ProfessionalProfile[] {
@@ -378,9 +350,9 @@ export function saveProfessionalAccessLogs(list: ProfessionalAccessLog[]): void 
 }
 
 export function loadOrganizations(): Organization[] {
-  return normalizeOrganizations(loadJson(ORGANIZATIONS_STORAGE_KEY))
+  return loadOrganizationsFromDomain()
 }
 
 export function saveOrganizations(list: Organization[]): void {
-  saveJson(ORGANIZATIONS_STORAGE_KEY, normalizeOrganizations(list))
+  saveOrganizationsFromDomain(list)
 }
