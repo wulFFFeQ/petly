@@ -1,4 +1,4 @@
-import type { DiscoverPet, Pet } from '../../types'
+import type { DiscoverPet, Pet, PetPhoto } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
 import type { Verification } from '../../types/verification'
 import {
@@ -16,6 +16,8 @@ export type ProjectOwnedPetOptions = {
   privacySettings?: PrivacySettings | null
   /** Verification records. When omitted, loads from localStorage (browser) or []. */
   verifications?: Verification[]
+  /** Owned gallery photos — projected only when photos privacy is public. */
+  petPhotos?: PetPhoto[]
 }
 
 function resolvePrivacySettings(
@@ -62,6 +64,7 @@ export function projectOwnedPetToDiscover(
     settings,
     earnedBadges,
     verifications,
+    petPhotos: options.petPhotos,
   })
   if (!projected) return null
   return sanitizeDiscoverPet(projected)

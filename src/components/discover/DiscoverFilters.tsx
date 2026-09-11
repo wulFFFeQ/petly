@@ -188,11 +188,32 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
                   ? 'bg-[#2C4A3E] text-white shadow-sm'
                   : 'bg-white border border-[#E8E4DC] text-[#4A564F] hover:text-[#191E1B] hover:border-[#D1E0D8] hover:bg-[#FAF8F5]',
               )}
+              data-testid={id === 'all' ? 'discover-species-all' : `discover-species-${id}`}
             >
               {label}
             </button>
           )
         })}
+
+        <button
+          type="button"
+          onClick={() =>
+            setDiscoverCriteria((prev) => ({ ...prev, breeding: !prev.breeding }))
+          }
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer',
+            discoverCriteria.breeding
+              ? 'bg-[#2C4A3E] text-white shadow-sm'
+              : 'bg-white border border-[#E8E4DC] text-[#4A564F] hover:text-[#191E1B] hover:border-[#D1E0D8] hover:bg-[#FAF8F5]',
+          )}
+          data-testid="discover-segment-breeding"
+        >
+          <Dna
+            size={13}
+            className={discoverCriteria.breeding ? 'text-[#FAF4E6]' : 'text-[#B8934A]'}
+          />
+          Chovné profily
+        </button>
 
         <button
           type="button"
@@ -241,9 +262,17 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
               ? 'bg-[#EBF2EE] text-[#2C4A3E] border border-[#D1E0D8]'
               : 'bg-white border border-[#E8E4DC] text-[#4A564F] hover:bg-[#FAF8F5]',
           )}
+          data-testid="discover-advanced-toggle"
         >
           <SlidersHorizontal size={13} />
           Kritéria
+          <span
+            className="rounded-full bg-[#FAF4E6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#B8934A]"
+            data-testid="discover-advanced-entitlement-badge"
+            title="Pokročilé filtry Objevovat — připravujeme"
+          >
+            Premium · připravujeme
+          </span>
           {activeCount > 0 && (
             <span className="ml-0.5 rounded-full bg-[#2C4A3E] px-1.5 py-0.5 text-[10px] font-bold text-white">
               {activeCount}
@@ -276,6 +305,12 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
               <h3 className="text-sm font-bold text-[#191E1B]">Kritéria hledání</h3>
               <p className="text-xs text-[#7D8B82]">
                 Kombinujte filtry — zobrazí se mazlíčci, kteří splní všechna zvolená kritéria.
+              </p>
+              <p
+                className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#B8934A]"
+                data-testid="discover-advanced-coming-soon"
+              >
+                Premium entitlement · připravujeme (bez paywallu)
               </p>
             </div>
             {typeof resultCount === 'number' && (
@@ -317,6 +352,7 @@ export function DiscoverFilters({ resultCount }: { resultCount?: number }) {
                     ? 'bg-[#FAF4E6] text-[#B8934A] ring-1 ring-[#E8D8B5]'
                     : 'bg-[#FAF8F5] text-[#5A6660] hover:bg-[#FAF4E6]',
                 )}
+                data-testid="discover-filter-breeding"
               >
                 <Dna size={13} />
                 Chovný profil

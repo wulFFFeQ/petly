@@ -1,8 +1,10 @@
 import type {
   DiscoverBreedingPublic,
   DiscoverPet,
+  DiscoverPublicPhoto,
   Pet,
   PetBreedingData,
+  PetPhoto,
 } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
 import type { Verification } from '../../types/verification'
@@ -107,6 +109,27 @@ export type ProjectPetOptions = {
   /** Verification records (private). Only safe publicTrustBadges are projected. */
   verifications?: Verification[]
   ownerId?: string
+  /**
+   * Owned gallery photos. When `photos` is public (required for Discover),
+   * mapped to DiscoverPublicPhoto — never documents / health / emergency media.
+   */
+  petPhotos?: PetPhoto[]
+}
+
+/** Map owned PetPhoto rows for one pet into a public Discover gallery. */
+export function mapPublicGallery(
+  petId: string,
+  petPhotos: PetPhoto[] | undefined,
+): DiscoverPublicPhoto[] | undefined {
+  if (!petPhotos?.length) return undefined
+  const gallery = petPhotos
+    .filter((photo) => photo.petId === petId && Boolean(photo.url?.trim()))
+    .map((photo) => ({
+      id: photo.id,
+      url: photo.url.trim(),
+      caption: photo.caption?.trim() || undefined,
+    }))
+  return gallery.length > 0 ? gallery : undefined
 }
 
 function safePublicLocation(raw?: string): string {
@@ -253,6 +276,14 @@ export function projectPublicPet(
   const connectionPreferences = toPublicConnectionPreferences(pet.connectionPreferences)
   if (connectionPreferences) {
     projected.connectionPreferences = connectionPreferences
+  }
+
+  // Gallery: only when photos are public (already required above). No per-photo flag.
+  // Activities / publicTimeline: owned models lack a safe public visibility gate —
+  // leave as extension points (mock Discover pets may still carry them via sanitize).
+  const gallery = mapPublicGallery(pet.id, options.petPhotos)
+  if (gallery) {
+    projected.gallery = gallery
   }
 
   // Runtime backstop: strip any accidental forbidden keys before return.

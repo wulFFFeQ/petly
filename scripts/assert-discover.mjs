@@ -229,6 +229,51 @@ check(ownedClean && !('weight' in ownedClean), 'H: owned projection strips weigh
 check(ownedClean && !('phone' in ownedClean), 'H: owned projection strips phone')
 check(ownedClean && !('healthStatus' in ownedClean), 'H: owned projection strips healthStatus')
 
+// KROK 39 — gallery allowlist + search indexes only public fields
+const withGallery = sanitizeDiscoverPet({
+  ...basePet,
+  gallery: [{ id: 'g1', url: 'https://example.com/g.jpg', caption: 'Park' }],
+  publicTimeline: [{ id: 't1', title: 'Adoption', date: '2020', category: 'adoption' }],
+  breedingProfile: true,
+  breeding: { status: 'Aktivní', titles: ['CAJC'] },
+  microchip: 'should-strip',
+  email: 'leak@example.com',
+})
+check(withGallery?.gallery?.length === 1, 'K39: public gallery kept by sanitize')
+check(withGallery?.publicTimeline?.length === 1, 'K39: public timeline kept by sanitize')
+check(withGallery?.breedingProfile === true, 'K39: breedingProfile kept')
+check(withGallery && !('microchip' in withGallery), 'K39: gallery payload still strips microchip')
+check(withGallery && !('email' in withGallery), 'K39: gallery payload still strips email')
+
+/** Mirror of discoverCriteria search fields — must stay public-only. */
+const SEARCH_INDEX_FIELDS = [
+  'name',
+  'breed',
+  'location',
+  'ownerName',
+  'bio',
+  'personality',
+  'lookingFor',
+  'likes',
+]
+const NEVER_SEARCH = [
+  'email',
+  'phone',
+  'address',
+  'accountId',
+  'microchip',
+  'health',
+  'medications',
+  'documents',
+  'ownerPhone',
+  'ownerEmail',
+]
+for (const field of NEVER_SEARCH) {
+  check(!SEARCH_INDEX_FIELDS.includes(field), `K39: search must not index ${field}`)
+}
+check(SEARCH_INDEX_FIELDS.includes('name'), 'K39: search indexes public name')
+check(SEARCH_INDEX_FIELDS.includes('bio'), 'K39: search indexes public bio')
+
 if (failures.length) {
   console.error(`\n${failures.length} assertion(s) failed`)
   process.exit(1)

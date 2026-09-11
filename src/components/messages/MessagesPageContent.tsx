@@ -43,7 +43,7 @@ export function MessagesPageContent({
 }: {
   variant?: MessagesPageVariant
 }) {
-  const { showToast, lostConversations, sendLostFinderMessage, upsertNotification, pets } =
+  const { showToast, lostConversations, sendLostFinderMessage, upsertNotification, pets, photos } =
     useApp()
   const self = getSelfAccount()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -254,7 +254,7 @@ export function MessagesPageContent({
         return prev
       }
 
-      const pet = getDiscoverPetById(petContactId, pets)
+      const pet = getDiscoverPetById(petContactId, pets, undefined, photos)
       if (!pet) return prev
 
       const introDraft = takeConnectMessageDraft(petContactId) ?? undefined
@@ -270,7 +270,7 @@ export function MessagesPageContent({
       setMobileShowChat(true)
 
       if (createdNewDiscoverThread) {
-        const pet = getDiscoverPetById(petContactId, pets)
+        const pet = getDiscoverPetById(petContactId, pets, undefined, photos)
         bumpDiscoverEngagement(petContactId, { connections: 1, communityInteractions: 1 })
         upsertNotification({
           type: 'community',
@@ -293,7 +293,7 @@ export function MessagesPageContent({
 
     setSearchParams({}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open deep links once per params change
-  }, [searchParams, setSearchParams, lostConversations, upsertNotification, pets, self?.id, variant])
+  }, [searchParams, setSearchParams, lostConversations, upsertNotification, pets, photos, self?.id, variant])
 
   useEffect(() => {
     if (variant === 'professional') return
@@ -333,7 +333,7 @@ export function MessagesPageContent({
 
   const active = conversations.find((c) => c.id === activeId)
   const contactPet = active?.contactPetId
-    ? getDiscoverPetById(active.contactPetId, pets)
+    ? getDiscoverPetById(active.contactPetId, pets, undefined, photos)
     : undefined
 
   useEffect(() => {

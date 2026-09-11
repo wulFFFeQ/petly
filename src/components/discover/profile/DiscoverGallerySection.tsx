@@ -15,7 +15,27 @@ export function DiscoverGallerySection({ photos, petName }: DiscoverGallerySecti
   const [showAll, setShowAll] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-  if (!photos.length) return null
+  if (!photos.length) {
+    return (
+      <DiscoverProfileSection
+        title="Galerie"
+        icon={<Camera size={14} className="text-[#B8934A]" />}
+      >
+        <div
+          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#E8E4DC] bg-[#FAF8F5] px-4 py-8 text-center"
+          data-testid="discover-gallery-empty"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#B8934A] shadow-sm">
+            <Camera size={18} />
+          </span>
+          <p className="mt-3 text-sm font-semibold text-[#191E1B]">Zatím bez veřejné galerie</p>
+          <p className="mt-1 max-w-xs text-xs text-[#7D8B82]">
+            Majitel zatím nesdílí další fotografie tohoto mazlíčka.
+          </p>
+        </div>
+      </DiscoverProfileSection>
+    )
+  }
 
   const visible = showAll ? photos : photos.slice(0, PREVIEW_COUNT)
   const hasMore = photos.length > PREVIEW_COUNT
@@ -37,7 +57,10 @@ export function DiscoverGallerySection({ photos, petName }: DiscoverGallerySecti
           ) : undefined
         }
       >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          data-testid="discover-gallery-grid"
+        >
           {visible.map((photo, index) => (
             <button
               key={photo.id}

@@ -284,5 +284,132 @@ check('privateDiscover still blocks projection', () => {
   assert.equal(projectOwnedPetToDiscover(pet, [], { privacySettings: settings }), null)
 })
 
+// --- KROK 39 — Discover hardening ---
+
+const publicIdentity = {
+  name: 'public' as const,
+  photos: 'public' as const,
+  speciesBreed: 'public' as const,
+  ageDob: 'public' as const,
+  location: 'public' as const,
+}
+
+check('K39 – public gallery included when petPhotos provided', () => {
+  const pet = basePet()
+  const settings = settingsWith('luna', publicIdentity)
+  const projected = projectPublicPet(pet, {
+    settings,
+    petPhotos: [
+      { id: 'ph1', petId: 'luna', url: 'https://example.com/a.jpg', caption: 'Park' },
+      { id: 'ph2', petId: 'other', url: 'https://example.com/other.jpg' },
+      { id: 'ph3', petId: 'luna', url: '  ' },
+    ],
+  })
+  assert.ok(projected)
+  assert.equal(projected!.gallery?.length, 1)
+  assert.equal(projected!.gallery![0].id, 'ph1')
+  assert.equal(projected!.gallery![0].caption, 'Park')
+})
+
+check('K39 – private gallery excluded when petPhotos omitted', () => {
+  const pet = basePet()
+  const settings = settingsWith('luna', publicIdentity)
+  const projected = projectPublicPet(pet, { settings })
+  assert.ok(projected)
+  assert.equal(projected!.gallery, undefined)
+  assert.equal(projected!.publicTimeline, undefined)
+  assert.equal(projected!.activities, undefined)
+})
+
+check('K39 – owned timeline / activities never projected (extension point)', () => {
+  const pet = basePet()
+  const settings = settingsWith('luna', publicIdentity)
+  const projected = projectOwnedPetToDiscover(pet, [], { privacySettings: settings })
+  assert.ok(projected)
+  assert.equal(projected!.publicTimeline, undefined)
+  assert.equal(projected!.activities, undefined)
+  // Medical / health tokens must never appear via owned projection
+  const json = JSON.stringify(projected)
+  assert.equal(json.includes('medications'), false)
+  assert.equal(json.includes('healthRecords'), false)
+  assert.equal(json.includes('Apoquel'), false)
+})
+
+check('K39 – breeding profile included when active + public breeding privacy', () => {
+  const pet = basePet({
+    breedingProfile: true,
+    breeding: {
+      info: { kennelName: 'Golden Heart' },
+      titles: [{ id: 't1', name: 'CAJC' }],
+      healthTests: [{ id: 'ht1', name: 'HD', result: 'A/A', date: '2024-01-01' }],
+      matings: [{ id: 'm1', date: '2024-06-01', partnerName: 'Secret' }],
+    },
+  })
+  const settings = settingsWith('luna', { ...publicIdentity, breeding: 'public' })
+  const projected = projectOwnedPetToDiscover(pet, [], { privacySettings: settings })
+  assert.ok(projected)
+  assert.equal(projected!.breedingProfile, true)
+  assert.ok(projected!.breeding)
+  assert.equal(projected!.breeding!.status?.includes('Golden Heart'), true)
+  assert.deepEqual(projected!.breeding!.titles, ['CAJC'])
+  const json = JSON.stringify(projected)
+  assert.equal(json.includes('healthTests'), false)
+  assert.equal(json.includes('HD'), false)
+  assert.equal(json.includes('matings'), false)
+  assert.equal(json.includes('Secret'), false)
+})
+
+check('K39 – inactive breeding profile excluded', () => {
+  const pet = basePet({
+    breedingProfile: false,
+    breeding: {
+      info: { kennelName: 'Hidden Kennel' },
+      titles: [{ id: 't1', name: 'CAJC' }],
+    },
+  })
+  const settings = settingsWith('luna', { ...publicIdentity, breeding: 'public' })
+  const projected = projectPublicPet(pet, { settings })
+  assert.ok(projected)
+  assert.equal(projected!.breedingProfile, undefined)
+  assert.equal(projected!.breeding, undefined)
+})
+
+check('K39 – catalog with petPhotos projects owned gallery', () => {
+  const pet = basePet()
+  const settings = settingsWith('luna', publicIdentity)
+  const catalog = getDiscoverPets({
+    ownedPets: [pet],
+    privacySettings: settings,
+    petPhotos: [
+      { id: 'ph_luna_1', petId: 'luna', url: 'https://example.com/luna-g.jpg', caption: 'Park' },
+    ],
+    excludePetIds: [],
+  })
+  const luna = catalog.find((p) => p.id === 'luna')
+  assert.ok(luna)
+  assert.equal(luna!.gallery?.length, 1)
+  assert.equal(luna!.gallery![0].url, 'https://example.com/luna-g.jpg')
+})
+
+check('K39 – single projection path (sanitize after projectPublicPet)', () => {
+  const pet = basePet({
+    breedingProfile: true,
+    breeding: { info: { kennelName: 'Solo' } },
+  })
+  const settings = settingsWith('luna', { ...publicIdentity, breeding: 'public' })
+  const a = projectPublicPet(pet, {
+    settings,
+    petPhotos: [{ id: 'x', petId: 'luna', url: 'https://example.com/x.jpg' }],
+  })
+  const b = projectOwnedPetToDiscover(pet, [], {
+    privacySettings: settings,
+    petPhotos: [{ id: 'x', petId: 'luna', url: 'https://example.com/x.jpg' }],
+  })
+  assert.ok(a && b)
+  assert.equal(a!.id, b!.id)
+  assert.equal(a!.gallery?.length, b!.gallery?.length)
+  assert.equal(b!.breedingProfile, true)
+})
+
 console.log(`\nResult: ${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

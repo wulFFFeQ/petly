@@ -1,5 +1,5 @@
 import { discoverOwners, discoverPets as rawDiscoverPets } from '../../data/mockData'
-import type { DiscoverOwner, DiscoverPet, Pet } from '../../types'
+import type { DiscoverOwner, DiscoverPet, Pet, PetPhoto } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
 import type { PrivacySettings } from '../privacy'
 import { getUserHomeCity } from '../userProfile'
@@ -21,6 +21,8 @@ export type DiscoverCatalogOptions = {
   earnedBadges?: EarnedBadge[]
   /** Optional privacy settings; when omitted, projection loads from localStorage. */
   privacySettings?: PrivacySettings | null
+  /** Owned gallery photos — projected when photos privacy is public. */
+  petPhotos?: PetPhoto[]
   /**
    * Exclude these pet ids from the list (typically the signed-in owner's pets
    * so they never see / connect to themselves in Objevovat results).
@@ -54,6 +56,7 @@ function collectRawCatalog(
   ownedPets: Pet[] | undefined,
   earnedBadges: EarnedBadge[] | undefined,
   privacySettings?: PrivacySettings | null,
+  petPhotos?: PetPhoto[],
 ): DiscoverPet[] {
   const fromMock = rawDiscoverPets
     .map((pet) => toPublicPet(pet))
@@ -67,6 +70,7 @@ function collectRawCatalog(
     .map((pet) => {
       const projected = projectOwnedPetToDiscover(pet, earnedBadges ?? [], {
         privacySettings,
+        petPhotos,
       })
       return projected ? toPublicPet(projected) : null
     })
@@ -87,6 +91,7 @@ export function getDiscoverPets(options: DiscoverCatalogOptions = {}): DiscoverP
     options.ownedPets,
     options.earnedBadges,
     options.privacySettings,
+    options.petPhotos,
   ).filter((pet) => {
     if (excludePets.has(pet.id)) return false
     if (pet.ownerId && excludeOwners.has(pet.ownerId)) return false
@@ -99,26 +104,31 @@ export function getDiscoverPetsIncludingOwn(
   ownedPets?: Pet[],
   earnedBadges?: EarnedBadge[],
   privacySettings?: PrivacySettings | null,
+  petPhotos?: PetPhoto[],
 ): DiscoverPet[] {
-  return collectRawCatalog(ownedPets, earnedBadges, privacySettings)
+  return collectRawCatalog(ownedPets, earnedBadges, privacySettings, petPhotos)
 }
 
 export function getDiscoverPetById(
   id: string | undefined | null,
   ownedPets?: Pet[],
   earnedBadges?: EarnedBadge[],
+  petPhotos?: PetPhoto[],
 ): DiscoverPet | undefined {
   if (!id) return undefined
-  return getDiscoverPetsIncludingOwn(ownedPets, earnedBadges).find((pet) => pet.id === id)
+  return getDiscoverPetsIncludingOwn(ownedPets, earnedBadges, undefined, petPhotos).find(
+    (pet) => pet.id === id,
+  )
 }
 
 export function getDiscoverPetsByOwnerId(
   ownerId: string | undefined | null,
   ownedPets?: Pet[],
   earnedBadges?: EarnedBadge[],
+  petPhotos?: PetPhoto[],
 ): DiscoverPet[] {
   if (!ownerId) return []
-  return getDiscoverPetsIncludingOwn(ownedPets, earnedBadges).filter(
+  return getDiscoverPetsIncludingOwn(ownedPets, earnedBadges, undefined, petPhotos).filter(
     (pet) => pet.ownerId === ownerId,
   )
 }

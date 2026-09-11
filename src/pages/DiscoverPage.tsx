@@ -22,17 +22,18 @@ import {
 import { petMatchesDiscoverCriteria } from '../lib/discoverCriteria'
 
 export function DiscoverPage() {
-  const { discoverSearch, discoverCriteria, pets, earnedBadges } = useApp()
+  const { discoverSearch, discoverCriteria, pets, earnedBadges, photos } = useApp()
 
   const catalog = useMemo(() => {
     const ownIds = pets.map((pet) => pet.id)
     return getDiscoverPets({
       ownedPets: pets,
       earnedBadges,
+      petPhotos: photos,
       excludePetIds: ownIds,
       excludeOwnerIds: [SELF_OWNER_ID],
     })
-  }, [pets, earnedBadges])
+  }, [pets, earnedBadges, photos])
 
   const contextPet = useMemo(() => {
     return (
@@ -61,9 +62,10 @@ export function DiscoverPage() {
       getDiscoverPets({
         ownedPets: pets,
         earnedBadges,
+        petPhotos: photos,
         excludePetIds: pets.map((p) => p.id),
       }).length,
-    [pets, earnedBadges],
+    [pets, earnedBadges, photos],
   )
 
   const connectionEmpty = shouldShowConnectionEmptyState(
@@ -74,16 +76,20 @@ export function DiscoverPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const api = {
-      getCatalogIncludingOwn: () => getDiscoverPetsIncludingOwn(pets, earnedBadges),
+      getCatalogIncludingOwn: () =>
+        getDiscoverPetsIncludingOwn(pets, earnedBadges, undefined, photos),
       getVisibleForOwner: () =>
         getDiscoverPets({
           ownedPets: pets,
           earnedBadges,
+          petPhotos: photos,
           excludePetIds: pets.map((p) => p.id),
           excludeOwnerIds: [SELF_OWNER_ID],
         }),
       popularityScore: (petId: string) => {
-        const pet = getDiscoverPetsIncludingOwn(pets, earnedBadges).find((p) => p.id === petId)
+        const pet = getDiscoverPetsIncludingOwn(pets, earnedBadges, undefined, photos).find(
+          (p) => p.id === petId,
+        )
         return pet?.popularityScore ?? null
       },
     }
@@ -91,7 +97,7 @@ export function DiscoverPage() {
     return () => {
       delete (window as Window & { __LK_DISCOVER__?: typeof api }).__LK_DISCOVER__
     }
-  }, [pets, earnedBadges])
+  }, [pets, earnedBadges, photos])
 
   return (
     <div className="space-y-8">

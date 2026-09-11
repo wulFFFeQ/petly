@@ -50,6 +50,7 @@ export {
 export {
   canTagPetInCommunity,
   mapPublicBreeding,
+  mapPublicGallery,
   projectForViewer,
   projectPublicPet,
   type ConnectionPetProjection,
