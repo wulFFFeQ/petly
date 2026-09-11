@@ -33,6 +33,10 @@ import { ProfessionalAccessPage } from './pages/professional/ProfessionalAccessP
 import { ProfessionalCalendarPage } from './pages/professional/ProfessionalCalendarPage'
 import { ProfessionalRecordsPage } from './pages/professional/ProfessionalRecordsPage'
 import { ProfessionalProfilePage } from './pages/professional/ProfessionalProfilePage'
+import { ProfessionalBookingsPage } from './pages/professional/ProfessionalBookingsPage'
+import { ProfessionalBookingDetailPage } from './pages/professional/ProfessionalBookingDetailPage'
+import { ProfessionalServicesPage } from './pages/professional/ProfessionalServicesPage'
+import { ProfessionalAvailabilityPage } from './pages/professional/ProfessionalAvailabilityPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
 
@@ -91,6 +95,10 @@ function App() {
                 <Route path="pets" element={<ProfessionalPetsPage />} />
                 <Route path="pets/:petId" element={<ProfessionalPetPage />} />
                 <Route path="access" element={<ProfessionalAccessPage />} />
+                <Route path="bookings" element={<ProfessionalBookingsPage />} />
+                <Route path="bookings/:id" element={<ProfessionalBookingDetailPage />} />
+                <Route path="services" element={<ProfessionalServicesPage />} />
+                <Route path="availability" element={<ProfessionalAvailabilityPage />} />
                 <Route path="calendar" element={<ProfessionalCalendarPage />} />
                 <Route path="records" element={<ProfessionalRecordsPage />} />
                 <Route path="profile" element={<ProfessionalProfilePage />} />

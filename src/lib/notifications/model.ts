@@ -43,6 +43,12 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'professional_access_rejected',
   'professional_access_revoked',
   'professional_access_expired',
+  'booking_requested',
+  'booking_confirmed',
+  'booking_declined',
+  'booking_cancelled',
+  'booking_completed',
+  'booking_reminder',
 ]
 
 function resolveType(raw: Record<string, unknown>): NotificationType {
@@ -199,6 +205,18 @@ export function notificationHrefFallback(item: AppNotification): string | null {
       return `/professionals/${item.relatedProfessionalId}/pets/${item.petId}`
     }
     return `/professionals/${item.relatedProfessionalId}`
+  }
+  if (
+    item.type === 'booking_requested' ||
+    item.type === 'booking_confirmed' ||
+    item.type === 'booking_declined' ||
+    item.type === 'booking_cancelled' ||
+    item.type === 'booking_completed' ||
+    item.type === 'booking_reminder'
+  ) {
+    if (item.relatedBookingId && item.href) return item.href
+    if (item.relatedBookingId) return `/calendar?bookingId=${item.relatedBookingId}`
+    return '/calendar'
   }
   return null
 }

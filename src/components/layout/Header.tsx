@@ -1,5 +1,8 @@
 import {
   Bell,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX,
   CheckCheck,
   Clock,
   Link2,
@@ -58,6 +61,15 @@ function notificationTypeIcon(type: NotificationType) {
       return UserX
     case 'professional_access_expired':
       return Clock
+    case 'booking_requested':
+    case 'booking_reminder':
+      return CalendarClock
+    case 'booking_confirmed':
+    case 'booking_completed':
+      return CalendarCheck
+    case 'booking_declined':
+    case 'booking_cancelled':
+      return CalendarX
     default:
       return Bell
   }

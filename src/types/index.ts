@@ -182,6 +182,7 @@ export type EventType =
   | 'weaning'
   | 'breeding_other'
   | 'document_expiry'
+  | 'booking'
 
 /** How a calendar event series repeats. */
 export type RecurrenceFrequency =
@@ -634,6 +635,12 @@ export interface CalendarEvent {
   sourceRecordId?: string
   /** Links document-expiry reminders to a pet document. */
   sourceDocumentId?: string
+  /** Links booking-derived calendar rows to a Booking.id. */
+  sourceBookingId?: string
+  /** Professional profile id for booking events. */
+  professionalId?: string
+  /** Display status for booking chips (canonical status lives on Booking). */
+  bookingStatus?: 'pending' | 'confirmed' | 'cancelled' | 'completed'
   /** Type-specific details */
   dosage?: string
   medicationName?: string
@@ -675,6 +682,12 @@ export type NotificationType =
   | 'professional_access_rejected'
   | 'professional_access_revoked'
   | 'professional_access_expired'
+  | 'booking_requested'
+  | 'booking_confirmed'
+  | 'booking_declined'
+  | 'booking_cancelled'
+  | 'booking_completed'
+  | 'booking_reminder'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 
@@ -701,6 +714,7 @@ export interface AppNotification {
   recipientAccountId?: string
   relatedProfessionalId?: string
   relatedAccessId?: string
+  relatedBookingId?: string
   /** Set when marked read; `unread` remains the UI source of truth. */
   readAt?: string
   /**

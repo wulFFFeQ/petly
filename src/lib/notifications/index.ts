@@ -33,4 +33,12 @@ export {
   type ProfessionalAccessNotificationContext,
   type ProfessionalAccessNotificationEvent,
 } from './fromProfessionalAccess'
+export {
+  buildBookingNotification,
+  emitBookingNotification,
+  isSafeBookingNotificationPayload,
+  bookingDedupeKey,
+  type BookingNotificationContext,
+  type BookingNotificationEvent,
+} from './fromBooking'
 export { buildSeedNotifications } from './seed'

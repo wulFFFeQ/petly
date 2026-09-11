@@ -1,10 +1,9 @@
 import {
   Calendar,
+  CalendarCheck2,
   ClipboardList,
   LayoutDashboard,
-  Link2,
   MoreHorizontal,
-  UserRound,
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -14,12 +13,15 @@ import { cn } from '../../lib/utils'
 
 const mainItems = [
   { to: '/professional', label: 'Přehled', icon: LayoutDashboard, end: true },
-  { to: '/professional/pets', label: 'Propojení', icon: Link2 },
+  { to: '/professional/bookings', label: 'Rezervace', icon: CalendarCheck2 },
   { to: '/professional/access', label: 'Žádosti', icon: ClipboardList },
   { to: '/professional/calendar', label: 'Kalendář', icon: Calendar },
 ]
 
 const moreItems = [
+  { to: '/professional/pets', label: 'Propojení' },
+  { to: '/professional/services', label: 'Služby' },
+  { to: '/professional/availability', label: 'Dostupnost' },
   { to: '/professional/records', label: 'Záznamy' },
   { to: '/professional/profile', label: 'Veřejný profil' },
   { to: '/professional/settings', label: 'Nastavení' },

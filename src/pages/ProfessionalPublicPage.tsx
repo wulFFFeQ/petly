@@ -171,6 +171,10 @@ export function ProfessionalPublicPage() {
   const requestPending =
     hasAnyOpenForSelfPets && pendingOrActiveForFirstPet?.status === 'pending'
 
+  const hasServicesSection =
+    Boolean(pub.services && pub.services.length > 0) ||
+    Boolean(professionalId)
+
   return (
     <div className="mx-auto max-w-3xl space-y-5 pb-8" data-testid="professional-public-page">
       <Link
@@ -189,14 +193,14 @@ export function ProfessionalPublicPage() {
         requestLabel={requestActive ? 'Již propojeno' : 'Požádat o propojení'}
         requestDisabled={Boolean(requestActive)}
         requestPending={Boolean(requestPending)}
-        hasServices={Boolean(pub.services && pub.services.length > 0)}
+        hasServices={hasServicesSection}
         onShare={handleShare}
         shareLabel={shareLabel}
       />
 
       <ProfessionalTrust items={trustItems} />
       <ProfessionalAbout pub={pub} />
-      <ProfessionalServices pub={pub} />
+      <ProfessionalServices pub={pub} onContact={() => setConnectOpen(true)} />
       <ProfessionalSpecializations pub={pub} />
       {breedingShowcase ? <ProfessionalBreedingSection showcase={breedingShowcase} /> : null}
       <ProfessionalLocation pub={pub} />
@@ -216,7 +220,7 @@ export function ProfessionalPublicPage() {
         requestLabel={requestActive ? 'Již propojeno' : 'Požádat o propojení'}
         requestDisabled={Boolean(requestActive)}
         requestPending={Boolean(requestPending)}
-        hasServices={Boolean(pub.services && pub.services.length > 0)}
+        hasServices={hasServicesSection}
         onShare={handleShare}
         shareLabel={shareLabel}
         withTestIds={false}

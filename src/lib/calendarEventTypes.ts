@@ -89,6 +89,7 @@ export const EVENT_TYPES_BY_CATEGORY: Record<
     { value: 'pet_friend', label: 'Nový zvířecí kamarád' },
     { value: 'community_meetup', label: 'Setkání komunity' },
     { value: 'document_expiry', label: 'Expirace dokumentu' },
+    { value: 'booking', label: 'Rezervace' },
     { value: 'custom', label: 'Jiná událost' },
   ],
 }
@@ -147,6 +148,7 @@ const EVENT_TYPE_TO_CATEGORY: Record<EventType, CalendarEventCategory> = {
   adoption_anniversary: 'other',
   community_meetup: 'other',
   document_expiry: 'other',
+  booking: 'other',
   custom: 'other',
   feeding: 'other',
 }
@@ -205,6 +207,7 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   adoption_anniversary: 'Výročí adopce',
   community_meetup: 'Setkání komunity',
   document_expiry: 'Expirace dokumentu',
+  booking: 'Rezervace',
   custom: 'Jiná událost',
   feeding: 'Krmení',
 }
@@ -530,6 +533,15 @@ export function getEventVisualStyle(type: EventType): EventVisualStyle {
       text: 'text-emerald-800',
       border: 'border-emerald-200/60',
       dot: 'bg-emerald-500',
+      label: getEventTypeLabel(type),
+    }
+  }
+  if (type === 'booking') {
+    return {
+      bg: 'bg-[#EBF2EE]',
+      text: 'text-[#2C4A3E]',
+      border: 'border-[#D1E0D8]',
+      dot: 'bg-[#B8934A]',
       label: getEventTypeLabel(type),
     }
   }

@@ -585,6 +585,8 @@ interface AppContextValue {
   addCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => void
   updateCalendarEvent: (eventId: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
   deleteCalendarEvent: (eventId: string) => void
+  /** Apply a pure transform to calendar events (booking sync, etc.). */
+  syncCalendarEvents: (fn: (events: CalendarEvent[]) => CalendarEvent[]) => void
   updateCalendarOccurrence: (
     eventId: string,
     occurrenceDate: string,
@@ -3300,6 +3302,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const syncCalendarEvents = (fn: (events: CalendarEvent[]) => CalendarEvent[]) => {
+    setCalendarEvents((prev) => fn(prev))
+  }
+
   const addCalendarEvent = (event: Omit<CalendarEvent, 'id'>) => {
     const pet =
       pets.find((item) => item.id === event.petId) ??
@@ -3640,6 +3646,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addCalendarEvent,
         updateCalendarEvent,
         deleteCalendarEvent,
+        syncCalendarEvents,
         updateCalendarOccurrence,
         deleteCalendarOccurrence,
         showToast,

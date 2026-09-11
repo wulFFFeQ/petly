@@ -64,6 +64,12 @@ export function RoleOverviewPanel({
           <li>Aktivní propojení: {stats.activeConnections}</li>
           <li>Dnešní události: {stats.todaysEvents}</li>
         </ul>
+        <Link
+          to="/professional/bookings"
+          className="mt-3 inline-block text-xs font-semibold text-[#2C4A3E] hover:underline"
+        >
+          Rezervace →
+        </Link>
       </Card>
     )
   }
@@ -73,12 +79,18 @@ export function RoleOverviewPanel({
       <Card variant="elevated" data-testid="role-panel-pet-hotel">
         <h2 className="text-sm font-bold text-[#191E1B]">Pet hotel</h2>
         <p className="mt-1 text-xs text-[#7D8B82]">
-          Nadcházející pobyty: struktura připravena. Booking zatím není implementován.
+          Rezervace pobytů a denní péče spravujete v sekci Rezervace.
         </p>
         <ul className="mt-2 space-y-1 text-xs text-[#5A6660]">
           <li>Aktivní propojení: {stats.activeConnections}</li>
           <li>Dnešní události: {stats.todaysEvents}</li>
         </ul>
+        <Link
+          to="/professional/bookings"
+          className="mt-3 inline-block text-xs font-semibold text-[#2C4A3E] hover:underline"
+        >
+          Rezervace →
+        </Link>
       </Card>
     )
   }

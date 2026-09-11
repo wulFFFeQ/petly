@@ -1,11 +1,14 @@
 import {
   Calendar,
+  CalendarCheck2,
   ClipboardList,
+  Clock,
   FileText,
   HelpCircle,
   LayoutDashboard,
   Link2,
   Settings,
+  Sparkles,
   UserRound,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
@@ -19,12 +22,14 @@ const mainNav = [
   { to: '/professional', label: 'Přehled', icon: LayoutDashboard, end: true },
   { to: '/professional/pets', label: 'Propojení', icon: Link2 },
   { to: '/professional/access', label: 'Žádosti', icon: ClipboardList },
+  { to: '/professional/bookings', label: 'Rezervace', icon: CalendarCheck2 },
   { to: '/professional/calendar', label: 'Kalendář', icon: Calendar },
   { to: '/professional/records', label: 'Záznamy', icon: FileText },
   { to: '/professional/profile', label: 'Veřejný profil', icon: UserRound },
 ]
-
 const bottomNav = [
+  { to: '/professional/services', label: 'Služby', icon: Sparkles },
+  { to: '/professional/availability', label: 'Dostupnost', icon: Clock },
   { to: '/professional/settings', label: 'Nastavení', icon: Settings },
   { to: '/professional/help', label: 'Nápověda', icon: HelpCircle },
 ]
