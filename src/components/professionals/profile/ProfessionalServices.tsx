@@ -4,8 +4,10 @@ import type { PublicProfessionalProfile } from '../../../lib/professional'
 import {
   assertPublicAvailabilitySafe,
   ensureDefaultAvailability,
+  ensureDefaultBookingPolicy,
   ensureSeedServices,
   findNextAvailableSlotForService,
+  formatCancellationPolicyPublic,
   formatNextAvailableLabel,
   listPublicServices,
   toPublicNextAvailable,
@@ -77,6 +79,17 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
       >
         {hasPublic ? (
           <div className="space-y-2">
+            {(() => {
+              const policy = ensureDefaultBookingPolicy(pub.id)
+              return (
+                <p
+                  className="text-[11px] text-[#5A6660]"
+                  data-testid="public-cancellation-policy"
+                >
+                  {formatCancellationPolicyPublic(policy)}
+                </p>
+              )
+            })()}
             {publicServices.map((service) => (
               <BookingServiceCard
                 key={service.id}

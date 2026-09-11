@@ -9,6 +9,7 @@ export type BookingNotificationEvent =
   | 'cancelled'
   | 'completed'
   | 'reminder'
+  | 'rescheduled'
 
 export type BookingNotificationContext = {
   booking: Booking
@@ -17,6 +18,8 @@ export type BookingNotificationContext = {
   professional?: Pick<ProfessionalProfile, 'id' | 'accountId' | 'displayName'> | null
   /** When cancelling: who initiated. */
   cancelledBy?: 'owner' | 'professional'
+  /** When rescheduling: who initiated. */
+  rescheduledBy?: 'owner' | 'professional'
 }
 
 const FORBIDDEN_PAYLOAD_PATTERNS = [
@@ -64,6 +67,7 @@ function formatWhen(iso: string): string {
 /**
  * Privacy-safe draft for a booking lifecycle event.
  * Returns null when recipient cannot be resolved.
+ * Never includes cancellation reasons, health, contacts, or internal pro metadata.
  */
 export function buildBookingNotification(
   ctx: BookingNotificationContext,
@@ -74,7 +78,10 @@ export function buildBookingNotification(
     professional?.displayName ?? booking.professionalName,
     SAFE_PRO,
   )
-  const serviceName = safeDisplayName(booking.serviceName, SAFE_SERVICE)
+  const serviceName = safeDisplayName(
+    booking.serviceNameSnapshot ?? booking.serviceName,
+    SAFE_SERVICE,
+  )
   const when = formatWhen(booking.startAt)
 
   let recipientAccountId: string | undefined
@@ -142,6 +149,19 @@ export function buildBookingNotification(
         ? `Blíží se rezervace ${serviceName} u ${proName} (${when}).`
         : `Blíží se rezervace ${serviceName} u ${proName}.`
       href = `/bookings/${booking.id}`
+      break
+    }
+    case 'rescheduled': {
+      const byPro = ctx.rescheduledBy === 'professional'
+      recipientAccountId = byPro ? booking.ownerAccountId : professional?.accountId
+      type = 'booking_rescheduled'
+      title = 'Rezervace přesunuta'
+      message = when
+        ? `${serviceName} · nový termín ${when}`
+        : `${serviceName} · termín byl přesunut`
+      href = byPro
+        ? `/bookings/${booking.id}`
+        : `/professional/bookings/${booking.id}`
       break
     }
     default:

@@ -85,9 +85,37 @@ export interface Booking {
   updatedAt: string
   cancelledAt?: string
   cancellationReason?: string
+  /** Internal cancel/decline preset — never expose on public profile or notifications. */
+  cancellationReasonCode?: CancellationReasonCode
   confirmedAt?: string
   completedAt?: string
   declinedAt?: string
+  /** First startAt before any reschedule — preserved for history. */
+  originalStartAt?: string
+  originalEndAt?: string
+  rescheduledAt?: string
+  noShowAt?: string
+}
+
+/** Professional cancel/decline reason presets (internal). */
+export type CancellationReasonCode =
+  | 'cannot_fulfill'
+  | 'operational'
+  | 'illness'
+  | 'other'
+
+export const CANCELLATION_REASON_CODES: CancellationReasonCode[] = [
+  'cannot_fulfill',
+  'operational',
+  'illness',
+  'other',
+]
+
+export const CANCELLATION_REASON_LABELS: Record<CancellationReasonCode, string> = {
+  cannot_fulfill: 'Nemohu termín uskutečnit',
+  operational: 'Provozní důvody',
+  illness: 'Nemoc',
+  other: 'Jiný důvod',
 }
 
 /**
@@ -208,6 +236,10 @@ export type BookingErrorCode =
   | 'overlap'
   | 'invalid_status'
   | 'invalid_input'
+  | 'policy_blocked'
+  | 'too_early'
+  | 'reschedule_disabled'
+  | 'reason_required'
 
 export type BookingResult<T> =
   | { ok: true; value: T }
@@ -215,3 +247,40 @@ export type BookingResult<T> =
 
 /** Backend-ready: DEMO never auto-confirms. */
 export type BookingConfirmMode = 'manual' | 'instant'
+
+/** No-show may be marked only after the appointment start (DEMO). */
+export type BookingNoShowMode = 'after_start'
+
+/**
+ * Professional-level booking rules (not per booking record).
+ * Free for all plans — advanced fees/reminders may be premium later.
+ */
+export interface ProfessionalBookingPolicy {
+  professionalId: string
+  /**
+   * Hours before start when owner may still cancel a confirmed booking.
+   * `null` = unlimited. Default: 24.
+   */
+  cancellationNoticeHours: number | null
+  /** Whether owner/professional may reschedule to another available slot. */
+  allowReschedule: boolean
+  /** DEMO always manual; instant confirm is backend-ready only. */
+  confirmMode: BookingConfirmMode
+  noShowMode: BookingNoShowMode
+}
+
+/**
+ * Extension point for future per-service overrides.
+ * Today: Professional → BookingPolicy only (not wired to UI).
+ * Future: Professional → Service → BookingPolicy.
+ */
+export interface ProfessionalServiceBookingPolicy {
+  serviceId: string
+  professionalId: string
+  /** When set, overrides professional-level cancellationNoticeHours for this service. */
+  cancellationNoticeHours?: number | null
+  allowReschedule?: boolean
+}
+
+/** localStorage flag: allow completeBooking before startAt (DEMO only). */
+export const DEMO_ALLOW_EARLY_COMPLETE_KEY = 'lovedandknown.demoAllowEarlyComplete'

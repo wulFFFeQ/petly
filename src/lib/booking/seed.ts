@@ -2,6 +2,7 @@ import type { ProfessionalType } from '../professional/types'
 import { createBookingId } from './storage'
 import { suggestedServicesForRole } from './serviceCategories'
 import type {
+  Booking,
   ProfessionalAvailability,
   ProfessionalService,
   ServicePriceType,
@@ -114,4 +115,116 @@ export function buildFullWeekAvailability(
     active: false,
   }))
   return [...work, ...closed]
+}
+
+export type SeedBookingFixture = {
+  ownerAccountId: string
+  professionalId: string
+  serviceId: string
+  petId: string
+  petName?: string
+  professionalName?: string
+  serviceName?: string
+  /** Base date for relative offsets; default now. */
+  now?: Date
+}
+
+/**
+ * DEMO lifecycle fixtures for booking rules / calendar / reviews.
+ * Does not go through createBooking — inserts normalized records directly.
+ */
+export function buildSeedBookings(input: SeedBookingFixture): Booking[] {
+  const now = input.now ?? new Date()
+  const ts = now.toISOString()
+  const petName = input.petName ?? 'Mazlíček'
+  const professionalName = input.professionalName ?? 'Profesionál'
+  const serviceName = input.serviceName ?? 'Služba'
+
+  const atDayHour = (dayOffset: number, hour: number, minute = 0) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() + dayOffset)
+    d.setHours(hour, minute, 0, 0)
+    return d.toISOString()
+  }
+
+  const endOf = (startIso: string, minutes = 30) => {
+    const d = new Date(startIso)
+    d.setMinutes(d.getMinutes() + minutes)
+    return d.toISOString()
+  }
+
+  const base = {
+    ownerAccountId: input.ownerAccountId,
+    professionalId: input.professionalId,
+    serviceId: input.serviceId,
+    petId: input.petId,
+    petName,
+    professionalName,
+    serviceName,
+    serviceNameSnapshot: serviceName,
+    durationSnapshot: 30,
+    createdAt: ts,
+    updatedAt: ts,
+  }
+
+  const requestedStart = atDayHour(5, 10)
+  const confirmedStart = atDayHour(7, 11)
+  const completedStart = atDayHour(-3, 10)
+  const cancelledOwnerStart = atDayHour(-5, 9)
+  const cancelledProStart = atDayHour(-4, 14)
+  const noShowStart = atDayHour(-2, 15)
+
+  return [
+    {
+      ...base,
+      id: createBookingId('bkg_seed_req'),
+      startAt: requestedStart,
+      endAt: endOf(requestedStart),
+      status: 'requested' as const,
+    },
+    {
+      ...base,
+      id: createBookingId('bkg_seed_conf'),
+      startAt: confirmedStart,
+      endAt: endOf(confirmedStart),
+      status: 'confirmed' as const,
+      confirmedAt: ts,
+    },
+    {
+      ...base,
+      id: createBookingId('bkg_seed_done'),
+      startAt: completedStart,
+      endAt: endOf(completedStart),
+      status: 'completed' as const,
+      confirmedAt: ts,
+      completedAt: ts,
+    },
+    {
+      ...base,
+      id: createBookingId('bkg_seed_cxo'),
+      startAt: cancelledOwnerStart,
+      endAt: endOf(cancelledOwnerStart),
+      status: 'cancelled_by_owner' as const,
+      cancelledAt: ts,
+    },
+    {
+      ...base,
+      id: createBookingId('bkg_seed_cxp'),
+      startAt: cancelledProStart,
+      endAt: endOf(cancelledProStart),
+      status: 'cancelled_by_professional' as const,
+      cancelledAt: ts,
+      cancellationReasonCode: 'operational' as const,
+      cancellationReason: 'Provozní důvody',
+    },
+    {
+      ...base,
+      id: createBookingId('bkg_seed_ns'),
+      startAt: noShowStart,
+      endAt: endOf(noShowStart),
+      status: 'no_show' as const,
+      confirmedAt: ts,
+      noShowAt: ts,
+    },
+  ]
 }

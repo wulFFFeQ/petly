@@ -1,13 +1,18 @@
 import { isServiceCategory } from './serviceCategories'
 import {
   BOOKING_STATUSES,
+  CANCELLATION_REASON_CODES,
   SERVICE_PRICE_TYPES,
   type AvailabilityExceptionType,
   type Booking,
+  type BookingConfirmMode,
+  type BookingNoShowMode,
   type BookingStatus,
+  type CancellationReasonCode,
   type ProfessionalAvailability,
   type ProfessionalAvailabilityException,
   type ProfessionalAvailabilitySettings,
+  type ProfessionalBookingPolicy,
   type ProfessionalService,
   type ServiceLocationType,
   type ServicePriceType,
@@ -22,6 +27,8 @@ export const PROFESSIONAL_AVAILABILITY_EXCEPTIONS_STORAGE_KEY =
   'lovedandknown.professionalAvailabilityExceptions'
 export const PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY =
   'lovedandknown.professionalAvailabilitySettings'
+export const PROFESSIONAL_BOOKING_POLICIES_STORAGE_KEY =
+  'lovedandknown.professionalBookingPolicies'
 
 export const DEFAULT_AVAILABILITY_TIMEZONE = 'Europe/Prague'
 
@@ -35,6 +42,7 @@ const LOCATION_TYPES = new Set<ServiceLocationType>([
   'remote',
   'other',
 ])
+const REASON_CODE_SET = new Set<string>(CANCELLATION_REASON_CODES)
 
 function durationMinutesBetween(startAt: string, endAt: string): number | undefined {
   const start = Date.parse(startAt)
@@ -137,9 +145,17 @@ export function normalizeBooking(raw: unknown): Booking | null {
   if (asString(raw.clientRequestId)) booking.clientRequestId = asString(raw.clientRequestId)
   if (asString(raw.cancelledAt)) booking.cancelledAt = asString(raw.cancelledAt)
   if (asString(raw.cancellationReason)) booking.cancellationReason = asString(raw.cancellationReason)
+  const reasonCode = asString(raw.cancellationReasonCode)
+  if (reasonCode && REASON_CODE_SET.has(reasonCode)) {
+    booking.cancellationReasonCode = reasonCode as CancellationReasonCode
+  }
   if (asString(raw.confirmedAt)) booking.confirmedAt = asString(raw.confirmedAt)
   if (asString(raw.completedAt)) booking.completedAt = asString(raw.completedAt)
   if (asString(raw.declinedAt)) booking.declinedAt = asString(raw.declinedAt)
+  if (asString(raw.originalStartAt)) booking.originalStartAt = asString(raw.originalStartAt)
+  if (asString(raw.originalEndAt)) booking.originalEndAt = asString(raw.originalEndAt)
+  if (asString(raw.rescheduledAt)) booking.rescheduledAt = asString(raw.rescheduledAt)
+  if (asString(raw.noShowAt)) booking.noShowAt = asString(raw.noShowAt)
   return booking
 }
 
@@ -388,4 +404,70 @@ export function saveAvailabilitySettings(rows: ProfessionalAvailabilitySettings[
     PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY,
     JSON.stringify(cleaned),
   )
+}
+
+export function normalizeBookingPolicy(raw: unknown): ProfessionalBookingPolicy | null {
+  if (!isRecord(raw)) return null
+  const professionalId = asString(raw.professionalId)
+  if (!professionalId) return null
+
+  let cancellationNoticeHours: number | null = 24
+  if (raw.cancellationNoticeHours === null) {
+    cancellationNoticeHours = null
+  } else {
+    const hours = asNumber(raw.cancellationNoticeHours)
+    if (hours !== undefined && hours >= 0) {
+      cancellationNoticeHours = Math.round(hours)
+    }
+  }
+
+  let confirmMode: BookingConfirmMode = 'manual'
+  const rawConfirm = asString(raw.confirmMode)
+  if (rawConfirm === 'manual' || rawConfirm === 'instant') {
+    confirmMode = rawConfirm
+  }
+
+  let noShowMode: BookingNoShowMode = 'after_start'
+  if (asString(raw.noShowMode) === 'after_start') {
+    noShowMode = 'after_start'
+  }
+
+  return {
+    professionalId,
+    cancellationNoticeHours,
+    allowReschedule: asBool(raw.allowReschedule, true),
+    // DEMO: always persist as manual even if legacy stored instant.
+    confirmMode: confirmMode === 'instant' ? 'manual' : confirmMode,
+    noShowMode,
+  }
+}
+
+export function loadBookingPolicies(): ProfessionalBookingPolicy[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(PROFESSIONAL_BOOKING_POLICIES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    const out: ProfessionalBookingPolicy[] = []
+    const seen = new Set<string>()
+    for (const item of parsed) {
+      const n = normalizeBookingPolicy(item)
+      if (!n) continue
+      if (seen.has(n.professionalId)) continue
+      seen.add(n.professionalId)
+      out.push(n)
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+export function saveBookingPolicies(rows: ProfessionalBookingPolicy[]): void {
+  if (typeof localStorage === 'undefined') return
+  const cleaned = rows
+    .map((r) => normalizeBookingPolicy(r))
+    .filter((r): r is ProfessionalBookingPolicy => Boolean(r))
+  localStorage.setItem(PROFESSIONAL_BOOKING_POLICIES_STORAGE_KEY, JSON.stringify(cleaned))
 }

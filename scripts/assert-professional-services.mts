@@ -494,7 +494,7 @@ check('S – review flow zůstává funkční', () => {
     target = getBooking(bookingId)!
   }
   if (target.status === 'confirmed') {
-    const completed = completeBooking(bookingId, PRO_ID)
+    const completed = completeBooking(bookingId, PRO_ID, { allowEarlyComplete: true })
     assert.equal(completed.ok, true)
     target = getBooking(bookingId)!
   }
@@ -513,7 +513,7 @@ check('S – review flow zůstává funkční', () => {
     assert.equal(created.ok, true)
     if (!created.ok) return
     assert.equal(confirmBooking(created.value.id, PRO_ID).ok, true)
-    assert.equal(completeBooking(created.value.id, PRO_ID).ok, true)
+    assert.equal(completeBooking(created.value.id, PRO_ID, { allowEarlyComplete: true }).ok, true)
     target = getBooking(created.value.id)!
   }
 

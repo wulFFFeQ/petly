@@ -7,6 +7,7 @@ import {
   HelpCircle,
   LayoutDashboard,
   Link2,
+  ScrollText,
   Settings,
   Sparkles,
   UserRound,
@@ -30,6 +31,7 @@ const mainNav = [
 const bottomNav = [
   { to: '/professional/services', label: 'Služby', icon: Sparkles },
   { to: '/professional/availability', label: 'Dostupnost', icon: Clock },
+  { to: '/professional/booking-rules', label: 'Pravidla rezervací', icon: ScrollText },
   { to: '/professional/settings', label: 'Nastavení', icon: Settings },
   { to: '/professional/help', label: 'Nápověda', icon: HelpCircle },
 ]

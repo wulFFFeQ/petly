@@ -8,25 +8,53 @@ export function BookingActions({
   onDecline,
   onCancel,
   onComplete,
+  onNoShow,
+  onReschedule,
   busy,
+  canComplete = true,
+  canNoShow = false,
+  canReschedule = false,
 }: {
   booking: Booking
   role: 'professional' | 'owner'
   onConfirm?: () => void
   onDecline?: () => void
   onCancel?: () => void
-  /** Professional only — marks confirmed booking as completed (existing completeBooking API). */
+  /** Professional only — marks confirmed booking as completed. */
   onComplete?: () => void
+  /** Professional only — after start. */
+  onNoShow?: () => void
+  onReschedule?: () => void
   busy?: boolean
+  /** False when before planned start (unless DEMO override). */
+  canComplete?: boolean
+  canNoShow?: boolean
+  canReschedule?: boolean
 }) {
   const canConfirm = role === 'professional' && booking.status === 'requested'
   const canDecline = role === 'professional' && booking.status === 'requested'
-  const canComplete = role === 'professional' && booking.status === 'confirmed'
+  const showComplete =
+    role === 'professional' && booking.status === 'confirmed' && onComplete
+  const showNoShow =
+    role === 'professional' && booking.status === 'confirmed' && canNoShow && onNoShow
   const canCancel =
     (booking.status === 'requested' || booking.status === 'confirmed') &&
     (role === 'professional' || role === 'owner')
+  const showReschedule =
+    canReschedule &&
+    (booking.status === 'requested' || booking.status === 'confirmed') &&
+    onReschedule
 
-  if (!canConfirm && !canDecline && !canCancel && !canComplete) return null
+  if (
+    !canConfirm &&
+    !canDecline &&
+    !canCancel &&
+    !showComplete &&
+    !showNoShow &&
+    !showReschedule
+  ) {
+    return null
+  }
 
   const cancelLabel =
     role === 'owner' && booking.status === 'requested'
@@ -57,15 +85,42 @@ export function BookingActions({
           Odmítnout
         </Button>
       ) : null}
-      {canComplete && onComplete ? (
+      {showComplete ? (
         <Button
           variant="primary"
           size="sm"
-          disabled={busy}
+          disabled={busy || !canComplete}
           data-testid="booking-complete"
+          title={
+            !canComplete
+              ? 'Dokončit lze až po začátku plánovaného termínu'
+              : undefined
+          }
           onClick={onComplete}
         >
-          Dokončit
+          Dokončit rezervaci
+        </Button>
+      ) : null}
+      {showNoShow ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          data-testid="booking-no-show"
+          onClick={onNoShow}
+        >
+          Nedostavil/a se
+        </Button>
+      ) : null}
+      {showReschedule ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          data-testid="booking-reschedule"
+          onClick={onReschedule}
+        >
+          Navrhnout nový termín
         </Button>
       ) : null}
       {canCancel && onCancel ? (

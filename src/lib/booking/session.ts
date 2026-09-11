@@ -14,8 +14,13 @@ import {
   createBooking as createBookingDomain,
   declineBooking as declineBookingDomain,
   completeBooking as completeBookingDomain,
+  markNoShow as markNoShowDomain,
+  rescheduleBooking as rescheduleBookingDomain,
   type CancelBookingActor,
+  type CancelBookingOptions,
+  type CompleteBookingOptions,
   type CreateBookingInput,
+  type RescheduleBookingInput,
 } from './bookings'
 import { syncBookingCalendarEvent, removeBookingCalendarEvent } from './calendarSync'
 import { getProfessionalService } from './services'
@@ -169,9 +174,9 @@ export function cancelBookingRequest(
     upsertNotification: BookingUpsertNotification
     syncCalendar?: BookingCalendarSync
   },
-  reason?: string,
+  reasonOrOptions?: string | CancelBookingOptions,
 ): BookingResult<Booking> {
-  const result = cancelBookingDomain(bookingId, actor, reason)
+  const result = cancelBookingDomain(bookingId, actor, reasonOrOptions)
   if (!result.ok) return result
   const professional = resolveProfessional(result.value.professionalId)
   emitBookingNotification(opts.upsertNotification, {
@@ -191,8 +196,9 @@ export function completeBookingRequest(
     upsertNotification: BookingUpsertNotification
     syncCalendar?: BookingCalendarSync
   },
+  completeOpts?: CompleteBookingOptions,
 ): BookingResult<Booking> {
-  const result = completeBookingDomain(bookingId, actorProfessionalId)
+  const result = completeBookingDomain(bookingId, actorProfessionalId, completeOpts)
   if (!result.ok) return result
   const professional = resolveProfessional(result.value.professionalId)
   emitBookingNotification(opts.upsertNotification, {
@@ -201,5 +207,41 @@ export function completeBookingRequest(
     professional,
   })
   applyCalendar(opts.syncCalendar, result.value, true)
+  return result
+}
+
+export function markNoShowRequest(
+  bookingId: string,
+  actorProfessionalId: string,
+  opts: {
+    upsertNotification: BookingUpsertNotification
+    syncCalendar?: BookingCalendarSync
+  },
+  markOpts?: { now?: Date },
+): BookingResult<Booking> {
+  const result = markNoShowDomain(bookingId, actorProfessionalId, markOpts)
+  if (!result.ok) return result
+  // No dedicated notification type — calendar must drop the blocked slot.
+  applyCalendar(opts.syncCalendar, result.value, true)
+  return result
+}
+
+export function rescheduleBookingRequest(
+  input: Omit<RescheduleBookingInput, 'actor'> & { actor: CancelBookingActor },
+  opts: {
+    upsertNotification: BookingUpsertNotification
+    syncCalendar?: BookingCalendarSync
+  },
+): BookingResult<Booking> {
+  const result = rescheduleBookingDomain(input)
+  if (!result.ok) return result
+  const professional = resolveProfessional(result.value.professionalId)
+  emitBookingNotification(opts.upsertNotification, {
+    booking: result.value,
+    event: 'rescheduled',
+    professional,
+    rescheduledBy: input.actor.kind,
+  })
+  applyCalendar(opts.syncCalendar, result.value)
   return result
 }

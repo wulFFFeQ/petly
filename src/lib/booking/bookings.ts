@@ -3,6 +3,11 @@ import { isConsumerAccount } from '../professional/roles'
 import { loadProfessionalProfiles } from '../professional/storage'
 import type { ProfessionalProfile } from '../professional/types'
 import { getAvailability, getAvailabilityExceptions } from './availability'
+import {
+  canOwnerCancelByPolicy,
+  ensureDefaultBookingPolicy,
+  formatOwnerCancelPolicyHint,
+} from './policy'
 import { getProfessionalService } from './services'
 import { addMinutesIso, isSlotAvailable } from './slots'
 import {
@@ -10,7 +15,13 @@ import {
   loadBookings,
   saveBookings,
 } from './storage'
-import type { Booking, BookingResult, BookingStatus } from './types'
+import type {
+  Booking,
+  BookingResult,
+  BookingStatus,
+  CancellationReasonCode,
+} from './types'
+import { DEMO_ALLOW_EARLY_COMPLETE_KEY } from './types'
 
 export type CreateBookingInput = {
   ownerAccountId: string
@@ -30,6 +41,15 @@ export type CreateBookingInput = {
 
 function nowIso(): string {
   return new Date().toISOString()
+}
+
+function isDemoEarlyCompleteAllowed(): boolean {
+  if (typeof localStorage === 'undefined') return false
+  try {
+    return localStorage.getItem(DEMO_ALLOW_EARLY_COMPLETE_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 function idempotencyKey(input: {
@@ -235,6 +255,28 @@ function replaceBooking(next: Booking): Booking {
   return next
 }
 
+function serviceForSlotCheck(booking: Booking) {
+  const liveService = getProfessionalService(booking.serviceId)
+  const duration =
+    booking.durationSnapshot ??
+    Math.round((Date.parse(booking.endAt) - Date.parse(booking.startAt)) / 60_000)
+  return (
+    liveService ?? {
+      id: booking.serviceId,
+      professionalId: booking.professionalId,
+      name: booking.serviceNameSnapshot ?? booking.serviceName ?? 'Služba',
+      durationMinutes: duration > 0 ? duration : 30,
+      category: 'other' as const,
+      priceType: 'on_request' as const,
+      publicVisibility: 'public' as const,
+      active: true,
+      bookingEnabled: true,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+    }
+  )
+}
+
 export function confirmBooking(
   bookingId: string,
   actorProfessionalId: string,
@@ -247,25 +289,7 @@ export function confirmBooking(
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze potvrdit.' }
   }
 
-  // Existing bookings remain confirmable even if the live service was deactivated.
-  // Overlap uses stored startAt/endAt; buffers apply only when the live service still exists.
-  const liveService = getProfessionalService(booking.serviceId)
-  const duration =
-    booking.durationSnapshot ??
-    Math.round((Date.parse(booking.endAt) - Date.parse(booking.startAt)) / 60_000)
-  const serviceForSlot = liveService ?? {
-    id: booking.serviceId,
-    professionalId: booking.professionalId,
-    name: booking.serviceNameSnapshot ?? booking.serviceName ?? 'Služba',
-    durationMinutes: duration > 0 ? duration : 30,
-    category: 'other' as const,
-    priceType: 'on_request' as const,
-    publicVisibility: 'public' as const,
-    active: true,
-    bookingEnabled: true,
-    createdAt: booking.createdAt,
-    updatedAt: booking.updatedAt,
-  }
+  const serviceForSlot = serviceForSlotCheck(booking)
 
   const ok = isSlotAvailable({
     professionalId: booking.professionalId,
@@ -326,11 +350,24 @@ export type CancelBookingActor = {
   professionalId?: string
 }
 
+export type CancelBookingOptions = {
+  reason?: string
+  reasonCode?: CancellationReasonCode
+  /** Skip policy check (tests / DEMO override). Default false. */
+  skipPolicyCheck?: boolean
+  now?: Date
+}
+
 export function cancelBooking(
   bookingId: string,
   actor: CancelBookingActor,
-  reason?: string,
+  reasonOrOptions?: string | CancelBookingOptions,
 ): BookingResult<Booking> {
+  const opts: CancelBookingOptions =
+    typeof reasonOrOptions === 'string'
+      ? { reason: reasonOrOptions }
+      : reasonOrOptions ?? {}
+
   const booking = getBooking(bookingId)
   if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
 
@@ -352,25 +389,58 @@ export function cancelBooking(
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze zrušit.' }
   }
 
+  if (actor.kind === 'professional') {
+    const hasReason = Boolean(opts.reasonCode) || Boolean(opts.reason?.trim())
+    if (!hasReason) {
+      return {
+        ok: false,
+        error: 'reason_required',
+        message: 'Uveďte důvod zrušení.',
+      }
+    }
+  }
+
+  if (actor.kind === 'owner' && !opts.skipPolicyCheck) {
+    const policy = ensureDefaultBookingPolicy(booking.professionalId)
+    const check = canOwnerCancelByPolicy(booking, policy, opts.now ?? new Date())
+    if (!check.allowed) {
+      return {
+        ok: false,
+        error: 'policy_blocked',
+        message: formatOwnerCancelPolicyHint(check),
+      }
+    }
+  }
+
   const ts = nowIso()
   const status: BookingStatus =
     actor.kind === 'owner' ? 'cancelled_by_owner' : 'cancelled_by_professional'
 
+  const next: Booking = {
+    ...booking,
+    status,
+    cancelledAt: ts,
+    updatedAt: ts,
+  }
+  if (opts.reason?.trim()) next.cancellationReason = opts.reason.trim()
+  else delete next.cancellationReason
+  if (opts.reasonCode) next.cancellationReasonCode = opts.reasonCode
+
   return {
     ok: true,
-    value: replaceBooking({
-      ...booking,
-      status,
-      cancelledAt: ts,
-      cancellationReason: reason?.trim() || undefined,
-      updatedAt: ts,
-    }),
+    value: replaceBooking(next),
   }
+}
+
+export type CompleteBookingOptions = {
+  allowEarlyComplete?: boolean
+  now?: Date
 }
 
 export function completeBooking(
   bookingId: string,
   actorProfessionalId: string,
+  options?: CompleteBookingOptions,
 ): BookingResult<Booking> {
   const booking = getBooking(bookingId)
   if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
@@ -379,6 +449,19 @@ export function completeBooking(
   if (booking.status !== 'confirmed') {
     return { ok: false, error: 'invalid_status', message: 'Dokončit lze jen potvrzenou rezervaci.' }
   }
+
+  const now = options?.now ?? new Date()
+  const startMs = Date.parse(booking.startAt)
+  const allowEarly =
+    options?.allowEarlyComplete === true || isDemoEarlyCompleteAllowed()
+  if (Number.isFinite(startMs) && now.getTime() < startMs && !allowEarly) {
+    return {
+      ok: false,
+      error: 'too_early',
+      message: 'Rezervaci nelze dokončit před plánovaným termínem.',
+    }
+  }
+
   const ts = nowIso()
   return {
     ok: true,
@@ -394,23 +477,130 @@ export function completeBooking(
 export function markNoShow(
   bookingId: string,
   actorProfessionalId: string,
+  options?: { now?: Date },
 ): BookingResult<Booking> {
   const booking = getBooking(bookingId)
   if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
   const denied = assertProfessionalOwns(booking, actorProfessionalId)
   if (denied) return denied
   if (booking.status !== 'confirmed') {
-    return { ok: false, error: 'invalid_status', message: 'No-show lze označit jen u potvrzené rezervace.' }
+    return {
+      ok: false,
+      error: 'invalid_status',
+      message: 'No-show lze označit jen u potvrzené rezervace.',
+    }
   }
+
+  const now = options?.now ?? new Date()
+  const startMs = Date.parse(booking.startAt)
+  if (Number.isFinite(startMs) && now.getTime() < startMs) {
+    return {
+      ok: false,
+      error: 'too_early',
+      message: 'No-show lze označit až po začátku termínu.',
+    }
+  }
+
   const ts = nowIso()
   return {
     ok: true,
     value: replaceBooking({
       ...booking,
       status: 'no_show',
+      noShowAt: ts,
       updatedAt: ts,
     }),
   }
+}
+
+export type RescheduleBookingInput = {
+  bookingId: string
+  newStartAt: string
+  actor: CancelBookingActor
+  now?: Date
+  clientRequestId?: string
+}
+
+/**
+ * Direct reschedule: move booking to a new available slot on the same record.
+ * Preserves originalStartAt/originalEndAt on first move.
+ */
+export function rescheduleBooking(input: RescheduleBookingInput): BookingResult<Booking> {
+  const booking = getBooking(input.bookingId)
+  if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
+
+  if (input.actor.kind === 'owner') {
+    if (!input.actor.accountId) {
+      return { ok: false, error: 'forbidden', message: 'Chybí účet majitele.' }
+    }
+    const denied = assertOwnerOwns(booking, input.actor.accountId)
+    if (denied) return denied
+  } else {
+    if (!input.actor.professionalId) {
+      return { ok: false, error: 'forbidden', message: 'Chybí profesionální profil.' }
+    }
+    const denied = assertProfessionalOwns(booking, input.actor.professionalId)
+    if (denied) return denied
+  }
+
+  if (booking.status !== 'requested' && booking.status !== 'confirmed') {
+    return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze přesunout.' }
+  }
+
+  const policy = ensureDefaultBookingPolicy(booking.professionalId)
+  if (!policy.allowReschedule) {
+    return {
+      ok: false,
+      error: 'reschedule_disabled',
+      message: 'Přesun rezervace není u tohoto profesionála povolen.',
+    }
+  }
+
+  const service = serviceForSlotCheck(booking)
+  const newEndAt = addMinutesIso(input.newStartAt, service.durationMinutes)
+  const startMs = Date.parse(input.newStartAt)
+  const now = input.now ?? new Date()
+  if (Number.isNaN(startMs) || startMs < now.getTime()) {
+    return { ok: false, error: 'past_slot', message: 'Nový termín je v minulosti.' }
+  }
+
+  if (booking.startAt === input.newStartAt && booking.endAt === newEndAt) {
+    return { ok: true, value: booking }
+  }
+
+  const available = isSlotAvailable({
+    professionalId: booking.professionalId,
+    service,
+    startAt: input.newStartAt,
+    endAt: newEndAt,
+    availability: getAvailability(booking.professionalId),
+    exceptions: getAvailabilityExceptions(booking.professionalId),
+    bookings: loadBookings(),
+    excludeBookingId: booking.id,
+    skipServiceBookableCheck: true,
+  })
+  if (!available) {
+    return {
+      ok: false,
+      error: 'slot_unavailable',
+      message: 'Nový termín není dostupný.',
+    }
+  }
+
+  const ts = nowIso()
+  const next: Booking = {
+    ...booking,
+    startAt: input.newStartAt,
+    endAt: newEndAt,
+    durationSnapshot: service.durationMinutes,
+    originalStartAt: booking.originalStartAt ?? booking.startAt,
+    originalEndAt: booking.originalEndAt ?? booking.endAt,
+    rescheduledAt: ts,
+    updatedAt: ts,
+  }
+  if (input.clientRequestId) next.clientRequestId = input.clientRequestId
+
+  return { ok: true, value: replaceBooking(next) }
 }
 
 /** Partition helpers for professional workspace lists. */
@@ -430,7 +620,8 @@ export function partitionProfessionalBookings(
   const confirmed = all.filter((b) => b.status === 'confirmed')
   const today = confirmed.filter((b) => toLocalDateIso(new Date(b.startAt)) === todayIso)
   const upcoming = confirmed.filter(
-    (b) => Date.parse(b.startAt) >= now.getTime() && toLocalDateIso(new Date(b.startAt)) !== todayIso,
+    (b) =>
+      Date.parse(b.startAt) >= now.getTime() && toLocalDateIso(new Date(b.startAt)) !== todayIso,
   )
   const history = all.filter((b) =>
     ['declined', 'cancelled_by_owner', 'cancelled_by_professional', 'completed', 'no_show'].includes(
@@ -456,10 +647,7 @@ export function partitionOwnerBookings(
     .filter((b) => b.status === 'requested')
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
   const upcoming = all
-    .filter(
-      (b) =>
-        b.status === 'confirmed' && Date.parse(b.startAt) >= nowMs,
-    )
+    .filter((b) => b.status === 'confirmed' && Date.parse(b.startAt) >= nowMs)
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
   const past = all
     .filter(

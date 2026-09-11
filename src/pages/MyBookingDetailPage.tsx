@@ -1,13 +1,24 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { BookingActions, BookingDetail } from '../components/booking'
+import {
+  BookingActions,
+  BookingCancelDialog,
+  BookingDetail,
+  BookingRescheduleModal,
+} from '../components/booking'
 import { ReviewBookingModal } from '../components/reviews/ReviewBookingModal'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { Modal } from '../components/ui/Modal'
 import { useApp } from '../context/AppContext'
 import { getSelfAccount } from '../lib/account'
-import { cancelBookingRequest, getBooking } from '../lib/booking'
+import {
+  canOwnerCancelByPolicy,
+  cancelBookingRequest,
+  ensureDefaultBookingPolicy,
+  formatOwnerCancelPolicyHint,
+  getBooking,
+  rescheduleBookingRequest,
+} from '../lib/booking'
 import { getReviewForBooking } from '../lib/reviews'
 
 export function MyBookingDetailPage() {
@@ -17,8 +28,8 @@ export function MyBookingDetailPage() {
   const self = getSelfAccount()
   const [busy, setBusy] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
-  const [reason, setReason] = useState('')
   const [revision, setRevision] = useState(0)
 
   const booking = useMemo(() => (id ? getBooking(id) : null), [id, revision])
@@ -26,6 +37,15 @@ export function MyBookingDetailPage() {
     () => (booking ? getReviewForBooking(booking.id) : null),
     [booking, revision],
   )
+  const policy = useMemo(
+    () =>
+      booking ? ensureDefaultBookingPolicy(booking.professionalId) : null,
+    [booking, revision],
+  )
+  const cancelCheck = useMemo(() => {
+    if (!booking || !policy) return null
+    return canOwnerCancelByPolicy(booking, policy)
+  }, [booking, policy])
 
   if (!self || !booking || booking.ownerAccountId !== self.id) {
     return (
@@ -52,6 +72,8 @@ export function MyBookingDetailPage() {
 
   const pet = pets.find((p) => p.id === booking.petId) ?? null
   const canReview = booking.status === 'completed' && !existingReview
+  const canReschedule = Boolean(policy?.allowReschedule)
+  const opts = { upsertNotification, syncCalendar: syncCalendarEvents }
 
   return (
     <div
@@ -77,6 +99,8 @@ export function MyBookingDetailPage() {
             booking={booking}
             role="owner"
             busy={busy}
+            canReschedule={canReschedule}
+            onReschedule={() => setRescheduleOpen(true)}
             onCancel={() => setCancelOpen(true)}
           />
         </div>
@@ -123,51 +147,58 @@ export function MyBookingDetailPage() {
         }}
       />
 
-      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Zrušit rezervaci?">
-        <p className="text-sm text-[#4A564F]">
-          Opravdu chcete tuto rezervaci zrušit?
-        </p>
-        <label className="mt-3 block text-xs font-semibold text-[#4A564F]">
-          Důvod zrušení (volitelné)
-          <textarea
-            className="mt-1.5 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm outline-none focus:border-[#2C4A3E]"
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            data-testid="cancel-reason-input"
-          />
-        </label>
-        <div className="mt-4 flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>
-            Zpět
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={busy}
-            data-testid="booking-cancel-confirm"
-            onClick={() => {
-              setBusy(true)
-              const result = cancelBookingRequest(
-                booking.id,
-                { kind: 'owner', accountId: self.id },
-                { upsertNotification, syncCalendar: syncCalendarEvents },
-                reason.trim() || undefined,
-              )
-              setBusy(false)
-              setCancelOpen(false)
-              if (!result.ok) {
-                showToast('Zrušení se nezdařilo', result.message, 'error')
-                return
-              }
-              showToast('Rezervace zrušena', 'Stav byl aktualizován.', 'info')
-              setRevision((r) => r + 1)
-            }}
-          >
-            Ano, zrušit
-          </Button>
-        </div>
-      </Modal>
+      <BookingCancelDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        role="owner"
+        policyHint={
+          cancelCheck ? formatOwnerCancelPolicyHint(cancelCheck) : null
+        }
+        busy={busy}
+        onConfirm={({ reason }) => {
+          setBusy(true)
+          const result = cancelBookingRequest(
+            booking.id,
+            { kind: 'owner', accountId: self.id },
+            opts,
+            reason ? { reason } : undefined,
+          )
+          setBusy(false)
+          setCancelOpen(false)
+          if (!result.ok) {
+            showToast('Zrušení se nezdařilo', result.message, 'error')
+            return
+          }
+          showToast('Rezervace zrušena', 'Stav byl aktualizován.', 'info')
+          setRevision((r) => r + 1)
+        }}
+      />
+
+      <BookingRescheduleModal
+        open={rescheduleOpen}
+        onClose={() => setRescheduleOpen(false)}
+        booking={booking}
+        busy={busy}
+        onConfirm={(newStartAt) => {
+          setBusy(true)
+          const result = rescheduleBookingRequest(
+            {
+              bookingId: booking.id,
+              newStartAt,
+              actor: { kind: 'owner', accountId: self.id },
+            },
+            opts,
+          )
+          setBusy(false)
+          setRescheduleOpen(false)
+          if (!result.ok) {
+            showToast('Přesun se nezdařil', result.message, 'error')
+            return
+          }
+          showToast('Rezervace přesunuta', 'Nový termín je uložen.', 'success')
+          setRevision((r) => r + 1)
+        }}
+      />
     </div>
   )
 }

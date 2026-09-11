@@ -1,19 +1,35 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { BookingActions, BookingDetail } from '../../components/booking'
+import {
+  BookingActions,
+  BookingCancelDialog,
+  BookingDetail,
+  BookingRescheduleModal,
+} from '../../components/booking'
 import { EmptyState } from '../../components/professional/dashboard/EmptyState'
 import { Card } from '../../components/ui/Card'
-import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { useApp } from '../../context/AppContext'
 import {
+  DEMO_ALLOW_EARLY_COMPLETE_KEY,
   cancelBookingRequest,
   completeBookingRequest,
   confirmBookingRequest,
   declineBookingRequest,
+  ensureDefaultBookingPolicy,
   getBooking,
+  markNoShowRequest,
+  rescheduleBookingRequest,
 } from '../../lib/booking'
 import { getActiveSelfProfessionalProfile } from '../../lib/professional/dashboard'
+
+function isDemoEarlyComplete(): boolean {
+  try {
+    return localStorage.getItem(DEMO_ALLOW_EARLY_COMPLETE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export function ProfessionalBookingDetailPage() {
   const { id } = useParams()
@@ -22,10 +38,14 @@ export function ProfessionalBookingDetailPage() {
   const profile = getActiveSelfProfessionalProfile()
   const [busy, setBusy] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
-  const [reason, setReason] = useState('')
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [revision, setRevision] = useState(0)
 
   const booking = useMemo(() => (id ? getBooking(id) : null), [id, revision])
+  const policy = useMemo(
+    () => (profile ? ensureDefaultBookingPolicy(profile.id) : null),
+    [profile, revision],
+  )
 
   if (!profile) {
     return (
@@ -58,6 +78,12 @@ export function ProfessionalBookingDetailPage() {
   }
 
   const opts = { upsertNotification, syncCalendar: syncCalendarEvents }
+  const nowMs = Date.now()
+  const startMs = Date.parse(booking.startAt)
+  const afterStart = Number.isFinite(startMs) && nowMs >= startMs
+  const canComplete = afterStart || isDemoEarlyComplete()
+  const canNoShow = afterStart
+  const canReschedule = Boolean(policy?.allowReschedule)
 
   const run = (fn: () => ReturnType<typeof confirmBookingRequest>) => {
     setBusy(true)
@@ -90,11 +116,19 @@ export function ProfessionalBookingDetailPage() {
           </p>
         ) : null}
         <BookingDetail booking={booking} showOwner />
+        {booking.originalStartAt && booking.rescheduledAt ? (
+          <p className="mt-2 text-[11px] text-[#7D8B82]" data-testid="booking-reschedule-history">
+            Původní termín zachován v historii.
+          </p>
+        ) : null}
         <div className="mt-4">
           <BookingActions
             booking={booking}
             role="professional"
             busy={busy}
+            canComplete={canComplete}
+            canNoShow={canNoShow}
+            canReschedule={canReschedule}
             onConfirm={() =>
               run(() => confirmBookingRequest(booking.id, profile.id, opts))
             }
@@ -104,50 +138,52 @@ export function ProfessionalBookingDetailPage() {
             onComplete={() =>
               run(() => completeBookingRequest(booking.id, profile.id, opts))
             }
+            onNoShow={() =>
+              run(() => markNoShowRequest(booking.id, profile.id, opts))
+            }
+            onReschedule={() => setRescheduleOpen(true)}
             onCancel={() => setCancelOpen(true)}
           />
         </div>
       </Card>
 
-      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Zrušit rezervaci?">
-        <p className="text-sm text-[#4A564F]">
-          Opravdu chcete tuto rezervaci zrušit?
-        </p>
-        <label className="mt-3 block text-xs font-semibold text-[#4A564F]">
-          Důvod zrušení (volitelné)
-          <textarea
-            className="mt-1.5 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm outline-none focus:border-[#2C4A3E]"
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            data-testid="cancel-reason-input"
-          />
-        </label>
-        <div className="mt-4 flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>
-            Zpět
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            data-testid="booking-cancel-confirm"
-            disabled={busy}
-            onClick={() => {
-              setCancelOpen(false)
-              run(() =>
-                cancelBookingRequest(
-                  booking.id,
-                  { kind: 'professional', professionalId: profile.id },
-                  opts,
-                  reason.trim() || undefined,
-                ),
-              )
-            }}
-          >
-            Ano, zrušit
-          </Button>
-        </div>
-      </Modal>
+      <BookingCancelDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        role="professional"
+        busy={busy}
+        onConfirm={({ reasonCode, reason }) => {
+          setCancelOpen(false)
+          run(() =>
+            cancelBookingRequest(
+              booking.id,
+              { kind: 'professional', professionalId: profile.id },
+              opts,
+              { reasonCode, reason },
+            ),
+          )
+        }}
+      />
+
+      <BookingRescheduleModal
+        open={rescheduleOpen}
+        onClose={() => setRescheduleOpen(false)}
+        booking={booking}
+        busy={busy}
+        onConfirm={(newStartAt) => {
+          setRescheduleOpen(false)
+          run(() =>
+            rescheduleBookingRequest(
+              {
+                bookingId: booking.id,
+                newStartAt,
+                actor: { kind: 'professional', professionalId: profile.id },
+              },
+              opts,
+            ),
+          )
+        }}
+      />
     </div>
   )
 }

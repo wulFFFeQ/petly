@@ -49,6 +49,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'booking_cancelled',
   'booking_completed',
   'booking_reminder',
+  'booking_rescheduled',
   'professional_review_received',
   'professional_review_reply',
 ]
@@ -214,7 +215,8 @@ export function notificationHrefFallback(item: AppNotification): string | null {
     item.type === 'booking_declined' ||
     item.type === 'booking_cancelled' ||
     item.type === 'booking_completed' ||
-    item.type === 'booking_reminder'
+    item.type === 'booking_reminder' ||
+    item.type === 'booking_rescheduled'
   ) {
     if (item.href) return item.href
     if (item.relatedBookingId) {

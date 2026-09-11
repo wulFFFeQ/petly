@@ -66,6 +66,7 @@ function notificationTypeIcon(type: NotificationType) {
       return CalendarClock
     case 'booking_confirmed':
     case 'booking_completed':
+    case 'booking_rescheduled':
       return CalendarCheck
     case 'booking_declined':
     case 'booking_cancelled':
