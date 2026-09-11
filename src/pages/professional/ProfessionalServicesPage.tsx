@@ -20,9 +20,12 @@ import {
   updateProfessionalService,
   type ProfessionalService,
   type ServiceCategory,
+  type ServiceDepositType,
+  type ServicePaymentCollection,
   type ServicePriceType,
   type ServicePublicVisibility,
 } from '../../lib/booking'
+import { suggestedPaymentDefaults } from '../../lib/payments'
 import { getActiveSelfProfessionalProfile } from '../../lib/professional/dashboard'
 import { useApp } from '../../context/AppContext'
 
@@ -38,9 +41,15 @@ type Draft = {
   publicVisibility: ServicePublicVisibility
   bufferBefore: string
   bufferAfter: string
+  paymentCollection: ServicePaymentCollection
+  depositType: ServiceDepositType
+  depositValue: string
 }
 
-const emptyDraft = (category: ServiceCategory = 'other'): Draft => ({
+const emptyDraft = (
+  category: ServiceCategory = 'other',
+  paymentCollection: ServicePaymentCollection = 'pay_on_site',
+): Draft => ({
   name: '',
   description: '',
   category,
@@ -52,6 +61,9 @@ const emptyDraft = (category: ServiceCategory = 'other'): Draft => ({
   publicVisibility: 'public',
   bufferBefore: '',
   bufferAfter: '',
+  paymentCollection,
+  depositType: 'percentage',
+  depositValue: '30',
 })
 
 export function ProfessionalServicesPage() {
@@ -93,7 +105,17 @@ export function ProfessionalServicesPage() {
 
   const openCreate = () => {
     setEditId(null)
-    setDraft(emptyDraft(recommendedCategories[0] ?? 'other'))
+    const defaults = suggestedPaymentDefaults(profile.type)
+    const base = emptyDraft(
+      recommendedCategories[0] ?? 'other',
+      defaults.paymentCollection,
+    )
+    if (defaults.requiresDeposit && defaults.depositType && defaults.depositValue !== undefined) {
+      base.paymentCollection = 'deposit'
+      base.depositType = defaults.depositType
+      base.depositValue = String(defaults.depositValue)
+    }
+    setDraft(base)
     setOpen(true)
   }
 
@@ -133,6 +155,9 @@ export function ProfessionalServicesPage() {
         s.bookingBufferAfterMinutes !== undefined
           ? String(s.bookingBufferAfterMinutes)
           : '',
+      paymentCollection: s.paymentCollection ?? 'pay_on_site',
+      depositType: s.depositType ?? 'percentage',
+      depositValue: s.depositValue !== undefined ? String(s.depositValue) : '30',
     })
     setOpen(true)
   }
@@ -150,6 +175,11 @@ export function ProfessionalServicesPage() {
     const bufferAfter = draft.bufferAfter.trim()
       ? Number(draft.bufferAfter)
       : undefined
+    const depositValueRaw = draft.depositValue.trim()
+    const depositValue =
+      draft.paymentCollection === 'deposit' && depositValueRaw !== ''
+        ? Number(depositValueRaw)
+        : undefined
 
     const fields = {
       name: draft.name,
@@ -163,6 +193,12 @@ export function ProfessionalServicesPage() {
       publicVisibility: draft.publicVisibility,
       bookingBufferBeforeMinutes: bufferBefore,
       bookingBufferAfterMinutes: bufferAfter,
+      paymentCollection: draft.paymentCollection,
+      requiresDeposit: draft.paymentCollection === 'deposit',
+      depositType:
+        draft.paymentCollection === 'deposit' ? draft.depositType : undefined,
+      depositValue:
+        draft.paymentCollection === 'deposit' ? depositValue : undefined,
     }
 
     if (editId) {
@@ -393,6 +429,64 @@ export function ProfessionalServicesPage() {
               />
             </div>
           ) : null}
+          <div
+            className="space-y-2 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-3"
+            data-testid="service-payment-section"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#A3AEA7]">
+              Platba
+            </p>
+            <label className="block text-xs font-semibold text-[#4A564F]">
+              Způsob platby
+              <select
+                className="mt-1 w-full rounded-xl border border-[#E8E4DC] bg-white px-3 py-2 text-sm"
+                value={draft.paymentCollection}
+                data-testid="service-payment-collection"
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    paymentCollection: e.target.value as ServicePaymentCollection,
+                  }))
+                }
+              >
+                <option value="pay_on_site">Platba na místě</option>
+                <option value="deposit">Záloha</option>
+                <option value="full_prepay">Platba předem</option>
+              </select>
+            </label>
+            {draft.paymentCollection === 'deposit' ? (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-semibold text-[#4A564F]">
+                  Typ zálohy
+                  <select
+                    className="mt-1 w-full rounded-xl border border-[#E8E4DC] bg-white px-3 py-2 text-sm"
+                    value={draft.depositType}
+                    data-testid="service-deposit-type"
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        depositType: e.target.value as ServiceDepositType,
+                      }))
+                    }
+                  >
+                    <option value="percentage">Procento</option>
+                    <option value="fixed">Pevná částka</option>
+                  </select>
+                </label>
+                <Input
+                  label={draft.depositType === 'percentage' ? 'Záloha (%)' : 'Záloha (Kč)'}
+                  type="number"
+                  value={draft.depositValue}
+                  onChange={(e) => setDraft((d) => ({ ...d, depositValue: e.target.value }))}
+                  data-testid="service-deposit-value"
+                />
+              </div>
+            ) : null}
+            <p className="text-[11px] text-[#7D8B82]" data-testid="service-payment-hint">
+              Platební systém připravujeme. Nastavení se uloží, online platba zatím
+              neprobíhá.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Input
               label="Buffer před (min)"

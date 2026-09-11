@@ -5,6 +5,7 @@ import {
   BookingCancelDialog,
   BookingCommunicationSection,
   BookingDetail,
+  BookingPaymentSection,
   BookingRescheduleModal,
 } from '../components/booking'
 import { ReviewBookingModal } from '../components/reviews/ReviewBookingModal'
@@ -106,6 +107,8 @@ export function MyBookingDetailPage() {
           />
         </div>
       </Card>
+
+      <BookingPaymentSection bookingId={booking.id} revision={revision} />
 
       <BookingCommunicationSection
         bookingId={booking.id}

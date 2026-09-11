@@ -8,6 +8,7 @@ import {
   emitBookingNotification,
   type NotificationDraft,
 } from '../notifications'
+import { preparePaymentIntentForBooking } from '../payments'
 import {
   cancelBooking as cancelBookingDomain,
   confirmBooking as confirmBookingDomain,
@@ -115,6 +116,9 @@ export function requestBooking(
 ): BookingResult<Booking> {
   const result = createBookingDomain(input)
   if (!result.ok) return result
+
+  // DEMO payment intent only — never marks paid / never gates confirmation.
+  preparePaymentIntentForBooking(result.value.id)
 
   const professional = resolveProfessional(result.value.professionalId)
   emitBookingNotification(opts.upsertNotification, {

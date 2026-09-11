@@ -5,6 +5,7 @@ import {
   BookingCancelDialog,
   BookingCommunicationSection,
   BookingDetail,
+  BookingPaymentSection,
   BookingRescheduleModal,
 } from '../../components/booking'
 import { EmptyState } from '../../components/professional/dashboard/EmptyState'
@@ -147,6 +148,8 @@ export function ProfessionalBookingDetailPage() {
           />
         </div>
       </Card>
+
+      <BookingPaymentSection bookingId={booking.id} revision={revision} />
 
       <BookingCommunicationSection
         bookingId={booking.id}

@@ -8,6 +8,7 @@ export {
   sortNotificationsNewestFirst,
   formatNotificationTime,
   notificationHrefFallback,
+  NOTIFICATION_TYPES,
   type NotificationDraft,
 } from './model'
 export {
@@ -56,4 +57,12 @@ export {
   messageDedupeKey,
   type MessageReceivedContext,
 } from './fromMessaging'
+export {
+  buildPaymentNotification,
+  emitPaymentNotification,
+  isSafePaymentNotificationPayload,
+  paymentDedupeKey,
+  type PaymentNotificationContext,
+  type PaymentNotificationEvent,
+} from './fromPayment'
 export { buildSeedNotifications } from './seed'

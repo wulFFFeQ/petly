@@ -52,6 +52,10 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'booking_rescheduled',
   'professional_review_received',
   'professional_review_reply',
+  'payment_required',
+  'payment_received',
+  'payment_failed',
+  'payment_refunded',
 ]
 
 function resolveType(raw: Record<string, unknown>): NotificationType {

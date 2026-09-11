@@ -103,6 +103,13 @@ export function toPublicProfessionalService(
     pub.currency = service.currency
   }
   if (service.isDemo) pub.isDemo = true
+  const collection = service.paymentCollection ?? 'pay_on_site'
+  pub.paymentCollection = collection
+  if (service.requiresDeposit) {
+    pub.requiresDeposit = true
+    if (service.depositType) pub.depositType = service.depositType
+    if (service.depositValue !== undefined) pub.depositValue = service.depositValue
+  }
   return pub
 }
 

@@ -16,7 +16,9 @@ export type {
   ProfessionalServiceBookingPolicy,
   PublicProfessionalService,
   ServiceCategory,
+  ServiceDepositType,
   ServiceLocationType,
+  ServicePaymentCollection,
   ServicePriceType,
   ServicePublicVisibility,
   TimeSlot,
@@ -29,6 +31,8 @@ export {
   CANCELLATION_REASON_LABELS,
   DEMO_ALLOW_EARLY_COMPLETE_KEY,
   SERVICE_CATEGORIES,
+  SERVICE_DEPOSIT_TYPES,
+  SERVICE_PAYMENT_COLLECTIONS,
   SERVICE_PRICE_TYPES,
   SLOT_BLOCKING_STATUSES,
 } from './types'

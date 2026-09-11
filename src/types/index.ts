@@ -691,6 +691,10 @@ export type NotificationType =
   | 'booking_rescheduled'
   | 'professional_review_received'
   | 'professional_review_reply'
+  | 'payment_required'
+  | 'payment_received'
+  | 'payment_failed'
+  | 'payment_refunded'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 

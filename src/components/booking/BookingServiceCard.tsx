@@ -1,5 +1,6 @@
 import type { ProfessionalService } from '../../lib/booking'
 import { formatServicePrice, isServiceBookable } from '../../lib/booking'
+import { formatDepositRequirement } from '../../lib/payments'
 import { Button } from '../ui/Button'
 
 export function BookingServiceCard({
@@ -17,6 +18,12 @@ export function BookingServiceCard({
   nextAvailableLabel?: string | null
 }) {
   const canBook = isServiceBookable(service)
+  const depositLabel = formatDepositRequirement({
+    requiresDeposit: service.requiresDeposit,
+    depositType: service.depositType,
+    depositValue: service.depositValue,
+    currency: service.currency,
+  })
 
   return (
     <div
@@ -43,6 +50,14 @@ export function BookingServiceCard({
             {service.durationMinutes} min ·{' '}
             {formatServicePrice(service.price, service.currency, service.priceType)}
           </p>
+          {depositLabel ? (
+            <p
+              className="mt-1 text-[11px] text-[#4A564F]"
+              data-testid={`service-deposit-label-${service.id}`}
+            >
+              {depositLabel}
+            </p>
+          ) : null}
           {canBook ? (
             <p
               className="mt-1 text-[11px] text-[#7D8B82]"

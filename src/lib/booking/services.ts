@@ -8,7 +8,9 @@ import type {
   BookingResult,
   ProfessionalService,
   ServiceCategory,
+  ServiceDepositType,
   ServiceLocationType,
+  ServicePaymentCollection,
   ServicePriceType,
   ServicePublicVisibility,
 } from './types'
@@ -62,6 +64,10 @@ export type CreateServiceInput = {
   notes?: string
   bookingBufferBeforeMinutes?: number
   bookingBufferAfterMinutes?: number
+  paymentCollection?: ServicePaymentCollection
+  requiresDeposit?: boolean
+  depositType?: ServiceDepositType
+  depositValue?: number
   isDemo?: boolean
 }
 
@@ -140,11 +146,51 @@ export function createProfessionalService(
     service.bookingBufferAfterMinutes = Math.round(input.bookingBufferAfterMinutes)
   }
   if (input.isDemo === true) service.isDemo = true
+  applyPaymentFields(service, {
+    paymentCollection: input.paymentCollection,
+    requiresDeposit: input.requiresDeposit,
+    depositType: input.depositType,
+    depositValue: input.depositValue,
+  })
 
   const all = loadProfessionalServices()
   all.push(service)
   saveProfessionalServices(all)
   return { ok: true, value: service }
+}
+
+function applyPaymentFields(
+  target: ProfessionalService,
+  fields: {
+    paymentCollection?: ServicePaymentCollection
+    requiresDeposit?: boolean
+    depositType?: ServiceDepositType
+    depositValue?: number
+  },
+): void {
+  const collection = fields.paymentCollection ?? target.paymentCollection ?? 'pay_on_site'
+  target.paymentCollection = collection
+
+  if (collection === 'pay_on_site') {
+    target.requiresDeposit = false
+    delete target.depositType
+    delete target.depositValue
+    return
+  }
+
+  if (collection === 'full_prepay') {
+    target.requiresDeposit = false
+    delete target.depositType
+    delete target.depositValue
+    return
+  }
+
+  // deposit
+  target.requiresDeposit = fields.requiresDeposit !== false
+  if (fields.depositType) target.depositType = fields.depositType
+  if (fields.depositValue !== undefined && fields.depositValue >= 0) {
+    target.depositValue = fields.depositValue
+  }
 }
 
 export type UpdateServiceFields = Partial<
@@ -165,6 +211,10 @@ export type UpdateServiceFields = Partial<
     | 'notes'
     | 'bookingBufferBeforeMinutes'
     | 'bookingBufferAfterMinutes'
+    | 'paymentCollection'
+    | 'requiresDeposit'
+    | 'depositType'
+    | 'depositValue'
   >
 >
 
@@ -232,6 +282,20 @@ export function updateProfessionalService(
       updates.bookingBufferAfterMinutes >= 0
         ? Math.round(updates.bookingBufferAfterMinutes)
         : undefined
+  }
+
+  if (
+    updates.paymentCollection !== undefined ||
+    updates.requiresDeposit !== undefined ||
+    updates.depositType !== undefined ||
+    updates.depositValue !== undefined
+  ) {
+    applyPaymentFields(next, {
+      paymentCollection: updates.paymentCollection ?? next.paymentCollection,
+      requiresDeposit: updates.requiresDeposit ?? next.requiresDeposit,
+      depositType: updates.depositType ?? next.depositType,
+      depositValue: updates.depositValue ?? next.depositValue,
+    })
   }
 
   all[idx] = next

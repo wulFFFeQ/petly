@@ -413,8 +413,44 @@ export function BookingRequestModal({
                 selectedService.priceType,
               )}
             />
+            {selectedService.requiresDeposit &&
+            selectedService.depositType &&
+            selectedService.depositValue !== undefined ? (
+              <SummaryRow
+                label="Záloha"
+                value={
+                  selectedService.depositType === 'percentage'
+                    ? `${Math.round(selectedService.depositValue)} %`
+                    : formatServicePrice(
+                        selectedService.depositValue,
+                        selectedService.currency,
+                        'fixed',
+                      )
+                }
+              />
+            ) : null}
+            {selectedService.priceType !== 'on_request' &&
+            selectedService.price !== undefined ? (
+              <SummaryRow
+                label="Celkem"
+                value={formatServicePrice(
+                  selectedService.price,
+                  selectedService.currency,
+                  'fixed',
+                )}
+              />
+            ) : null}
             {note.trim() ? <SummaryRow label="Poznámka" value={note.trim()} /> : null}
           </div>
+          <p
+            className="text-center text-[11px] text-[#7D8B82]"
+            data-testid="booking-payment-note"
+          >
+            {selectedService.paymentCollection === 'pay_on_site' ||
+            !selectedService.paymentCollection
+              ? 'Platba bude řešena po potvrzení rezervace (např. na místě).'
+              : 'Platba bude řešena po potvrzení rezervace. Online platby připravujeme.'}
+          </p>
           <p className="text-center text-[11px] text-[#7D8B82]">
             Rezervace bude potvrzena až profesionálem.
           </p>

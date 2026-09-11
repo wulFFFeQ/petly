@@ -2,6 +2,8 @@ import { isServiceCategory } from './serviceCategories'
 import {
   BOOKING_STATUSES,
   CANCELLATION_REASON_CODES,
+  SERVICE_DEPOSIT_TYPES,
+  SERVICE_PAYMENT_COLLECTIONS,
   SERVICE_PRICE_TYPES,
   type AvailabilityExceptionType,
   type Booking,
@@ -14,7 +16,9 @@ import {
   type ProfessionalAvailabilitySettings,
   type ProfessionalBookingPolicy,
   type ProfessionalService,
+  type ServiceDepositType,
   type ServiceLocationType,
+  type ServicePaymentCollection,
   type ServicePriceType,
   type ServicePublicVisibility,
   type Weekday,
@@ -42,6 +46,8 @@ const LOCATION_TYPES = new Set<ServiceLocationType>([
   'remote',
   'other',
 ])
+const PAYMENT_COLLECTION_SET = new Set<string>(SERVICE_PAYMENT_COLLECTIONS)
+const DEPOSIT_TYPE_SET = new Set<string>(SERVICE_DEPOSIT_TYPES)
 const REASON_CODE_SET = new Set<string>(CANCELLATION_REASON_CODES)
 
 function durationMinutesBetween(startAt: string, endAt: string): number | undefined {
@@ -229,6 +235,29 @@ export function normalizeProfessionalService(raw: unknown): ProfessionalService 
   }
 
   if (typeof raw.isDemo === 'boolean') service.isDemo = raw.isDemo
+
+  const paymentCollection = asString(raw.paymentCollection)
+  if (paymentCollection && PAYMENT_COLLECTION_SET.has(paymentCollection)) {
+    service.paymentCollection = paymentCollection as ServicePaymentCollection
+  } else {
+    service.paymentCollection = 'pay_on_site'
+  }
+
+  service.requiresDeposit = asBool(raw.requiresDeposit, false)
+  const depositType = asString(raw.depositType)
+  if (depositType && DEPOSIT_TYPE_SET.has(depositType)) {
+    service.depositType = depositType as ServiceDepositType
+  }
+  const depositValue = asNumber(raw.depositValue)
+  if (depositValue !== undefined && depositValue >= 0) {
+    service.depositValue = depositValue
+  }
+  // Keep deposit fields consistent with collection mode
+  if (service.paymentCollection === 'deposit') {
+    service.requiresDeposit = true
+  } else if (service.paymentCollection === 'pay_on_site') {
+    service.requiresDeposit = false
+  }
 
   return service
 }

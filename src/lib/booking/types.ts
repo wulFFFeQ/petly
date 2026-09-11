@@ -48,6 +48,19 @@ export type ServicePublicVisibility = 'public' | 'private'
 
 export type ServiceLocationType = 'on_site' | 'at_client' | 'remote' | 'other'
 
+/** How the professional collects payment for this service (settings only until PSP). */
+export type ServicePaymentCollection = 'pay_on_site' | 'deposit' | 'full_prepay'
+
+export const SERVICE_PAYMENT_COLLECTIONS: ServicePaymentCollection[] = [
+  'pay_on_site',
+  'deposit',
+  'full_prepay',
+]
+
+export type ServiceDepositType = 'fixed' | 'percentage'
+
+export const SERVICE_DEPOSIT_TYPES: ServiceDepositType[] = ['fixed', 'percentage']
+
 export interface Booking {
   id: string
   ownerAccountId: string
@@ -141,6 +154,16 @@ export interface ProfessionalService {
   notes?: string
   bookingBufferBeforeMinutes?: number
   bookingBufferAfterMinutes?: number
+  /**
+   * Payment collection preference — settings only.
+   * Default: pay_on_site. Does not activate real charges.
+   */
+  paymentCollection?: ServicePaymentCollection
+  /** When true, deposit fields apply (typically with paymentCollection === 'deposit'). */
+  requiresDeposit?: boolean
+  depositType?: ServiceDepositType
+  /** fixed = major currency units; percentage = 0–100. */
+  depositValue?: number
   /** Seed / demo data — must not be presented as real. */
   isDemo?: boolean
   createdAt: string
@@ -160,6 +183,10 @@ export interface PublicProfessionalService {
   publicVisibility: ServicePublicVisibility
   bookingEnabled: boolean
   canBook: boolean
+  paymentCollection?: ServicePaymentCollection
+  requiresDeposit?: boolean
+  depositType?: ServiceDepositType
+  depositValue?: number
   isDemo?: boolean
 }
 
