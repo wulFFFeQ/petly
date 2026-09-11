@@ -149,7 +149,11 @@ export function ProfessionalBookingDetailPage() {
         </div>
       </Card>
 
-      <BookingPaymentSection bookingId={booking.id} revision={revision} />
+      <BookingPaymentSection
+        bookingId={booking.id}
+        revision={revision}
+        role="professional"
+      />
 
       <BookingCommunicationSection
         bookingId={booking.id}

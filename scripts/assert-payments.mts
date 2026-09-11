@@ -386,7 +386,7 @@ check('K – refund creates linked Payment without deleting original', () => {
   assert.ok(getPayment(original.value.id))
   const full = createRefund(original.value.id)
   assert.ok(full.ok)
-  assert.equal(full.value.amountMinor, 100000)
+  assert.equal(full.value.amountMinor, 60000)
 })
 
 await checkAsync('L – DemoPaymentProvider never charges', async () => {

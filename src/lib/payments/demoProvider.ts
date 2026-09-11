@@ -182,11 +182,15 @@ export class DemoPaymentProvider implements PaymentProvider {
     if (!found) {
       return { ok: false, error: 'not_found', message: 'Platba nenalezena.' }
     }
+    // DEMO: preparing only — no URL, no provider session id, payment stays pending.
     return {
       ok: true,
       value: {
+        provider: 'demo',
         paymentId,
+        status: 'demo_preparing',
         mode: 'demo_preparing',
+        isDemo: true,
         message: 'Online platby budou dostupné později.',
       },
     }

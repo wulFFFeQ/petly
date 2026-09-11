@@ -28,6 +28,7 @@ export type {
   PublicProfessionalPaymentAccount,
   ChargePattern,
   CheckoutSessionResult,
+  CheckoutSessionStatus,
   OnboardingLinkResult,
   LoginLinkResult,
   PayoutStatus,
@@ -42,6 +43,7 @@ export {
   PROFESSIONAL_PAYMENT_ACCOUNT_STATUSES,
   DEFAULT_CHARGE_PATTERN,
   PAYOUT_STATUSES,
+  CHECKOUT_SESSION_STATUSES,
 } from './connectTypes'
 
 export {
@@ -85,6 +87,29 @@ export {
   clearAllPayments,
 } from './payments'
 
+export {
+  canTransitionPaymentStatus,
+  transitionPaymentStatus,
+  isPaymentEligibleForRefund,
+  type TransitionPaymentMeta,
+} from './stateMachine'
+
+export {
+  initiateCheckoutSession,
+  toPublicCheckoutSession,
+  getCheckoutAmountFromPayment,
+  type InitiateCheckoutInput,
+  type InitiateCheckoutResult,
+} from './checkout'
+
+export {
+  applyVerifiedPaymentSuccessToBooking,
+  bookingRequiresOnlinePayment,
+  canTransitionBookingForPayment,
+  frontendMustNotConfirmBookingAfterPayment,
+  type BookingPaymentPolicyResult,
+} from './bookingPaymentPolicy'
+
 export type { PaymentProvider, StripePaymentProvider } from './provider'
 export { DemoPaymentProvider, demoProviderNeverCharges } from './demoProvider'
 export {
@@ -101,11 +126,13 @@ export {
   getPaymentProviderConfig,
   isPaymentProviderActive,
   resolveProviderIdForRecords,
+  resolveBackendStripeConfig,
   assertNoSecretKeysInObject,
   SERVER_ONLY_SECRET_ENV_NAMES,
   FORBIDDEN_CLIENT_SECRET_PATTERNS,
   type PaymentProviderConfig,
   type PaymentProviderConfigId,
+  type BackendStripeConfig,
 } from './config'
 
 export {
@@ -145,6 +172,7 @@ export {
   getPayoutForPayment,
   listPayoutsForProfessional,
   createDemoPayoutDraft,
+  planPayoutAfterPaymentSuccess,
   isPayoutIndependentOfPayment,
   clearAllPayouts,
 } from './payout'
@@ -174,7 +202,16 @@ export {
   type StripeProviderEventType,
   type StoredProviderEvent,
   type VerifiedWebhookPayload,
+  type ProviderEventProcessingStatus,
+  type WebhookSignatureVerifyInput,
 } from './webhook'
+
+export {
+  mapStripeEventToInternal,
+  STRIPE_PROVIDER_EVENT_TYPES,
+  type InternalPaymentEventType,
+  type StripeEventMappingResult,
+} from './stripeEventMapping'
 
 export {
   suggestedPaymentDefaults,

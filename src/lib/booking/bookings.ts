@@ -165,7 +165,9 @@ export function createBooking(input: CreateBookingInput): BookingResult<Booking>
   const duplicate = all.find(
     (b) =>
       idempotencyKey(b) === key &&
-      (b.status === 'requested' || b.status === 'confirmed'),
+      (b.status === 'requested' ||
+        b.status === 'payment_pending' ||
+        b.status === 'confirmed'),
   )
   if (duplicate) return { ok: true, value: duplicate }
 
@@ -277,6 +279,52 @@ function serviceForSlotCheck(booking: Booking) {
   )
 }
 
+/**
+ * Backend-only: confirm booking after verified payment success.
+ * Frontend / professional UI must NOT call this — use confirmBooking for pay_on_site.
+ * Accepts payment_pending → confirmed (and requested for legacy online-payment bookings).
+ */
+export function confirmBookingAfterVerifiedPayment(
+  bookingId: string,
+): BookingResult<Booking> {
+  const booking = getBooking(bookingId)
+  if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
+  if (booking.status !== 'payment_pending' && booking.status !== 'requested') {
+    return {
+      ok: false,
+      error: 'invalid_status',
+      message: 'Rezervaci nelze potvrdit po platbě z tohoto stavu.',
+    }
+  }
+
+  const serviceForSlot = serviceForSlotCheck(booking)
+  const ok = isSlotAvailable({
+    professionalId: booking.professionalId,
+    service: serviceForSlot,
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    availability: getAvailability(booking.professionalId),
+    exceptions: getAvailabilityExceptions(booking.professionalId),
+    bookings: loadBookings(),
+    excludeBookingId: booking.id,
+    skipServiceBookableCheck: true,
+  })
+  if (!ok) {
+    return { ok: false, error: 'overlap', message: 'Termín se překrývá s jinou rezervací.' }
+  }
+
+  const ts = nowIso()
+  return {
+    ok: true,
+    value: replaceBooking({
+      ...booking,
+      status: 'confirmed',
+      confirmedAt: ts,
+      updatedAt: ts,
+    }),
+  }
+}
+
 export function confirmBooking(
   bookingId: string,
   actorProfessionalId: string,
@@ -285,6 +333,7 @@ export function confirmBooking(
   if (!booking) return { ok: false, error: 'not_found', message: 'Rezervace nenalezena.' }
   const denied = assertProfessionalOwns(booking, actorProfessionalId)
   if (denied) return denied
+  // Professionals confirm pay_on_site (requested). payment_pending → confirmed is event-driven only.
   if (booking.status !== 'requested') {
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze potvrdit.' }
   }
@@ -385,7 +434,11 @@ export function cancelBooking(
     if (denied) return denied
   }
 
-  if (booking.status !== 'requested' && booking.status !== 'confirmed') {
+  if (
+    booking.status !== 'requested' &&
+    booking.status !== 'payment_pending' &&
+    booking.status !== 'confirmed'
+  ) {
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze zrušit.' }
   }
 
@@ -543,7 +596,11 @@ export function rescheduleBooking(input: RescheduleBookingInput): BookingResult<
     if (denied) return denied
   }
 
-  if (booking.status !== 'requested' && booking.status !== 'confirmed') {
+  if (
+    booking.status !== 'requested' &&
+    booking.status !== 'payment_pending' &&
+    booking.status !== 'confirmed'
+  ) {
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze přesunout.' }
   }
 

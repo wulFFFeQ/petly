@@ -129,6 +129,7 @@ export {
   getBooking,
   listBookings,
   confirmBooking,
+  confirmBookingAfterVerifiedPayment,
   declineBooking,
   cancelBooking,
   completeBooking,

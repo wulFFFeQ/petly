@@ -15,6 +15,7 @@ export const SERVER_ONLY_SECRET_ENV_NAMES = [
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
   'STRIPE_CONNECT_CLIENT_ID',
+  'STRIPE_PLATFORM_ACCOUNT_ID',
 ] as const
 
 /** Env keys that must never appear in Vite client bundles as secrets. */
@@ -25,6 +26,17 @@ export const FORBIDDEN_CLIENT_SECRET_PATTERNS = [
   'sk_test',
   'whsec_',
 ] as const
+
+/**
+ * Backend-only Stripe config shape — never load into Vite client / localStorage.
+ * Missing config ⇒ provider must not pretend Stripe is active (safe fallback: demo).
+ */
+export interface BackendStripeConfig {
+  secretKey: string
+  webhookSecret: string
+  connectClientId?: string
+  platformAccountId?: string
+}
 
 export interface PaymentProviderConfig {
   /** Active booking-payment provider id. Default: demo. */
@@ -51,12 +63,12 @@ function readEnvProvider(): PaymentProviderConfigId {
 }
 
 /**
- * Resolve provider config. Even if env says stripe, K34 keeps runtime on DEMO
- * until a real StripeConnectPaymentProvider is wired in production.
+ * Resolve provider config. Even if env says stripe, runtime stays on DEMO
+ * until a real StripeConnectPaymentProvider is wired with backend secrets.
  */
 export function getPaymentProviderConfig(): PaymentProviderConfig {
   const requested = readEnvProvider()
-  // K34: always operate as demo unless tests swap the provider instance.
+  // Always operate as demo unless tests swap the provider instance.
   // Requested stripe is acknowledged but not activated (no SDK / keys).
   if (requested === 'stripe') {
     return {
@@ -74,6 +86,34 @@ export function getPaymentProviderConfig(): PaymentProviderConfig {
 
 export function isPaymentProviderActive(): boolean {
   return false
+}
+
+/**
+ * Backend contract: resolve Stripe secrets from a server env bag.
+ * Returns null when incomplete — caller must fall back to demo (never fake live).
+ * Never call this from browser code with real secrets.
+ */
+export function resolveBackendStripeConfig(
+  env: Record<string, string | undefined> | undefined,
+): BackendStripeConfig | null {
+  if (!env) return null
+  const secretKey = env.STRIPE_SECRET_KEY?.trim()
+  const webhookSecret = env.STRIPE_WEBHOOK_SECRET?.trim()
+  if (!secretKey || !webhookSecret) return null
+  if (secretKey.startsWith('sk_') === false && secretKey.startsWith('rk_') === false) {
+    return null
+  }
+  const config: BackendStripeConfig = {
+    secretKey,
+    webhookSecret,
+  }
+  if (env.STRIPE_CONNECT_CLIENT_ID?.trim()) {
+    config.connectClientId = env.STRIPE_CONNECT_CLIENT_ID.trim()
+  }
+  if (env.STRIPE_PLATFORM_ACCOUNT_ID?.trim()) {
+    config.platformAccountId = env.STRIPE_PLATFORM_ACCOUNT_ID.trim()
+  }
+  return config
 }
 
 export function resolveProviderIdForRecords(): PaymentProviderId {

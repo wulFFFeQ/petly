@@ -43,6 +43,8 @@ import { ProfessionalBookingRulesPage } from './pages/professional/ProfessionalB
 import { ProfessionalMessagesPage } from './pages/professional/ProfessionalMessagesPage'
 import { ProfessionalPaymentsPage } from './pages/professional/ProfessionalPaymentsPage'
 import { MembershipPage } from './pages/MembershipPage'
+import { PaymentCancelPage } from './pages/payment/PaymentCancelPage'
+import { PaymentSuccessPage } from './pages/payment/PaymentSuccessPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TravelPage } from './pages/TravelPage'
 
@@ -142,6 +144,8 @@ function App() {
               <Route path="concierge" element={<ConciergePage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="membership" element={<MembershipPage />} />
+              <Route path="payment/success" element={<PaymentSuccessPage />} />
+              <Route path="payment/cancel" element={<PaymentCancelPage />} />
               <Route path="help" element={<HelpPage />} />
             </Route>
           </Route>

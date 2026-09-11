@@ -145,6 +145,14 @@ export function createDemoPayoutDraft(payment: Payment): PaymentPayout {
   })
 }
 
+/**
+ * Plan payout after verified payment success.
+ * DEMO: always pending draft via createDemoPayoutDraft — never paid.
+ */
+export function planPayoutAfterPaymentSuccess(payment: Payment): PaymentPayout {
+  return createDemoPayoutDraft(payment)
+}
+
 /** Payment success ≠ payout success. */
 export function isPayoutIndependentOfPayment(
   paymentStatus: Payment['status'],

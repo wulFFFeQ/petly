@@ -1,18 +1,24 @@
 /**
- * Webhook contract for future Stripe Connect / PaymentIntents.
- * Idempotent via providerEventId; signature must be verified — never trust payload alone.
+ * Webhook contract for future Stripe Checkout / PaymentIntents / Connect.
+ * Idempotent via providerEventId; signature must be verified over raw body.
+ *
+ * Server contract (production):
+ *   verifyWebhookSignature(rawRequestBody: string, signatureHeader, secretRef)
+ * Never verify over re-serialized / mutated JSON when Stripe requires the raw body.
+ * Webhook secrets must never live in localStorage or the frontend bundle.
  */
 
 import type { ProfessionalPaymentAccountStatus } from './connectTypes'
+import {
+  mapStripeEventToInternal,
+  mapStripeEventToInternalType as mapStripeToInternalLabel,
+  mapStripeEventToPaymentStatus as mapStripeToStatus,
+  type StripeProviderEventType,
+} from './stripeEventMapping'
+import { canTransitionPaymentStatus } from './stateMachine'
 import type { Payment, PaymentStatus } from './types'
 
-/** Stripe-shaped provider event types (mapped into internal handlers). */
-export type StripeProviderEventType =
-  | 'payment_intent.succeeded'
-  | 'payment_intent.payment_failed'
-  | 'payment_intent.canceled'
-  | 'charge.refunded'
-  | 'account.updated'
+export type { StripeProviderEventType } from './stripeEventMapping'
 
 export type PaymentWebhookEventType =
   | 'payment.authorized'
@@ -20,13 +26,23 @@ export type PaymentWebhookEventType =
   | 'payment.failed'
   | 'payment.refunded'
   | 'payment.cancelled'
+  | 'checkout.completed'
+  | 'checkout.expired'
   | 'account.updated'
   | StripeProviderEventType
+
+export type ProviderEventProcessingStatus =
+  | 'received'
+  | 'processed'
+  | 'duplicate'
+  | 'skipped'
+  | 'failed'
 
 export interface PaymentWebhookEvent {
   type: PaymentWebhookEventType
   /** Stable provider event id — required for dedupe (Stripe evt_…). */
   providerEventId: string
+  provider?: 'demo' | 'stripe'
   paymentId?: string
   providerPaymentId?: string
   professionalPaymentAccountId?: string
@@ -35,6 +51,7 @@ export interface PaymentWebhookEvent {
   amountMinor?: number
   currency?: string
   occurredAt: string
+  receivedAt?: string
   /** DEMO events must set this — never treat as real Stripe. */
   isDemo?: boolean
   /** Opaque provider payload — never expose publicly. */
@@ -42,8 +59,15 @@ export interface PaymentWebhookEvent {
 }
 
 export interface StoredProviderEvent {
+  provider: 'demo' | 'stripe'
   providerEventId: string
-  processedAt: string
+  eventType: string
+  receivedAt: string
+  processedAt?: string
+  /** Result of Stripe → internal mapping. */
+  mappingResult?: string
+  processingStatus: ProviderEventProcessingStatus
+  /** @deprecated Prefer eventType — kept for K34 readers. */
   type: string
 }
 
@@ -53,6 +77,8 @@ export interface VerifiedWebhookPayload {
   providerEventId: string
   type: string
   event: PaymentWebhookEvent
+  /** True when verification used a raw string body (required for live Stripe). */
+  usedRawBody?: boolean
 }
 
 export const PROVIDER_EVENTS_STORAGE_KEY = 'lovedandknown.payment_provider_events'
@@ -72,10 +98,33 @@ function asString(value: unknown): string | undefined {
 export function normalizeStoredProviderEvent(raw: unknown): StoredProviderEvent | null {
   if (!isRecord(raw)) return null
   const providerEventId = asString(raw.providerEventId)
-  const processedAt = asString(raw.processedAt)
-  const type = asString(raw.type)
-  if (!providerEventId || !processedAt || !type) return null
-  return { providerEventId, processedAt, type }
+  const eventType = asString(raw.eventType) ?? asString(raw.type)
+  const receivedAt =
+    asString(raw.receivedAt) ?? asString(raw.processedAt) ?? new Date(0).toISOString()
+  if (!providerEventId || !eventType) return null
+  const providerRaw = asString(raw.provider)
+  const provider: 'demo' | 'stripe' =
+    providerRaw === 'stripe' ? 'stripe' : 'demo'
+  const processingStatusRaw = asString(raw.processingStatus)
+  const processingStatus: ProviderEventProcessingStatus =
+    processingStatusRaw === 'received' ||
+    processingStatusRaw === 'processed' ||
+    processingStatusRaw === 'duplicate' ||
+    processingStatusRaw === 'skipped' ||
+    processingStatusRaw === 'failed'
+      ? processingStatusRaw
+      : 'processed'
+  const entry: StoredProviderEvent = {
+    provider,
+    providerEventId,
+    eventType,
+    type: eventType,
+    receivedAt,
+    processingStatus,
+  }
+  if (asString(raw.processedAt)) entry.processedAt = asString(raw.processedAt)
+  if (asString(raw.mappingResult)) entry.mappingResult = asString(raw.mappingResult)
+  return entry
 }
 
 export function loadProcessedProviderEvents(): StoredProviderEvent[] {
@@ -105,14 +154,31 @@ export function hasProcessedProviderEvent(providerEventId: string): boolean {
 export function markProviderEventProcessed(
   providerEventId: string,
   type: string,
+  opts?: {
+    provider?: 'demo' | 'stripe'
+    mappingResult?: string
+    processingStatus?: ProviderEventProcessingStatus
+    receivedAt?: string
+  },
 ): StoredProviderEvent {
   const all = loadProcessedProviderEvents()
   const existing = all.find((e) => e.providerEventId === providerEventId)
-  if (existing) return existing
+  if (existing) {
+    return {
+      ...existing,
+      processingStatus: 'duplicate',
+    }
+  }
+  const now = new Date().toISOString()
   const entry: StoredProviderEvent = {
+    provider: opts?.provider ?? 'demo',
     providerEventId,
+    eventType: type,
     type,
-    processedAt: new Date().toISOString(),
+    receivedAt: opts?.receivedAt ?? now,
+    processedAt: now,
+    mappingResult: opts?.mappingResult,
+    processingStatus: opts?.processingStatus ?? 'processed',
   }
   all.push(entry)
   saveProcessedProviderEvents(all)
@@ -125,54 +191,37 @@ export function clearProcessedProviderEvents(): void {
 
 /** Map Stripe event type → internal payment status hint (no side effects). */
 export function mapStripeEventToPaymentStatus(
-  type: StripeProviderEventType | PaymentWebhookEventType,
+  type: StripeProviderEventType | PaymentWebhookEventType | string,
 ): PaymentStatus | null {
-  switch (type) {
-    case 'payment_intent.succeeded':
-    case 'payment.paid':
-      return 'paid'
-    case 'payment_intent.payment_failed':
-    case 'payment.failed':
-      return 'failed'
-    case 'payment_intent.canceled':
-    case 'payment.cancelled':
-      return 'cancelled'
-    case 'charge.refunded':
-    case 'payment.refunded':
-      return 'refunded'
-    default:
-      return null
-  }
+  if (type === 'payment.paid' || type === 'payment.authorized') return 'paid'
+  if (type === 'payment.failed') return 'failed'
+  if (type === 'payment.cancelled') return 'cancelled'
+  if (type === 'payment.refunded') return 'refunded'
+  return mapStripeToStatus(type)
 }
 
 export function mapStripeEventToInternalType(
   type: StripeProviderEventType,
 ): PaymentWebhookEventType {
-  switch (type) {
-    case 'payment_intent.succeeded':
-      return 'payment.paid'
-    case 'payment_intent.payment_failed':
-      return 'payment.failed'
-    case 'payment_intent.canceled':
-      return 'payment.cancelled'
-    case 'charge.refunded':
-      return 'payment.refunded'
-    case 'account.updated':
-      return 'account.updated'
-    default:
-      return type
-  }
+  return mapStripeToInternalLabel(type) as PaymentWebhookEventType
 }
 
 /**
  * Idempotent webhook handler.
  * DEMO: accepts only isDemo events; never elevates DEMO payments to real paid.
- * Production path is inactive until Stripe is wired.
+ * Production path is inactive until Stripe is wired server-side.
  */
 export async function handlePaymentWebhook(
   event: PaymentWebhookEvent,
 ): Promise<
-  | { ok: true; payment?: Payment; duplicate?: boolean; skipped?: boolean }
+  | {
+      ok: true
+      payment?: Payment
+      duplicate?: boolean
+      skipped?: boolean
+      mappingResult?: string
+      processingStatus?: ProviderEventProcessingStatus
+    }
   | { ok: false; error: string }
 > {
   if (!event.providerEventId?.trim()) {
@@ -180,7 +229,12 @@ export async function handlePaymentWebhook(
   }
 
   if (hasProcessedProviderEvent(event.providerEventId)) {
-    return { ok: true, duplicate: true }
+    return {
+      ok: true,
+      duplicate: true,
+      processingStatus: 'duplicate',
+      mappingResult: mapStripeEventToInternal(event.type).internalEventType,
+    }
   }
 
   // Without a live provider, only DEMO-labelled events may be recorded (for tests).
@@ -191,18 +245,56 @@ export async function handlePaymentWebhook(
     }
   }
 
-  markProviderEventProcessed(event.providerEventId, event.type)
+  const mapping = mapStripeEventToInternal(event.type)
+  const receivedAt = event.receivedAt ?? new Date().toISOString()
 
   // DEMO must not invent paid state from webhooks.
-  const mapped = mapStripeEventToPaymentStatus(event.type)
-  if (mapped === 'paid' || mapped === 'authorized') {
+  const mappedStatus = mapStripeEventToPaymentStatus(event.type)
+  if (mappedStatus === 'paid' || mappedStatus === 'authorized') {
+    markProviderEventProcessed(event.providerEventId, event.type, {
+      provider: event.provider ?? 'demo',
+      mappingResult: mapping.internalEventType,
+      processingStatus: 'skipped',
+      receivedAt,
+    })
     return {
       ok: true,
       skipped: true,
+      mappingResult: mapping.internalEventType,
+      processingStatus: 'skipped',
     }
   }
 
-  return { ok: true }
+  // Non-elevating transitions may be recorded; still do not mutate DEMO payments to paid.
+  if (mappedStatus && event.paymentId) {
+    // Validate transition would be legal if applied — DEMO still skips money elevation.
+    void canTransitionPaymentStatus('pending', mappedStatus)
+  }
+
+  markProviderEventProcessed(event.providerEventId, event.type, {
+    provider: event.provider ?? 'demo',
+    mappingResult: mapping.internalEventType,
+    processingStatus: 'processed',
+    receivedAt,
+  })
+
+  return {
+    ok: true,
+    mappingResult: mapping.internalEventType,
+    processingStatus: 'processed',
+  }
+}
+
+/**
+ * Signature verification contract helper (documentation + DEMO gate).
+ * Live Stripe: pass the raw HTTP body string — never JSON.parse then re-stringify.
+ */
+export type WebhookSignatureVerifyInput = {
+  /** Raw request body as received over the wire. */
+  rawBody: string
+  signatureHeader: string | null | undefined
+  /** Server-side secret ref name or DEMO ref — never a client-bundled secret value. */
+  secretRef: string
 }
 
 /** Create a clearly labelled DEMO webhook event for tests. */
@@ -216,10 +308,13 @@ export function createDemoWebhookEvent(
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID().slice(0, 8)
       : Math.random().toString(36).slice(2, 10)
+  const now = new Date().toISOString()
   return {
     ...partial,
+    provider: partial.provider ?? 'demo',
     providerEventId: partial.providerEventId ?? `demo_evt_${Date.now().toString(36)}_${rand}`,
-    occurredAt: partial.occurredAt ?? new Date().toISOString(),
+    occurredAt: partial.occurredAt ?? now,
+    receivedAt: partial.receivedAt ?? now,
     isDemo: true,
   }
 }

@@ -1,9 +1,13 @@
+import type { NotificationType } from '../../types'
 import type { NotificationDraft } from './model'
 
 export type PaymentNotificationEvent =
   | 'payment_required'
+  | 'payment_checkout_created'
   | 'payment_received'
+  | 'payment_succeeded'
   | 'payment_failed'
+  | 'payment_cancelled'
   | 'payment_refunded'
 
 export type PaymentNotificationContext = {
@@ -15,22 +19,39 @@ export type PaymentNotificationContext = {
   /** When true, deep-link into professional booking detail. */
   recipientIsProfessional?: boolean
   professionalId?: string
+  /** Provider event id for webhook-driven dedupe. */
+  providerEventId?: string
+  serviceName?: string
+  professionalDisplayName?: string
 }
 
 const FORBIDDEN = [
   /providerPaymentId/i,
+  /providerAccountId/i,
+  /providerCustomerId/i,
   /cardNumber/i,
   /cvv/i,
   /cvc/i,
   /iban/i,
   /paymentMethod/i,
   /clientSecret/i,
+  /webhookSecret/i,
   /microchip/i,
   /ownerContacts?/i,
 ]
 
-export function paymentDedupeKey(event: PaymentNotificationEvent, paymentId: string): string {
-  return `payment:${event}:${paymentId}`
+/**
+ * Dedupe: payment:{paymentId}:{eventType}:{providerEventId?}
+ */
+export function paymentDedupeKey(
+  event: PaymentNotificationEvent,
+  paymentId: string,
+  providerEventId?: string,
+): string {
+  if (providerEventId) {
+    return `payment:${paymentId}:${event}:${providerEventId}`
+  }
+  return `payment:${paymentId}:${event}`
 }
 
 export function isSafePaymentNotificationPayload(payload: unknown): boolean {
@@ -41,34 +62,62 @@ export function isSafePaymentNotificationPayload(payload: unknown): boolean {
 
 const COPY: Record<
   PaymentNotificationEvent,
-  { title: string; message: (amount?: string) => string }
+  { title: string; message: (ctx: PaymentNotificationContext) => string }
 > = {
   payment_required: {
     title: 'Platba k rezervaci',
-    message: (amount) =>
-      amount
-        ? `Je připravena platba ${amount}. Online úhrada bude dostupná později.`
+    message: (ctx) =>
+      ctx.amountLabel
+        ? `Je připravena platba ${ctx.amountLabel}. Online úhrada bude dostupná později.`
         : 'Je připravena platba k rezervaci. Online úhrada bude dostupná později.',
+  },
+  payment_checkout_created: {
+    title: 'Checkout připraven',
+    message: (ctx) =>
+      ctx.amountLabel
+        ? `Platební session pro ${ctx.amountLabel} byla připravena.`
+        : 'Platební session byla připravena.',
   },
   payment_received: {
     title: 'Platba přijata',
-    message: (amount) =>
-      amount ? `Platba ${amount} byla přijata.` : 'Platba k rezervaci byla přijata.',
+    message: (ctx) =>
+      ctx.amountLabel ? `Platba ${ctx.amountLabel} byla přijata.` : 'Platba k rezervaci byla přijata.',
+  },
+  payment_succeeded: {
+    title: 'Platba potvrzena',
+    message: (ctx) =>
+      ctx.amountLabel
+        ? `Platba ${ctx.amountLabel} byla potvrzena.`
+        : 'Platba k rezervaci byla potvrzena.',
   },
   payment_failed: {
     title: 'Platba selhala',
     message: () => 'Platba k rezervaci se nezdařila.',
   },
+  payment_cancelled: {
+    title: 'Platba zrušena',
+    message: () => 'Platba k rezervaci byla zrušena.',
+  },
   payment_refunded: {
     title: 'Refundace',
-    message: (amount) =>
-      amount ? `Refundace ${amount} byla zaznamenána.` : 'Refundace k rezervaci byla zaznamenána.',
+    message: (ctx) =>
+      ctx.amountLabel
+        ? `Refundace ${ctx.amountLabel} byla zaznamenána.`
+        : 'Refundace k rezervaci byla zaznamenána.',
   },
+}
+
+/** Map notification event → AppNotification type (payment_succeeded aliases received for storage). */
+function toNotificationType(event: PaymentNotificationEvent): NotificationType {
+  if (event === 'payment_succeeded') return 'payment_succeeded'
+  if (event === 'payment_checkout_created') return 'payment_checkout_created'
+  if (event === 'payment_cancelled') return 'payment_cancelled'
+  return event
 }
 
 /**
  * Build payment notification drafts.
- * Callers must NOT emit payment_received in DEMO without a real provider.
+ * Callers must NOT emit payment_received / payment_succeeded in DEMO without a real provider.
  */
 export function buildPaymentNotification(
   ctx: PaymentNotificationContext,
@@ -80,13 +129,20 @@ export function buildPaymentNotification(
     ? `/professional/bookings/${encodeURIComponent(ctx.bookingId)}`
     : `/bookings/${encodeURIComponent(ctx.bookingId)}`
 
+  const dedupe = paymentDedupeKey(ctx.event, ctx.paymentId, ctx.providerEventId)
+
+  let message = copy.message(ctx)
+  if (ctx.serviceName && !message.includes(ctx.serviceName)) {
+    message = `${ctx.serviceName}: ${message}`
+  }
+
   const draft: NotificationDraft = {
-    type: ctx.event,
+    type: toNotificationType(ctx.event),
     title: copy.title,
-    message: copy.message(ctx.amountLabel),
+    message,
     priority: ctx.event === 'payment_failed' ? 'important' : 'normal',
-    dedupeKey: paymentDedupeKey(ctx.event, ctx.paymentId),
-    sourceEventId: paymentDedupeKey(ctx.event, ctx.paymentId),
+    dedupeKey: dedupe,
+    sourceEventId: dedupe,
     href,
     recipientAccountId: ctx.recipientAccountId,
     relatedBookingId: ctx.bookingId,
@@ -98,7 +154,7 @@ export function buildPaymentNotification(
 }
 
 /**
- * Emit helper — prefer not calling with payment_received while provider is DEMO.
+ * Emit helper — prefer not calling with payment_received/succeeded while provider is DEMO.
  */
 export function emitPaymentNotification(
   upsert: (draft: NotificationDraft) => void,

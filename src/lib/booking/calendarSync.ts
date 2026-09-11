@@ -1,7 +1,7 @@
 import type { CalendarEvent } from '../../types'
 import type { Booking } from './types'
 
-const ACTIVE_CALENDAR_STATUSES = new Set(['requested', 'confirmed'])
+const ACTIVE_CALENDAR_STATUSES = new Set(['requested', 'payment_pending', 'confirmed'])
 
 function toDateAndTime(iso: string): { date: string; time: string } {
   const d = new Date(iso)
@@ -24,7 +24,12 @@ export function buildBookingCalendarEvent(
   if (!ACTIVE_CALENDAR_STATUSES.has(booking.status)) return null
   const { date, time } = toDateAndTime(booking.startAt)
   const service = booking.serviceName ?? 'Rezervace'
-  const statusLabel = booking.status === 'requested' ? 'žádost' : 'potvrzeno'
+  const statusLabel =
+    booking.status === 'requested'
+      ? 'žádost'
+      : booking.status === 'payment_pending'
+        ? 'čeká na platbu'
+        : 'potvrzeno'
   const pro = opts?.professionalLabel ?? booking.professionalName ?? 'Profesionál'
 
   return {

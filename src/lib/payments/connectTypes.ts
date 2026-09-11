@@ -54,11 +54,40 @@ export const DEFAULT_CHARGE_PATTERN: ChargePattern = 'destination_charge'
 
 export type CheckoutSessionMode = 'demo_preparing' | 'live'
 
+/**
+ * Checkout session lifecycle status.
+ * DEMO always returns `demo_preparing` — never claims created/completed without a live provider.
+ */
+export type CheckoutSessionStatus =
+  | 'demo_preparing'
+  | 'created'
+  | 'expired'
+  | 'completed'
+  | 'cancelled'
+
+export const CHECKOUT_SESSION_STATUSES: CheckoutSessionStatus[] = [
+  'demo_preparing',
+  'created',
+  'expired',
+  'completed',
+  'cancelled',
+]
+
 export interface CheckoutSessionResult {
+  provider: 'demo' | 'stripe'
   paymentId: string
-  mode: CheckoutSessionMode
-  /** Never a fake Stripe URL in DEMO. */
+  /** Stripe cs_… in production only — never invent in DEMO. */
+  providerCheckoutSessionId?: string
+  /**
+   * Backend-created Checkout URL. Alias of `url` for clarity.
+   * Never a fake Stripe URL in DEMO.
+   */
+  checkoutUrl?: string
+  /** @deprecated Prefer checkoutUrl — kept for K34 callers. */
   url?: string
+  status: CheckoutSessionStatus
+  mode: CheckoutSessionMode
+  isDemo: boolean
   message: string
 }
 

@@ -16,6 +16,10 @@ import {
   savePayments,
   upsertPayment,
 } from './storage'
+import {
+  canTransitionPaymentStatus,
+  isPaymentEligibleForRefund,
+} from './stateMachine'
 import type {
   BookingPaymentSummary,
   CreatePaymentIntentInput,
@@ -241,6 +245,7 @@ export function preparePaymentIntentForBooking(bookingId: string): PaymentResult
 export function createRefund(
   paymentId: string,
   amountMinor?: number,
+  opts?: { currency?: string },
 ): PaymentResult<Payment> {
   const original = getPayment(paymentId)
   if (!original) {
@@ -249,17 +254,61 @@ export function createRefund(
   if (original.paymentType === 'refund') {
     return { ok: false, error: 'invalid_input', message: 'Nelze refundovat refund.' }
   }
-
-  const refundAmount =
-    amountMinor !== undefined ? amountMinor : original.amountMinor
-  if (!assertAmountMinor(refundAmount) || refundAmount <= 0) {
-    return { ok: false, error: 'invalid_input', message: 'Neplatná částka refundu.' }
+  if (!getBooking(original.bookingId)) {
+    return { ok: false, error: 'booking_not_found', message: 'Rezervace k platbě neexistuje.' }
   }
-  if (refundAmount > original.amountMinor) {
+
+  // Eligibility: DEMO may prepare refund records from pending for architecture tests;
+  // live path requires paid/partially_refunded/authorized.
+  const demoPrepare = original.isDemoPayment && original.status === 'pending'
+  if (!demoPrepare && !isPaymentEligibleForRefund(original.status)) {
     return {
       ok: false,
       error: 'invalid_input',
-      message: 'Refund nesmí převýšit původní částku.',
+      message: 'Platba není způsobilá k refundaci.',
+    }
+  }
+
+  const alreadyRefunded = listPaymentsForBooking(original.bookingId)
+    .filter(
+      (p) =>
+        p.paymentType === 'refund' &&
+        p.refundOfPaymentId === original.id &&
+        p.status !== 'cancelled' &&
+        p.status !== 'failed',
+    )
+    .reduce((s, p) => s + p.amountMinor, 0)
+  const refundable = original.amountMinor - alreadyRefunded
+  if (refundable <= 0) {
+    return {
+      ok: false,
+      error: 'invalid_input',
+      message: 'Není zbývající částka k refundaci.',
+    }
+  }
+
+  const refundAmount =
+    amountMinor !== undefined ? amountMinor : refundable
+  if (!assertAmountMinor(refundAmount) || refundAmount <= 0) {
+    return { ok: false, error: 'invalid_input', message: 'Neplatná částka refundu.' }
+  }
+  if (refundAmount > refundable) {
+    return {
+      ok: false,
+      error: 'invalid_input',
+      message: 'Refund nesmí převýšit refundovatelnou částku.',
+    }
+  }
+
+  if (opts?.currency !== undefined) {
+    const claimed = normalizeCurrency(opts.currency)
+    const snap = normalizeCurrency(original.currencySnapshot ?? original.currency)
+    if (claimed !== snap) {
+      return {
+        ok: false,
+        error: 'invalid_input',
+        message: 'Měna refundu se neshoduje s platbou.',
+      }
     }
   }
 
@@ -291,6 +340,14 @@ export function createRefund(
     chargePattern: original.chargePattern,
     createdAt: now,
     updatedAt: now,
+  }
+  // Original Payment is never deleted — only optionally marked partially_refunded when live.
+  if (
+    !original.isDemoPayment &&
+    canTransitionPaymentStatus(original.status, 'partially_refunded') &&
+    refundAmount < original.amountMinor
+  ) {
+    void updatePaymentStatus(original.id, 'partially_refunded')
   }
   return { ok: true, value: upsertPayment(refund) }
 }
@@ -325,6 +382,13 @@ export function updatePaymentStatus(
   if (!payment) {
     return { ok: false, error: 'not_found', message: 'Platba nenalezena.' }
   }
+  if (!canTransitionPaymentStatus(payment.status, status)) {
+    return {
+      ok: false,
+      error: 'invalid_input',
+      message: `Nepovolený přechod stavu platby: ${payment.status} → ${status}.`,
+    }
+  }
   // Guard: DEMO must not be elevated to paid/authorized via this helper in app code.
   // Tests may still call storage directly; product path goes through provider.
   if (
@@ -336,6 +400,9 @@ export function updatePaymentStatus(
       error: 'demo_only',
       message: 'DEMO platba nemůže být označena jako zaplacená.',
     }
+  }
+  if (payment.status === status) {
+    return { ok: true, value: payment }
   }
   const next: Payment = {
     ...payment,

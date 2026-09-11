@@ -1,6 +1,7 @@
 /** Booking lifecycle statuses — keep the set small and explicit. */
 export type BookingStatus =
   | 'requested'
+  | 'payment_pending'
   | 'confirmed'
   | 'declined'
   | 'cancelled_by_owner'
@@ -10,6 +11,7 @@ export type BookingStatus =
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   'requested',
+  'payment_pending',
   'confirmed',
   'declined',
   'cancelled_by_owner',
@@ -19,7 +21,11 @@ export const BOOKING_STATUSES: BookingStatus[] = [
 ]
 
 /** Statuses that occupy a calendar slot (overlap protection). */
-export const SLOT_BLOCKING_STATUSES: BookingStatus[] = ['requested', 'confirmed']
+export const SLOT_BLOCKING_STATUSES: BookingStatus[] = [
+  'requested',
+  'payment_pending',
+  'confirmed',
+]
 
 export type ServicePriceType = 'fixed' | 'from' | 'on_request'
 

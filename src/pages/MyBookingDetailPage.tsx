@@ -108,7 +108,12 @@ export function MyBookingDetailPage() {
         </div>
       </Card>
 
-      <BookingPaymentSection bookingId={booking.id} revision={revision} />
+      <BookingPaymentSection
+        bookingId={booking.id}
+        revision={revision}
+        actorAccountId={self.id}
+        role="owner"
+      />
 
       <BookingCommunicationSection
         bookingId={booking.id}
