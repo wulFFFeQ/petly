@@ -360,7 +360,7 @@ check('J – privacy', () => {
   const text = JSON.stringify(draft)
   assert.equal(/microchip/i.test(text), false)
   assert.equal(/ownerContacts/i.test(text), false)
-  assert.equal(formatServicePrice(undefined), 'Cena na dotaz')
+  assert.equal(formatServicePrice(undefined), 'Na dotaz')
 })
 
 check('K – persistence po reloadu', () => {

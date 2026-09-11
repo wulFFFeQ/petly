@@ -1,5 +1,9 @@
 import type { Booking } from '../../lib/booking'
-import { formatServicePrice } from '../../lib/booking'
+import {
+  bookingPriceLabel,
+  bookingServiceName,
+  formatServicePrice,
+} from '../../lib/booking'
 import { BookingStatusBadge } from './BookingStatusBadge'
 
 function formatRange(startAt: string, endAt: string): string {
@@ -21,6 +25,7 @@ export function BookingSummary({
   booking: Pick<
     Booking,
     | 'serviceName'
+    | 'serviceNameSnapshot'
     | 'petName'
     | 'professionalName'
     | 'ownerDisplayName'
@@ -28,11 +33,14 @@ export function BookingSummary({
     | 'endAt'
     | 'status'
     | 'price'
+    | 'priceSnapshot'
     | 'currency'
+    | 'currencySnapshot'
     | 'note'
   >
   compact?: boolean
 }) {
+  const asBooking = booking as Booking
   return (
     <div
       className={compact ? 'space-y-1' : 'space-y-2'}
@@ -40,7 +48,7 @@ export function BookingSummary({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-[#191E1B]">
-          {booking.serviceName ?? 'Služba'}
+          {bookingServiceName(asBooking)}
         </p>
         <BookingStatusBadge status={booking.status} />
       </div>
@@ -55,7 +63,8 @@ export function BookingSummary({
         <p className="text-xs text-[#7D8B82]">Majitel: {booking.ownerDisplayName}</p>
       ) : null}
       <p className="text-xs text-[#4A564F]">
-        {formatServicePrice(booking.price, booking.currency)}
+        {bookingPriceLabel(asBooking) ??
+          formatServicePrice(booking.priceSnapshot ?? booking.price, booking.currencySnapshot ?? booking.currency)}
       </p>
       {!compact && booking.note ? (
         <p className="text-xs text-[#7D8B82]">Poznámka: {booking.note}</p>

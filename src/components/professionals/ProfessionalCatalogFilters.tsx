@@ -1,12 +1,15 @@
 import { ChevronDown, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import {
+  CATALOG_MAX_PRICE_OPTIONS,
   CATALOG_MIN_RATING_OPTIONS,
   CATALOG_ROLE_FILTERS,
+  CATALOG_SERVICE_CATEGORY_OPTIONS,
   CATALOG_SORT_OPTIONS,
   catalogHasActiveFilters,
   type ProfessionalCatalogCriteria,
 } from '../../lib/professional'
+import type { ServiceCategory } from '../../lib/booking'
 import { cn } from '../../lib/utils'
 import { SearchInput } from '../ui/SearchInput'
 
@@ -50,6 +53,8 @@ export function ProfessionalCatalogFilters({
       city: '',
       verifiedOnly: false,
       serviceQuery: '',
+      serviceCategory: '',
+      maxPrice: null,
       minRating: '',
       sortBy: 'relevance',
       distanceKm: null,
@@ -236,10 +241,60 @@ export function ProfessionalCatalogFilters({
                 type="text"
                 value={criteria.serviceQuery ?? ''}
                 onChange={(e) => patch({ serviceQuery: e.target.value })}
-                placeholder="Např. dermatologie"
+                placeholder="Např. očkování"
                 data-testid="professional-catalog-service"
                 className="h-10 w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 text-sm text-[#191E1B] outline-none focus:ring-2 focus:ring-[#2C4A3E]/15"
               />
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Kategorie služby
+              </span>
+              <select
+                value={criteria.serviceCategory ?? ''}
+                onChange={(e) =>
+                  patch({
+                    serviceCategory: (e.target.value || '') as ServiceCategory | '',
+                  })
+                }
+                data-testid="professional-catalog-service-category"
+                className="h-10 w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 text-sm text-[#191E1B] outline-none focus:ring-2 focus:ring-[#2C4A3E]/15"
+              >
+                {CATALOG_SERVICE_CATEGORY_OPTIONS.map((opt) => (
+                  <option key={String(opt.value)} value={String(opt.value)}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">
+                Cena do
+              </span>
+              <select
+                value={
+                  criteria.maxPrice == null || criteria.maxPrice <= 0
+                    ? ''
+                    : String(criteria.maxPrice)
+                }
+                onChange={(e) => {
+                  const raw = e.target.value
+                  patch({
+                    maxPrice: raw === '' ? null : Number(raw),
+                  })
+                }}
+                data-testid="professional-catalog-max-price"
+                className="h-10 w-full rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 text-sm text-[#191E1B] outline-none focus:ring-2 focus:ring-[#2C4A3E]/15"
+              >
+                {CATALOG_MAX_PRICE_OPTIONS.map((opt) => (
+                  <option key={String(opt.value)} value={String(opt.value)}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

@@ -6,13 +6,22 @@ import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  SERVICE_PRICE_TYPES,
+  activateProfessionalService,
   createProfessionalService,
   disableProfessionalService,
   ensureSeedServices,
   formatServicePrice,
   listProfessionalServices,
+  recommendedCategoriesForRole,
+  suggestedServicesForRole,
   updateProfessionalService,
   type ProfessionalService,
+  type ServiceCategory,
+  type ServicePriceType,
+  type ServicePublicVisibility,
 } from '../../lib/booking'
 import { getActiveSelfProfessionalProfile } from '../../lib/professional/dashboard'
 import { useApp } from '../../context/AppContext'
@@ -20,19 +29,29 @@ import { useApp } from '../../context/AppContext'
 type Draft = {
   name: string
   description: string
+  category: ServiceCategory
   durationMinutes: string
+  priceType: ServicePriceType
   price: string
   currency: string
   bookingEnabled: boolean
+  publicVisibility: ServicePublicVisibility
+  bufferBefore: string
+  bufferAfter: string
 }
 
-const emptyDraft = (): Draft => ({
+const emptyDraft = (category: ServiceCategory = 'other'): Draft => ({
   name: '',
   description: '',
+  category,
   durationMinutes: '30',
+  priceType: 'on_request',
   price: '',
   currency: 'CZK',
   bookingEnabled: true,
+  publicVisibility: 'public',
+  bufferBefore: '',
+  bufferAfter: '',
 })
 
 export function ProfessionalServicesPage() {
@@ -41,13 +60,25 @@ export function ProfessionalServicesPage() {
   const [revision, setRevision] = useState(0)
   const [editId, setEditId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState<Draft>(emptyDraft)
+  const [draft, setDraft] = useState<Draft>(emptyDraft())
 
   const services = useMemo(() => {
     if (!profile) return [] as ProfessionalService[]
     ensureSeedServices(profile.id, profile.type)
     return listProfessionalServices(profile.id, { includeInactive: true })
   }, [profile, revision])
+
+  const suggestions = useMemo(() => {
+    if (!profile) return []
+    return suggestedServicesForRole(profile.type)
+  }, [profile])
+
+  const recommendedCategories = useMemo(() => {
+    if (!profile) return SERVICE_CATEGORIES
+    const recommended = recommendedCategoriesForRole(profile.type)
+    const rest = SERVICE_CATEGORIES.filter((c) => !recommended.includes(c))
+    return [...recommended, ...rest]
+  }, [profile])
 
   if (!profile) {
     return (
@@ -62,8 +93,24 @@ export function ProfessionalServicesPage() {
 
   const openCreate = () => {
     setEditId(null)
-    setDraft(emptyDraft())
+    setDraft(emptyDraft(recommendedCategories[0] ?? 'other'))
     setOpen(true)
+  }
+
+  const applySuggestion = (name: string) => {
+    const s = suggestions.find((x) => x.name === name)
+    if (!s) return
+    setDraft((d) => ({
+      ...d,
+      name: s.name,
+      description: s.description ?? '',
+      category: s.category,
+      durationMinutes: String(s.durationMinutes),
+      priceType: s.priceType ?? (s.price !== undefined ? 'fixed' : 'on_request'),
+      price: s.price !== undefined ? String(s.price) : '',
+      currency: s.currency ?? 'CZK',
+      bookingEnabled: s.bookingEnabled ?? true,
+    }))
   }
 
   const openEdit = (s: ProfessionalService) => {
@@ -71,10 +118,21 @@ export function ProfessionalServicesPage() {
     setDraft({
       name: s.name,
       description: s.description ?? '',
+      category: s.category,
       durationMinutes: String(s.durationMinutes),
+      priceType: s.priceType,
       price: s.price !== undefined ? String(s.price) : '',
       currency: s.currency ?? 'CZK',
       bookingEnabled: s.bookingEnabled,
+      publicVisibility: s.publicVisibility,
+      bufferBefore:
+        s.bookingBufferBeforeMinutes !== undefined
+          ? String(s.bookingBufferBeforeMinutes)
+          : '',
+      bufferAfter:
+        s.bookingBufferAfterMinutes !== undefined
+          ? String(s.bookingBufferAfterMinutes)
+          : '',
     })
     setOpen(true)
   }
@@ -82,21 +140,33 @@ export function ProfessionalServicesPage() {
   const save = () => {
     const duration = Number(draft.durationMinutes)
     const priceRaw = draft.price.trim()
-    const price = priceRaw === '' ? undefined : Number(priceRaw)
+    const price =
+      draft.priceType === 'on_request' || priceRaw === ''
+        ? undefined
+        : Number(priceRaw)
+    const bufferBefore = draft.bufferBefore.trim()
+      ? Number(draft.bufferBefore)
+      : undefined
+    const bufferAfter = draft.bufferAfter.trim()
+      ? Number(draft.bufferAfter)
+      : undefined
+
+    const fields = {
+      name: draft.name,
+      description: draft.description,
+      category: draft.category,
+      durationMinutes: duration,
+      priceType: draft.priceType,
+      price,
+      currency: draft.priceType === 'on_request' ? undefined : draft.currency,
+      bookingEnabled: draft.bookingEnabled,
+      publicVisibility: draft.publicVisibility,
+      bookingBufferBeforeMinutes: bufferBefore,
+      bookingBufferAfterMinutes: bufferAfter,
+    }
+
     if (editId) {
-      const result = updateProfessionalService(
-        editId,
-        {
-          name: draft.name,
-          description: draft.description,
-          durationMinutes: duration,
-          price,
-          currency: draft.currency,
-          bookingEnabled: draft.bookingEnabled,
-          active: true,
-        },
-        profile.id,
-      )
+      const result = updateProfessionalService(editId, fields, profile.id)
       if (!result.ok) {
         showToast('Uložení selhalo', result.message, 'error')
         return
@@ -104,12 +174,8 @@ export function ProfessionalServicesPage() {
     } else {
       const result = createProfessionalService({
         professionalId: profile.id,
-        name: draft.name,
+        ...fields,
         description: draft.description || undefined,
-        durationMinutes: duration,
-        price,
-        currency: draft.currency || undefined,
-        bookingEnabled: draft.bookingEnabled,
       })
       if (!result.ok) {
         showToast('Uložení selhalo', result.message, 'error')
@@ -125,9 +191,10 @@ export function ProfessionalServicesPage() {
     <div className="space-y-5 pb-8" data-testid="professional-services-page">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[#191E1B]">Služby</h1>
+          <h1 className="text-lg font-bold text-[#191E1B]">Moje služby</h1>
           <p className="text-xs text-[#7D8B82]">
-            Nastavte služby, délku a informativní cenu. Platba zatím neprobíhá.
+            Veřejný katalog služeb a ceník. Základní správa není omezena členstvím.
+            Platba zatím neprobíhá.
           </p>
         </div>
         <Button variant="primary" size="sm" data-testid="add-service" onClick={openCreate}>
@@ -142,19 +209,35 @@ export function ProfessionalServicesPage() {
         Nastavit dostupnost →
       </Link>
 
-      <ul className="space-y-2">
+      <ul className="space-y-2" data-testid="services-list">
         {services.map((s) => (
           <li key={s.id}>
-            <Card variant="elevated" className={!s.active ? 'opacity-60' : undefined}>
+            <Card
+              variant="elevated"
+              className={!s.active ? 'opacity-60' : undefined}
+              data-testid={`service-row-${s.id}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-[#191E1B]">{s.name}</p>
+                  <p className="text-sm font-semibold text-[#191E1B]">
+                    {s.name}
+                    {s.isDemo ? (
+                      <span
+                        className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#B8934A]"
+                        data-testid={`service-demo-badge-${s.id}`}
+                      >
+                        DEMO
+                      </span>
+                    ) : null}
+                  </p>
                   {s.description ? (
                     <p className="mt-0.5 text-xs text-[#7D8B82]">{s.description}</p>
                   ) : null}
                   <p className="mt-1 text-xs text-[#4A564F]">
-                    {s.durationMinutes} min · {formatServicePrice(s.price, s.currency)}
+                    {SERVICE_CATEGORY_LABELS[s.category]} · {s.durationMinutes} min ·{' '}
+                    {formatServicePrice(s.price, s.currency, s.priceType)}
                     {!s.active ? ' · neaktivní' : ''}
+                    {s.active && s.publicVisibility === 'private' ? ' · neveřejná' : ''}
                     {s.active && !s.bookingEnabled ? ' · bez rezervace' : ''}
                   </p>
                 </div>
@@ -179,7 +262,24 @@ export function ProfessionalServicesPage() {
                     >
                       Deaktivovat
                     </Button>
-                  ) : null}
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      data-testid={`activate-service-${s.id}`}
+                      onClick={() => {
+                        const r = activateProfessionalService(s.id, profile.id)
+                        if (!r.ok) {
+                          showToast('Nelze aktivovat', r.message, 'error')
+                          return
+                        }
+                        setRevision((x) => x + 1)
+                        showToast('Služba aktivována', s.name, 'success')
+                      }}
+                    >
+                      Aktivovat
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -193,6 +293,26 @@ export function ProfessionalServicesPage() {
         title={editId ? 'Upravit službu' : 'Přidat službu'}
       >
         <div className="space-y-3">
+          {!editId && suggestions.length > 0 ? (
+            <label className="block text-xs font-semibold text-[#4A564F]">
+              Návrh podle role
+              <select
+                className="mt-1 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm"
+                data-testid="service-suggestion-select"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) applySuggestion(e.target.value)
+                }}
+              >
+                <option value="">— vlastní služba —</option>
+                {suggestions.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <Input
             label="Název"
             value={draft.name}
@@ -206,31 +326,108 @@ export function ProfessionalServicesPage() {
               rows={2}
               value={draft.description}
               onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+              data-testid="service-description-input"
             />
+          </label>
+          <label className="block text-xs font-semibold text-[#4A564F]">
+            Kategorie
+            <select
+              className="mt-1 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm"
+              value={draft.category}
+              data-testid="service-category-select"
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  category: e.target.value as ServiceCategory,
+                }))
+              }
+            >
+              {recommendedCategories.map((c) => (
+                <option key={c} value={c}>
+                  {SERVICE_CATEGORY_LABELS[c]}
+                </option>
+              ))}
+            </select>
           </label>
           <Input
             label="Délka (min)"
             type="number"
             value={draft.durationMinutes}
             onChange={(e) => setDraft((d) => ({ ...d, durationMinutes: e.target.value }))}
+            data-testid="service-duration-input"
           />
+          <label className="block text-xs font-semibold text-[#4A564F]">
+            Typ ceny
+            <select
+              className="mt-1 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm"
+              value={draft.priceType}
+              data-testid="service-price-type-select"
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  priceType: e.target.value as ServicePriceType,
+                }))
+              }
+            >
+              {SERVICE_PRICE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t === 'fixed' ? 'Pevná cena' : t === 'from' ? 'Od' : 'Na dotaz'}
+                </option>
+              ))}
+            </select>
+          </label>
+          {draft.priceType !== 'on_request' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label={draft.priceType === 'from' ? 'Cena od' : 'Cena'}
+                type="number"
+                value={draft.price}
+                onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
+                data-testid="service-price-input"
+              />
+              <Input
+                label="Měna"
+                value={draft.currency}
+                onChange={(e) => setDraft((d) => ({ ...d, currency: e.target.value }))}
+                data-testid="service-currency-input"
+              />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <Input
-              label="Cena (volitelné)"
+              label="Buffer před (min)"
               type="number"
-              value={draft.price}
-              onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
+              value={draft.bufferBefore}
+              onChange={(e) => setDraft((d) => ({ ...d, bufferBefore: e.target.value }))}
+              data-testid="service-buffer-before-input"
             />
             <Input
-              label="Měna"
-              value={draft.currency}
-              onChange={(e) => setDraft((d) => ({ ...d, currency: e.target.value }))}
+              label="Buffer po (min)"
+              type="number"
+              value={draft.bufferAfter}
+              onChange={(e) => setDraft((d) => ({ ...d, bufferAfter: e.target.value }))}
+              data-testid="service-buffer-after-input"
             />
           </div>
           <label className="flex items-center gap-2 text-xs text-[#4A564F]">
             <input
               type="checkbox"
+              checked={draft.publicVisibility === 'public'}
+              data-testid="service-public-visibility"
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  publicVisibility: e.target.checked ? 'public' : 'private',
+                }))
+              }
+            />
+            Veřejně zobrazovat
+          </label>
+          <label className="flex items-center gap-2 text-xs text-[#4A564F]">
+            <input
+              type="checkbox"
               checked={draft.bookingEnabled}
+              data-testid="service-booking-enabled"
               onChange={(e) =>
                 setDraft((d) => ({ ...d, bookingEnabled: e.target.checked }))
               }

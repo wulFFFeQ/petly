@@ -1,152 +1,87 @@
 import type { ProfessionalType } from '../professional/types'
 import { createBookingId } from './storage'
-import type { ProfessionalAvailability, ProfessionalService, Weekday } from './types'
+import { suggestedServicesForRole } from './serviceCategories'
+import type {
+  ProfessionalAvailability,
+  ProfessionalService,
+  ServicePriceType,
+  Weekday,
+} from './types'
 
 type SeedService = Omit<
   ProfessionalService,
-  'id' | 'professionalId' | 'createdAt' | 'updatedAt' | 'active' | 'bookingEnabled'
+  'id' | 'professionalId' | 'createdAt' | 'updatedAt' | 'active' | 'bookingEnabled' | 'isDemo'
 > & {
   active?: boolean
   bookingEnabled?: boolean
 }
 
-const VET_SERVICES: SeedService[] = [
-  {
-    name: 'Preventivní prohlídka',
-    description: 'Základní zdravotní prohlídka mazlíčka.',
-    durationMinutes: 30,
-    price: 800,
-    currency: 'CZK',
-  },
-  {
-    name: 'Očkování',
-    description: 'Aplikace vakcíny dle očkovacího plánu.',
-    durationMinutes: 20,
-    price: 600,
-    currency: 'CZK',
-  },
-  {
-    name: 'Konzultace',
-    description: 'Konzultace zdravotního stavu nebo péče.',
-    durationMinutes: 30,
-  },
-]
-
-const GROOMER_SERVICES: SeedService[] = [
-  {
-    name: 'Kompletní péče o srst',
-    description: 'Koupání, sušení a úprava srsti.',
-    durationMinutes: 90,
-    price: 1200,
-    currency: 'CZK',
-  },
-  {
-    name: 'Stříhání',
-    description: 'Střih podle plemene nebo přání majitele.',
-    durationMinutes: 60,
-    price: 900,
-    currency: 'CZK',
-  },
-  {
-    name: 'Drápky',
-    description: 'Úprava drápků.',
-    durationMinutes: 15,
-    price: 200,
-    currency: 'CZK',
-  },
-]
-
-const TRAINER_SERVICES: SeedService[] = [
-  {
-    name: 'Individuální trénink',
-    description: 'Individuální výcviková lekce.',
-    durationMinutes: 60,
-    price: 700,
-    currency: 'CZK',
-  },
-  {
-    name: 'Konzultace chování',
-    description: 'Poradenství k chování a výchově.',
-    durationMinutes: 45,
-    price: 550,
-    currency: 'CZK',
-  },
-]
-
-const PET_HOTEL_SERVICES: SeedService[] = [
-  {
-    name: 'Ubytování',
-    description: 'Denní / noční ubytování.',
-    durationMinutes: 60,
-    price: 500,
-    currency: 'CZK',
-  },
-  {
-    name: 'Denní péče',
-    description: 'Denní péče bez přespání.',
-    durationMinutes: 480,
-    price: 400,
-    currency: 'CZK',
-  },
-]
-
-const PET_SERVICE_SERVICES: SeedService[] = [
-  {
-    name: 'Obecná služba',
-    description: 'Konzultace a domluva termínu.',
-    durationMinutes: 30,
-  },
-]
-
-/** Breeder / shelter — extension point; booking off by default. */
-const EXTENSION_SERVICES: SeedService[] = [
-  {
-    name: 'Konzultace',
-    description: 'Nezávazná konzultace (rezervace zatím vypnuta).',
-    durationMinutes: 30,
-    bookingEnabled: false,
-  },
-]
-
-export function seedServicesForRole(type: ProfessionalType): SeedService[] {
-  switch (type) {
-    case 'veterinarian':
-    case 'veterinary_clinic':
-      return VET_SERVICES
-    case 'groomer':
-      return GROOMER_SERVICES
-    case 'trainer':
-      return TRAINER_SERVICES
-    case 'pet_hotel':
-      return PET_HOTEL_SERVICES
-    case 'pet_service':
-      return PET_SERVICE_SERVICES
-    case 'breeder':
-    case 'shelter':
-      return EXTENSION_SERVICES
-    default:
-      return PET_SERVICE_SERVICES
-  }
+function resolvePriceType(s: {
+  priceType?: ServicePriceType
+  price?: number
+}): ServicePriceType {
+  if (s.priceType) return s.priceType
+  if (s.price !== undefined && s.price >= 0) return 'fixed'
+  return 'on_request'
 }
 
+export function seedServicesForRole(type: ProfessionalType): SeedService[] {
+  return suggestedServicesForRole(type).map((s) => {
+    const priceType = resolvePriceType(s)
+    const row: SeedService = {
+      name: s.name,
+      description: s.description,
+      category: s.category,
+      durationMinutes: s.durationMinutes,
+      priceType,
+      publicVisibility: 'public',
+      currency: s.currency,
+    }
+    if (priceType !== 'on_request' && s.price !== undefined && s.price >= 0) {
+      row.price = s.price
+    }
+    if (s.bookingEnabled === false) {
+      // marked on seed via bookingEnabled override in buildSeedServices
+    }
+    return row
+  })
+}
+
+/**
+ * Build DEMO seed services for a professional who has none yet.
+ * All seed rows are marked isDemo — never present as real marketplace data.
+ */
 export function buildSeedServices(
   professionalId: string,
   type: ProfessionalType,
   now = new Date().toISOString(),
 ): ProfessionalService[] {
-  return seedServicesForRole(type).map((s) => ({
-    id: createBookingId('svc'),
-    professionalId,
-    name: s.name,
-    description: s.description,
-    durationMinutes: s.durationMinutes,
-    price: s.price,
-    currency: s.currency,
-    active: s.active ?? true,
-    bookingEnabled: s.bookingEnabled ?? true,
-    createdAt: now,
-    updatedAt: now,
-  }))
+  const suggestions = suggestedServicesForRole(type)
+  return suggestions.map((s) => {
+    const priceType = resolvePriceType(s)
+    const service: ProfessionalService = {
+      id: createBookingId('svc'),
+      professionalId,
+      name: s.name,
+      durationMinutes: s.durationMinutes,
+      category: s.category,
+      priceType,
+      publicVisibility: 'public',
+      active: true,
+      bookingEnabled: s.bookingEnabled ?? true,
+      isDemo: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    if (s.description?.trim()) service.description = s.description.trim()
+    if (priceType !== 'on_request' && s.price !== undefined && s.price >= 0) {
+      service.price = s.price
+    }
+    if (s.currency?.trim() && priceType !== 'on_request') {
+      service.currency = s.currency.trim()
+    }
+    return service
+  })
 }
 
 /** Default Mon–Fri 09:00–17:00. */

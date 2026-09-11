@@ -1,5 +1,6 @@
 import { CheckCircle2 } from 'lucide-react'
 import type { Booking } from '../../lib/booking'
+import { bookingServiceName } from '../../lib/booking'
 import { Button } from '../ui/Button'
 
 function formatWhen(iso: string): { date: string; time: string } {
@@ -42,7 +43,7 @@ export function BookingConfirmation({
 
       <div className="space-y-2 rounded-2xl border border-[#E8E4DC] bg-[#FAF8F5] px-4 py-4 text-left">
         <p className="text-sm font-semibold text-[#191E1B]">
-          {booking.serviceName ?? 'Služba'}
+          {bookingServiceName(booking)}
         </p>
         <p className="text-xs text-[#4A564F]">
           {booking.professionalName ?? 'Profesionál'}

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Booking } from '../../lib/booking'
+import { bookingServiceName } from '../../lib/booking'
 import { BookingStatusBadge } from './BookingStatusBadge'
 
 function formatShort(iso: string): string {
@@ -32,7 +33,7 @@ export function BookingList({
           <div className="flex items-start justify-between gap-3 rounded-xl border border-[#E8E4DC] bg-white px-3 py-2.5">
             <div className="min-w-0">
               <p className="text-xs font-bold text-[#191E1B]">
-                {b.serviceName ?? 'Služba'}
+                {bookingServiceName(b)}
               </p>
               <p className="text-[11px] text-[#7D8B82]">
                 {formatShort(b.startAt)}

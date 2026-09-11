@@ -287,7 +287,11 @@ export function BookingRequestModal({
         <div className="space-y-3" data-testid="booking-step-slot">
           <p className="text-xs text-[#7D8B82]">
             {selectedService.name} · {selectedService.durationMinutes} min ·{' '}
-            {formatServicePrice(selectedService.price, selectedService.currency)}
+            {formatServicePrice(
+              selectedService.price,
+              selectedService.currency,
+              selectedService.priceType,
+            )}
           </p>
           {slotError ? (
             <p
@@ -371,7 +375,11 @@ export function BookingRequestModal({
             <SummaryRow label="Délka" value={`${selectedService.durationMinutes} min`} />
             <SummaryRow
               label="Cena"
-              value={formatServicePrice(selectedService.price, selectedService.currency)}
+              value={formatServicePrice(
+                selectedService.price,
+                selectedService.currency,
+                selectedService.priceType,
+              )}
             />
             {note.trim() ? <SummaryRow label="Poznámka" value={note.trim()} /> : null}
           </div>

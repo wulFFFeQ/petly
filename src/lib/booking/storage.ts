@@ -1,11 +1,16 @@
+import { isServiceCategory } from './serviceCategories'
 import {
   BOOKING_STATUSES,
+  SERVICE_PRICE_TYPES,
   type AvailabilityExceptionType,
   type Booking,
   type BookingStatus,
   type ProfessionalAvailability,
   type ProfessionalAvailabilityException,
   type ProfessionalService,
+  type ServiceLocationType,
+  type ServicePriceType,
+  type ServicePublicVisibility,
   type Weekday,
 } from './types'
 
@@ -17,6 +22,21 @@ export const PROFESSIONAL_AVAILABILITY_EXCEPTIONS_STORAGE_KEY =
 
 const STATUS_SET = new Set<string>(BOOKING_STATUSES)
 const EXCEPTION_TYPES = new Set<AvailabilityExceptionType>(['closed', 'custom_hours'])
+const PRICE_TYPE_SET = new Set<string>(SERVICE_PRICE_TYPES)
+const VISIBILITY_SET = new Set<ServicePublicVisibility>(['public', 'private'])
+const LOCATION_TYPES = new Set<ServiceLocationType>([
+  'on_site',
+  'at_client',
+  'remote',
+  'other',
+])
+
+function durationMinutesBetween(startAt: string, endAt: string): number | undefined {
+  const start = Date.parse(startAt)
+  const end = Date.parse(endAt)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return undefined
+  return Math.round((end - start) / 60_000)
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -80,13 +100,35 @@ export function normalizeBooking(raw: unknown): Booking | null {
     updatedAt,
   }
   if (asString(raw.note)) booking.note = asString(raw.note)
-  if (asString(raw.serviceName)) booking.serviceName = asString(raw.serviceName)
+
+  const serviceNameSnapshot =
+    asString(raw.serviceNameSnapshot) ?? asString(raw.serviceName)
+  if (serviceNameSnapshot) {
+    booking.serviceNameSnapshot = serviceNameSnapshot
+    booking.serviceName = serviceNameSnapshot
+  }
+
   if (asString(raw.petName)) booking.petName = asString(raw.petName)
   if (asString(raw.professionalName)) booking.professionalName = asString(raw.professionalName)
   if (asString(raw.ownerDisplayName)) booking.ownerDisplayName = asString(raw.ownerDisplayName)
-  const price = asNumber(raw.price)
-  if (price !== undefined && price >= 0) booking.price = price
-  if (asString(raw.currency)) booking.currency = asString(raw.currency)
+
+  const priceSnapshot = asNumber(raw.priceSnapshot) ?? asNumber(raw.price)
+  if (priceSnapshot !== undefined && priceSnapshot >= 0) {
+    booking.priceSnapshot = priceSnapshot
+    booking.price = priceSnapshot
+  }
+  const currencySnapshot = asString(raw.currencySnapshot) ?? asString(raw.currency)
+  if (currencySnapshot) {
+    booking.currencySnapshot = currencySnapshot
+    booking.currency = currencySnapshot
+  }
+
+  const durationSnapshot =
+    asNumber(raw.durationSnapshot) ?? durationMinutesBetween(startAt, endAt)
+  if (durationSnapshot !== undefined && durationSnapshot > 0) {
+    booking.durationSnapshot = Math.round(durationSnapshot)
+  }
+
   if (asString(raw.clientRequestId)) booking.clientRequestId = asString(raw.clientRequestId)
   if (asString(raw.cancelledAt)) booking.cancelledAt = asString(raw.cancelledAt)
   if (asString(raw.cancellationReason)) booking.cancellationReason = asString(raw.cancellationReason)
@@ -107,20 +149,66 @@ export function normalizeProfessionalService(raw: unknown): ProfessionalService 
   }
   const createdAt = asString(raw.createdAt) ?? new Date(0).toISOString()
   const updatedAt = asString(raw.updatedAt) ?? createdAt
+
+  const price = asNumber(raw.price)
+  let priceType: ServicePriceType = 'on_request'
+  const rawPriceType = asString(raw.priceType)
+  if (rawPriceType && PRICE_TYPE_SET.has(rawPriceType)) {
+    priceType = rawPriceType as ServicePriceType
+  } else if (price !== undefined && price >= 0) {
+    priceType = 'fixed'
+  }
+
+  const category = isServiceCategory(raw.category) ? raw.category : 'other'
+
+  let publicVisibility: ServicePublicVisibility = 'public'
+  const rawVis = asString(raw.publicVisibility)
+  if (rawVis && VISIBILITY_SET.has(rawVis as ServicePublicVisibility)) {
+    publicVisibility = rawVis as ServicePublicVisibility
+  }
+
   const service: ProfessionalService = {
     id,
     professionalId,
     name,
     durationMinutes: Math.round(durationMinutes),
+    category,
+    priceType,
+    publicVisibility,
     active: asBool(raw.active, true),
     bookingEnabled: asBool(raw.bookingEnabled, true),
     createdAt,
     updatedAt,
   }
   if (asString(raw.description)) service.description = asString(raw.description)
-  const price = asNumber(raw.price)
-  if (price !== undefined && price >= 0) service.price = price
-  if (asString(raw.currency)) service.currency = asString(raw.currency)
+
+  if (priceType === 'on_request') {
+    // Never keep a fake price for on_request.
+  } else if (price !== undefined && price >= 0) {
+    service.price = price
+    if (asString(raw.currency)) service.currency = asString(raw.currency)
+  }
+
+  const capacity = asNumber(raw.capacity)
+  if (capacity !== undefined && capacity > 0) service.capacity = Math.round(capacity)
+
+  const locationType = asString(raw.locationType)
+  if (locationType && LOCATION_TYPES.has(locationType as ServiceLocationType)) {
+    service.locationType = locationType as ServiceLocationType
+  }
+  if (asString(raw.notes)) service.notes = asString(raw.notes)
+
+  const bufBefore = asNumber(raw.bookingBufferBeforeMinutes)
+  if (bufBefore !== undefined && bufBefore >= 0) {
+    service.bookingBufferBeforeMinutes = Math.round(bufBefore)
+  }
+  const bufAfter = asNumber(raw.bookingBufferAfterMinutes)
+  if (bufAfter !== undefined && bufAfter >= 0) {
+    service.bookingBufferAfterMinutes = Math.round(bufAfter)
+  }
+
+  if (typeof raw.isDemo === 'boolean') service.isDemo = raw.isDemo
+
   return service
 }
 

@@ -1,5 +1,5 @@
 import type { ProfessionalService } from '../../lib/booking'
-import { formatServicePrice } from '../../lib/booking'
+import { formatServicePrice, isServiceBookable } from '../../lib/booking'
 import { Button } from '../ui/Button'
 
 export function BookingServiceCard({
@@ -13,7 +13,7 @@ export function BookingServiceCard({
   onContact?: () => void
   showActions?: boolean
 }) {
-  const canBook = service.active && service.bookingEnabled
+  const canBook = isServiceBookable(service)
 
   return (
     <div
@@ -22,12 +22,23 @@ export function BookingServiceCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#191E1B]">{service.name}</p>
+          <p className="text-sm font-semibold text-[#191E1B]">
+            {service.name}
+            {service.isDemo ? (
+              <span
+                className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#B8934A]"
+                data-testid={`public-service-demo-${service.id}`}
+              >
+                DEMO
+              </span>
+            ) : null}
+          </p>
           {service.description ? (
-            <p className="mt-0.5 text-xs text-[#7D8B82]">{service.description}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-[#7D8B82]">{service.description}</p>
           ) : null}
           <p className="mt-1.5 text-xs text-[#4A564F]">
-            {service.durationMinutes} min · {formatServicePrice(service.price, service.currency)}
+            {service.durationMinutes} min ·{' '}
+            {formatServicePrice(service.price, service.currency, service.priceType)}
           </p>
         </div>
         {showActions ? (

@@ -44,18 +44,49 @@ export function rangesOverlap(
   return as < be && bs < ae
 }
 
+function bufferBefore(service: ProfessionalService): number {
+  return Math.max(0, service.bookingBufferBeforeMinutes ?? 0)
+}
+
+function bufferAfter(service: ProfessionalService): number {
+  return Math.max(0, service.bookingBufferAfterMinutes ?? 0)
+}
+
+/** Expand a booking window by service buffers for overlap checks. */
+export function bufferedRange(
+  startAt: string,
+  endAt: string,
+  service: ProfessionalService,
+): { startAt: string; endAt: string } {
+  const before = bufferBefore(service)
+  const after = bufferAfter(service)
+  return {
+    startAt: before > 0 ? addMinutesIso(startAt, -before) : startAt,
+    endAt: after > 0 ? addMinutesIso(endAt, after) : endAt,
+  }
+}
+
 export function bookingsBlockSlot(
   bookings: Booking[],
   professionalId: string,
   startAt: string,
   endAt: string,
   excludeBookingId?: string,
+  /** When provided, also expand existing booking windows by these buffers. */
+  occupyingService?: ProfessionalService,
 ): boolean {
   return bookings.some((b) => {
     if (b.professionalId !== professionalId) return false
     if (excludeBookingId && b.id === excludeBookingId) return false
     if (!SLOT_BLOCKING_STATUSES.includes(b.status)) return false
-    return rangesOverlap(b.startAt, b.endAt, startAt, endAt)
+    let bStart = b.startAt
+    let bEnd = b.endAt
+    if (occupyingService) {
+      const expanded = bufferedRange(b.startAt, b.endAt, occupyingService)
+      bStart = expanded.startAt
+      bEnd = expanded.endAt
+    }
+    return rangesOverlap(bStart, bEnd, startAt, endAt)
   })
 }
 
@@ -122,6 +153,14 @@ export type GetAvailableSlotsInput = {
   now?: Date
 }
 
+function isNewlyBookable(service: ProfessionalService): boolean {
+  return (
+    service.active &&
+    service.bookingEnabled &&
+    service.publicVisibility === 'public'
+  )
+}
+
 export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
   const {
     professionalId,
@@ -133,7 +172,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
     now = new Date(),
   } = input
 
-  if (!service.active || !service.bookingEnabled) return []
+  if (!isNewlyBookable(service)) return []
   if (service.professionalId !== professionalId) return []
 
   const window = resolveDayWindow(professionalId, date, availability, exceptions)
@@ -144,16 +183,29 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
   if (startMins === null || endMins === null || endMins <= startMins) return []
 
   const duration = service.durationMinutes
+  const step = duration + bufferBefore(service) + bufferAfter(service)
   const slots: TimeSlot[] = []
   const nowMs = now.getTime()
 
-  for (let cursor = startMins; cursor + duration <= endMins; cursor += duration) {
+  for (let cursor = startMins; cursor + duration <= endMins; cursor += step) {
     const startTime = minutesToTime(cursor)
     const startAt = toLocalIso(date, startTime)
     if (!startAt) continue
     const endAt = addMinutesIso(startAt, duration)
     if (Date.parse(startAt) < nowMs) continue
-    if (bookingsBlockSlot(bookings, professionalId, startAt, endAt)) continue
+    const candidate = bufferedRange(startAt, endAt, service)
+    if (
+      bookingsBlockSlot(
+        bookings,
+        professionalId,
+        candidate.startAt,
+        candidate.endAt,
+        undefined,
+        service,
+      )
+    ) {
+      continue
+    }
     slots.push({ startAt, endAt })
   }
 
@@ -170,6 +222,8 @@ export function isSlotAvailable(input: {
   bookings: Booking[]
   now?: Date
   excludeBookingId?: string
+  /** When confirming an existing booking, skip active/bookingEnabled/visibility checks. */
+  skipServiceBookableCheck?: boolean
 }): boolean {
   const {
     professionalId,
@@ -181,18 +235,21 @@ export function isSlotAvailable(input: {
     bookings,
     now = new Date(),
     excludeBookingId,
+    skipServiceBookableCheck = false,
   } = input
 
-  if (!service.active || !service.bookingEnabled) return false
+  if (!skipServiceBookableCheck && !isNewlyBookable(service)) return false
   if (service.professionalId !== professionalId) return false
 
   const startMs = Date.parse(startAt)
   const endMs = Date.parse(endAt)
   if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return false
-  if (startMs < now.getTime()) return false
+  if (!skipServiceBookableCheck && startMs < now.getTime()) return false
 
-  const expectedEnd = Date.parse(addMinutesIso(startAt, service.durationMinutes))
-  if (Math.abs(expectedEnd - endMs) > 60_000) return false
+  if (!skipServiceBookableCheck) {
+    const expectedEnd = Date.parse(addMinutesIso(startAt, service.durationMinutes))
+    if (Math.abs(expectedEnd - endMs) > 60_000) return false
+  }
 
   const dateIso = toDateIsoLocal(startAt)
   if (!dateIso) return false
@@ -215,7 +272,15 @@ export function isSlotAvailable(input: {
     return false
   }
 
-  return !bookingsBlockSlot(bookings, professionalId, startAt, endAt, excludeBookingId)
+  const candidate = bufferedRange(startAt, endAt, service)
+  return !bookingsBlockSlot(
+    bookings,
+    professionalId,
+    candidate.startAt,
+    candidate.endAt,
+    excludeBookingId,
+    service,
+  )
 }
 
 function toDateIsoLocal(iso: string): string | null {

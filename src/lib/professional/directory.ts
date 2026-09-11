@@ -7,6 +7,12 @@ import {
   type ProfessionalReviewSummary,
 } from '../reviews'
 import { loadProfessionalReviews } from '../reviews/storage'
+import {
+  SERVICE_CATEGORIES,
+  listPublicServices,
+  type ServiceCategory,
+} from '../booking'
+import { isServiceCategory, SERVICE_CATEGORY_LABELS } from '../booking/serviceCategories'
 import { getRoleMeta } from './catalog'
 import { toPublicProfessionalProfile } from './public'
 import { isProfessionalType } from './roles'
@@ -65,7 +71,7 @@ export type CatalogSpeciesFilter = 'all' | 'dog' | 'cat'
 
 /**
  * Catalog filter criteria.
- * Functional: role, q, city, verifiedOnly, serviceQuery, minRating, sortBy.
+ * Functional: role, q, city, verifiedOnly, serviceQuery, serviceCategory, maxPrice, minRating, sortBy.
  * Prepared but ignored (no model data yet): distanceKm, species.
  */
 export type ProfessionalCatalogCriteria = {
@@ -74,6 +80,10 @@ export type ProfessionalCatalogCriteria = {
   city?: string
   verifiedOnly?: boolean
   serviceQuery?: string
+  /** Filter by public active ProfessionalService category. */
+  serviceCategory?: ServiceCategory | ''
+  /** Max price among public active priced services (CZK). */
+  maxPrice?: number | null
   /** Real review average threshold — or 'none' for zero reviews. */
   minRating?: CatalogMinRatingFilter | ''
   /** Sort mode — rating uses confidenceScore, not raw average alone. */
@@ -91,8 +101,39 @@ export type CatalogProfessionalCard = PublicProfessionalProfile & {
 
 export type ProfessionalCatalogCriteriaFunctional = Pick<
   ProfessionalCatalogCriteria,
-  'role' | 'q' | 'city' | 'verifiedOnly' | 'serviceQuery' | 'minRating' | 'sortBy'
+  | 'role'
+  | 'q'
+  | 'city'
+  | 'verifiedOnly'
+  | 'serviceQuery'
+  | 'serviceCategory'
+  | 'maxPrice'
+  | 'minRating'
+  | 'sortBy'
 >
+
+export const CATALOG_SERVICE_CATEGORY_OPTIONS: readonly {
+  value: ServiceCategory | ''
+  label: string
+}[] = [
+  { value: '', label: 'Všechny služby' },
+  ...SERVICE_CATEGORIES.map((c) => ({
+    value: c,
+    label: SERVICE_CATEGORY_LABELS[c],
+  })),
+]
+
+export const CATALOG_MAX_PRICE_OPTIONS: readonly {
+  value: number | ''
+  label: string
+}[] = [
+  { value: '', label: 'Libovolná cena' },
+  { value: 300, label: 'do 300 Kč' },
+  { value: 500, label: 'do 500 Kč' },
+  { value: 800, label: 'do 800 Kč' },
+  { value: 1200, label: 'do 1 200 Kč' },
+  { value: 2000, label: 'do 2 000 Kč' },
+]
 
 function normalizeNeedle(value: string | undefined | null): string {
   return (value ?? '').trim().toLowerCase()
@@ -136,6 +177,10 @@ export function matchProfessionalCatalogQuery(
   if (includesNeedle(getRoleMeta(pub.type).label, needle)) return true
   if (pub.services?.some((s) => includesNeedle(s, needle))) return true
   if (pub.specializations?.some((s) => includesNeedle(s, needle))) return true
+  // Public active structured services (names only — never notes).
+  const structured = listPublicServices(pub.id)
+  if (structured.some((s) => includesNeedle(s.name, needle))) return true
+  if (structured.some((s) => includesNeedle(s.description, needle))) return true
   return false
 }
 
@@ -147,7 +192,33 @@ function matchesServiceQuery(
   if (!needle) return true
   if (pub.services?.some((s) => includesNeedle(s, needle))) return true
   if (pub.specializations?.some((s) => includesNeedle(s, needle))) return true
+  const structured = listPublicServices(pub.id)
+  if (structured.some((s) => includesNeedle(s.name, needle))) return true
+  if (structured.some((s) => includesNeedle(s.description, needle))) return true
+  if (structured.some((s) => includesNeedle(SERVICE_CATEGORY_LABELS[s.category], needle))) {
+    return true
+  }
   return false
+}
+
+function matchesServiceCategory(
+  pub: PublicProfessionalProfile,
+  serviceCategory: ServiceCategory | '' | undefined,
+): boolean {
+  if (!serviceCategory) return true
+  return listPublicServices(pub.id).some((s) => s.category === serviceCategory)
+}
+
+function matchesMaxPrice(
+  pub: PublicProfessionalProfile,
+  maxPrice: number | null | undefined,
+): boolean {
+  if (maxPrice == null || !Number.isFinite(maxPrice) || maxPrice <= 0) return true
+  const priced = listPublicServices(pub.id).filter(
+    (s) => s.priceType !== 'on_request' && s.price !== undefined && s.price >= 0,
+  )
+  if (priced.length === 0) return false
+  return priced.some((s) => (s.price as number) <= maxPrice)
 }
 
 function matchesMinRating(
@@ -177,6 +248,8 @@ export function filterPublicProfessionals(
     if (cityNeedle && !includesNeedle(pub.city, cityNeedle)) return false
     if (verifiedOnly && pub.verifiedBadge !== true) return false
     if (!matchesServiceQuery(pub, criteria.serviceQuery)) return false
+    if (!matchesServiceCategory(pub, criteria.serviceCategory)) return false
+    if (!matchesMaxPrice(pub, criteria.maxPrice)) return false
     if (reviewSummaries) {
       if (!matchesMinRating(reviewSummaries.get(pub.id), criteria.minRating)) return false
     } else if (criteria.minRating) {
@@ -206,6 +279,8 @@ export function catalogRelevanceScore(
   if (includesNeedle(getRoleMeta(pub.type).label, needle)) score += 15
   if (pub.services?.some((s) => includesNeedle(s, needle))) score += 10
   if (pub.specializations?.some((s) => includesNeedle(s, needle))) score += 10
+  const structured = listPublicServices(pub.id)
+  if (structured.some((s) => includesNeedle(s.name, needle))) score += 12
   if (includesNeedle(pub.description, needle)) score += 5
   return score
 }
@@ -337,12 +412,22 @@ export function parseCatalogSearchParams(
   const minRating = parseMinRating(get('rating'))
   const sortBy = parseSortBy(get('sort'))
 
+  const categoryRaw = get('serviceCategory').trim() || get('category').trim()
+  const serviceCategory = isServiceCategory(categoryRaw) ? categoryRaw : ''
+
+  const maxPriceRaw = get('maxPrice').trim() || get('price').trim()
+  const maxPriceParsed = maxPriceRaw ? Number(maxPriceRaw) : NaN
+  const maxPrice =
+    Number.isFinite(maxPriceParsed) && maxPriceParsed > 0 ? maxPriceParsed : null
+
   return {
     role: role || '',
     q: get('q').trim(),
     city: location,
     verifiedOnly,
     serviceQuery: get('service').trim(),
+    serviceCategory,
+    maxPrice,
     minRating,
     sortBy,
     distanceKm: null,
@@ -363,6 +448,11 @@ export function buildCatalogSearchParams(
   if (criteria.verifiedOnly) params.set('verified', '1')
   const service = (criteria.serviceQuery ?? '').trim()
   if (service) params.set('service', service)
+  const serviceCategory = (criteria.serviceCategory ?? '').trim()
+  if (serviceCategory) params.set('serviceCategory', serviceCategory)
+  if (criteria.maxPrice != null && criteria.maxPrice > 0) {
+    params.set('maxPrice', String(criteria.maxPrice))
+  }
   if (criteria.minRating === 'none') params.set('rating', 'none')
   else if (typeof criteria.minRating === 'number') {
     params.set('rating', String(criteria.minRating))
@@ -380,6 +470,8 @@ export function catalogHasActiveFilters(criteria: ProfessionalCatalogCriteria): 
       (criteria.city ?? '').trim() ||
       criteria.verifiedOnly ||
       (criteria.serviceQuery ?? '').trim() ||
+      (criteria.serviceCategory ?? '').trim() ||
+      (criteria.maxPrice != null && criteria.maxPrice > 0) ||
       (criteria.minRating !== undefined && criteria.minRating !== '') ||
       (criteria.sortBy && criteria.sortBy !== 'relevance'),
   )

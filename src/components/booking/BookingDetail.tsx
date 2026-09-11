@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 import type { Booking } from '../../lib/booking'
-import { formatServicePrice } from '../../lib/booking'
+import {
+  bookingDurationMinutes,
+  bookingPriceLabel,
+  bookingServiceName,
+} from '../../lib/booking'
 import type { Pet } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { BookingStatusBadge } from './BookingStatusBadge'
@@ -10,12 +14,6 @@ const PET_PLACEHOLDER =
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="%23E8E4DC"><rect width="80" height="80" rx="40"/><circle cx="40" cy="34" r="14" fill="%23A3AEA7"/><ellipse cx="40" cy="62" rx="22" ry="14" fill="%23A3AEA7"/></svg>',
   )
-
-function durationLabel(startAt: string, endAt: string): string {
-  const mins = Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000)
-  if (!Number.isFinite(mins) || mins <= 0) return '—'
-  return `${mins} min`
-}
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -54,7 +52,7 @@ export function BookingDetail({
             Rezervace
           </p>
           <h2 className="mt-1 text-lg font-bold text-[#191E1B]">
-            {booking.serviceName ?? 'Služba'}
+            {bookingServiceName(booking)}
           </h2>
         </div>
         <BookingStatusBadge status={booking.status} />
@@ -84,11 +82,14 @@ export function BookingDetail({
           Služba
         </h3>
         <p className="text-sm font-semibold text-[#191E1B]">
-          {booking.serviceName ?? 'Služba'}
+          {bookingServiceName(booking)}
         </p>
         <p className="text-xs text-[#7D8B82]">
-          {durationLabel(booking.startAt, booking.endAt)} ·{' '}
-          {formatServicePrice(booking.price, booking.currency)}
+          {(() => {
+            const mins = bookingDurationMinutes(booking)
+            return mins != null ? `${mins} min` : '—'
+          })()}{' '}
+          · {bookingPriceLabel(booking) ?? 'Na dotaz'}
         </p>
       </section>
 

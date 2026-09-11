@@ -4,8 +4,7 @@ import type { PublicProfessionalProfile } from '../../../lib/professional'
 import {
   ensureDefaultAvailability,
   ensureSeedServices,
-  listBookableServices,
-  listProfessionalServices,
+  listPublicServices,
   type ProfessionalService,
 } from '../../../lib/booking'
 import { loadProfessionalProfiles } from '../../../lib/professional/storage'
@@ -24,21 +23,20 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
   const [bookingOpen, setBookingOpen] = useState(false)
   const [initialServiceId, setInitialServiceId] = useState<string | undefined>()
 
-  const bookable = useMemo(() => {
+  const publicServices = useMemo(() => {
     const profile = loadProfessionalProfiles().find((p) => p.id === pub.id)
     if (!profile) return [] as ProfessionalService[]
     ensureSeedServices(pub.id, profile.type)
     ensureDefaultAvailability(pub.id)
-    return listBookableServices(pub.id)
+    return listPublicServices(pub.id)
   }, [pub.id])
 
-  const allStructured = useMemo(() => {
-    return listProfessionalServices(pub.id).filter((s) => s.active)
-  }, [pub.id, bookable])
-
   const marketingFallback = pub.services ?? []
-  const hasBookable = bookable.length > 0
-  const hasAnything = hasBookable || allStructured.length > 0 || marketingFallback.length > 0
+  const hasPublic = publicServices.length > 0
+  const hasBookable = publicServices.some(
+    (s) => s.active && s.bookingEnabled && s.publicVisibility === 'public',
+  )
+  const hasAnything = hasPublic || marketingFallback.length > 0
 
   if (!hasAnything) return null
 
@@ -55,9 +53,9 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
         icon={<Sparkles size={14} className="text-[#B8934A]" />}
         testId="professional-services"
       >
-        {hasBookable ? (
+        {hasPublic ? (
           <div className="space-y-2">
-            {bookable.map((service) => (
+            {publicServices.map((service) => (
               <BookingServiceCard
                 key={service.id}
                 service={service}
@@ -65,26 +63,17 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
                 onContact={onContact}
               />
             ))}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-1"
-              data-testid="book-any-service"
-              onClick={() => openBooking()}
-            >
-              Rezervovat termín
-            </Button>
-          </div>
-        ) : allStructured.length > 0 ? (
-          <div className="space-y-2">
-            {allStructured.map((service) => (
-              <BookingServiceCard
-                key={service.id}
-                service={service}
-                onContact={onContact}
-              />
-            ))}
-            {onContact ? (
+            {hasBookable ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-1"
+                data-testid="book-any-service"
+                onClick={() => openBooking()}
+              >
+                Rezervovat termín
+              </Button>
+            ) : onContact ? (
               <Button
                 variant="secondary"
                 size="sm"

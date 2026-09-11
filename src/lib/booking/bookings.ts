@@ -120,6 +120,13 @@ export function createBooking(input: CreateBookingInput): BookingResult<Booking>
       message: 'Rezervace této služby není povolena.',
     }
   }
+  if (service.publicVisibility !== 'public') {
+    return {
+      ok: false,
+      error: 'booking_disabled',
+      message: 'Služba není veřejně rezervovatelná.',
+    }
+  }
 
   const endAt = addMinutesIso(input.startAt, service.durationMinutes)
   const startMs = Date.parse(input.startAt)
@@ -169,7 +176,9 @@ export function createBooking(input: CreateBookingInput): BookingResult<Booking>
     startAt: input.startAt,
     endAt,
     status: 'requested',
+    serviceNameSnapshot: service.name,
     serviceName: service.name,
+    durationSnapshot: service.durationMinutes,
     createdAt: ts,
     updatedAt: ts,
   }
@@ -186,8 +195,14 @@ export function createBooking(input: CreateBookingInput): BookingResult<Booking>
   } else if (self.displayName?.trim()) {
     booking.ownerDisplayName = self.displayName.trim()
   }
-  if (service.price !== undefined) booking.price = service.price
-  if (service.currency) booking.currency = service.currency
+  if (service.priceType !== 'on_request' && service.price !== undefined) {
+    booking.priceSnapshot = service.price
+    booking.price = service.price
+  }
+  if (service.priceType !== 'on_request' && service.currency) {
+    booking.currencySnapshot = service.currency
+    booking.currency = service.currency
+  }
 
   all.push(booking)
   saveBookings(all)
@@ -232,20 +247,37 @@ export function confirmBooking(
     return { ok: false, error: 'invalid_status', message: 'Rezervaci nelze potvrdit.' }
   }
 
-  // Re-check overlap against other confirmed/requested (exclude self)
-  const service = getProfessionalService(booking.serviceId)
-  if (!service || !service.active || !service.bookingEnabled) {
-    return { ok: false, error: 'service_disabled', message: 'Služba už není dostupná.' }
+  // Existing bookings remain confirmable even if the live service was deactivated.
+  // Overlap uses stored startAt/endAt; buffers apply only when the live service still exists.
+  const liveService = getProfessionalService(booking.serviceId)
+  const duration =
+    booking.durationSnapshot ??
+    Math.round((Date.parse(booking.endAt) - Date.parse(booking.startAt)) / 60_000)
+  const serviceForSlot = liveService ?? {
+    id: booking.serviceId,
+    professionalId: booking.professionalId,
+    name: booking.serviceNameSnapshot ?? booking.serviceName ?? 'Služba',
+    durationMinutes: duration > 0 ? duration : 30,
+    category: 'other' as const,
+    priceType: 'on_request' as const,
+    publicVisibility: 'public' as const,
+    active: true,
+    bookingEnabled: true,
+    createdAt: booking.createdAt,
+    updatedAt: booking.updatedAt,
   }
+
   const ok = isSlotAvailable({
     professionalId: booking.professionalId,
-    service,
+    service: serviceForSlot,
     startAt: booking.startAt,
     endAt: booking.endAt,
     availability: getAvailability(booking.professionalId),
     exceptions: getAvailabilityExceptions(booking.professionalId),
     bookings: loadBookings(),
     excludeBookingId: booking.id,
+    /** Lifecycle confirm: do not require live service still bookable. */
+    skipServiceBookableCheck: true,
   })
   if (!ok) {
     return { ok: false, error: 'overlap', message: 'Termín se překrývá s jinou rezervací.' }

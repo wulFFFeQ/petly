@@ -8,12 +8,19 @@ export type {
   ProfessionalAvailability,
   ProfessionalAvailabilityException,
   ProfessionalService,
+  PublicProfessionalService,
+  ServiceCategory,
+  ServiceLocationType,
+  ServicePriceType,
+  ServicePublicVisibility,
   TimeSlot,
   Weekday,
 } from './types'
 
 export {
   BOOKING_STATUSES,
+  SERVICE_CATEGORIES,
+  SERVICE_PRICE_TYPES,
   SLOT_BLOCKING_STATUSES,
 } from './types'
 
@@ -39,13 +46,25 @@ export {
 export {
   listProfessionalServices,
   listBookableServices,
+  listPublicServices,
   getProfessionalService,
   createProfessionalService,
   updateProfessionalService,
   disableProfessionalService,
+  activateProfessionalService,
   ensureSeedServices,
+  isServiceBookable,
   type CreateServiceInput,
+  type UpdateServiceFields,
 } from './services'
+
+export {
+  SERVICE_CATEGORY_LABELS,
+  isServiceCategory,
+  recommendedCategoriesForRole,
+  suggestedServicesForRole,
+  type ServiceSuggestion,
+} from './serviceCategories'
 
 export {
   getAvailability,
@@ -61,6 +80,7 @@ export {
   getAvailableSlots,
   isSlotAvailable,
   bookingsBlockSlot,
+  bufferedRange,
   rangesOverlap,
   addMinutesIso,
   parseTimeToMinutes,
@@ -96,10 +116,16 @@ export {
 
 export {
   BOOKING_FORBIDDEN_PET_KEYS,
+  PUBLIC_SERVICE_FORBIDDEN_KEYS,
   projectPetForBooking,
   projectOwnerForBooking,
   assertBookingPayloadSafe,
+  assertPublicServiceSafe,
+  toPublicProfessionalService,
   formatServicePrice,
+  bookingServiceName,
+  bookingPriceLabel,
+  bookingDurationMinutes,
 } from './privacy'
 
 export {
