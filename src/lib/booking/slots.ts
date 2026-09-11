@@ -1,6 +1,7 @@
 import {
   SLOT_BLOCKING_STATUSES,
   type Booking,
+  type DayTimeWindow,
   type ProfessionalAvailability,
   type ProfessionalAvailabilityException,
   type ProfessionalService,
@@ -90,6 +91,7 @@ export function bookingsBlockSlot(
   })
 }
 
+/** First active window for weekday (legacy single-window callers). */
 export function getProfessionalAvailability(
   professionalId: string,
   availability: ProfessionalAvailability[],
@@ -102,29 +104,67 @@ export function getProfessionalAvailability(
   )
 }
 
+/** All active working-hour rows for a weekday (multi-interval). */
+export function getProfessionalAvailabilityWindows(
+  professionalId: string,
+  availability: ProfessionalAvailability[],
+  weekday: Weekday,
+): DayTimeWindow[] {
+  return availability
+    .filter(
+      (a) => a.professionalId === professionalId && a.weekday === weekday && a.active,
+    )
+    .map((a) => ({ startTime: a.startTime, endTime: a.endTime }))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+}
+
+/**
+ * Resolve working windows for a calendar date.
+ * Exceptions win: any closed → []; else all custom_hours for that date;
+ * otherwise weekly active intervals.
+ */
+export function resolveDayWindows(
+  professionalId: string,
+  dateIso: string,
+  availability: ProfessionalAvailability[],
+  exceptions: ProfessionalAvailabilityException[] = [],
+): DayTimeWindow[] {
+  const dayExceptions = exceptions.filter(
+    (e) => e.professionalId === professionalId && e.date === dateIso,
+  )
+  if (dayExceptions.some((e) => e.type === 'closed')) return []
+
+  const custom = dayExceptions.filter(
+    (e) =>
+      e.type === 'custom_hours' &&
+      e.startTime &&
+      e.endTime &&
+      parseTimeToMinutes(e.startTime) !== null &&
+      parseTimeToMinutes(e.endTime) !== null,
+  )
+  if (custom.length > 0) {
+    return custom
+      .map((e) => ({ startTime: e.startTime!, endTime: e.endTime! }))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }
+
+  if (dayExceptions.length > 0 && custom.length === 0) {
+    // Non-closed exceptions without valid hours → treat as no override, fall through
+  }
+
+  const weekday = weekdayFromDate(dateIso)
+  return getProfessionalAvailabilityWindows(professionalId, availability, weekday)
+}
+
+/** Legacy single-window helper — first window or null. */
 export function resolveDayWindow(
   professionalId: string,
   dateIso: string,
   availability: ProfessionalAvailability[],
   exceptions: ProfessionalAvailabilityException[] = [],
-): { startTime: string; endTime: string } | null {
-  const exception = exceptions.find(
-    (e) => e.professionalId === professionalId && e.date === dateIso,
-  )
-  if (exception) {
-    if (exception.type === 'closed') return null
-    if (
-      exception.type === 'custom_hours' &&
-      exception.startTime &&
-      exception.endTime
-    ) {
-      return { startTime: exception.startTime, endTime: exception.endTime }
-    }
-  }
-  const weekday = weekdayFromDate(dateIso)
-  const row = getProfessionalAvailability(professionalId, availability, weekday)
-  if (!row) return null
-  return { startTime: row.startTime, endTime: row.endTime }
+): DayTimeWindow | null {
+  const windows = resolveDayWindows(professionalId, dateIso, availability, exceptions)
+  return windows[0] ?? null
 }
 
 function toLocalIso(dateIso: string, time: string): string {
@@ -161,23 +201,25 @@ function isNewlyBookable(service: ProfessionalService): boolean {
   )
 }
 
-export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
-  const {
-    professionalId,
-    service,
-    date,
-    availability,
-    exceptions = [],
-    bookings,
-    now = new Date(),
-  } = input
+function slotFitsWindow(
+  slotStartMins: number,
+  slotEndMins: number,
+  window: DayTimeWindow,
+): boolean {
+  const startMins = parseTimeToMinutes(window.startTime)
+  const endMins = parseTimeToMinutes(window.endTime)
+  if (startMins === null || endMins === null) return false
+  return slotStartMins >= startMins && slotEndMins <= endMins
+}
 
-  if (!isNewlyBookable(service)) return []
-  if (service.professionalId !== professionalId) return []
-
-  const window = resolveDayWindow(professionalId, date, availability, exceptions)
-  if (!window) return []
-
+function collectSlotsInWindow(
+  date: string,
+  window: DayTimeWindow,
+  service: ProfessionalService,
+  professionalId: string,
+  bookings: Booking[],
+  nowMs: number,
+): TimeSlot[] {
   const startMins = parseTimeToMinutes(window.startTime)
   const endMins = parseTimeToMinutes(window.endTime)
   if (startMins === null || endMins === null || endMins <= startMins) return []
@@ -185,7 +227,6 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
   const duration = service.durationMinutes
   const step = duration + bufferBefore(service) + bufferAfter(service)
   const slots: TimeSlot[] = []
-  const nowMs = now.getTime()
 
   for (let cursor = startMins; cursor + duration <= endMins; cursor += step) {
     const startTime = minutesToTime(cursor)
@@ -208,8 +249,46 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
     }
     slots.push({ startAt, endAt })
   }
-
   return slots
+}
+
+export function getAvailableSlots(input: GetAvailableSlotsInput): TimeSlot[] {
+  const {
+    professionalId,
+    service,
+    date,
+    availability,
+    exceptions = [],
+    bookings,
+    now = new Date(),
+  } = input
+
+  if (!isNewlyBookable(service)) return []
+  if (service.professionalId !== professionalId) return []
+
+  const windows = resolveDayWindows(professionalId, date, availability, exceptions)
+  if (windows.length === 0) return []
+
+  const nowMs = now.getTime()
+  const seen = new Set<string>()
+  const slots: TimeSlot[] = []
+
+  for (const window of windows) {
+    for (const slot of collectSlotsInWindow(
+      date,
+      window,
+      service,
+      professionalId,
+      bookings,
+      nowMs,
+    )) {
+      if (seen.has(slot.startAt)) continue
+      seen.add(slot.startAt)
+      slots.push(slot)
+    }
+  }
+
+  return slots.sort((a, b) => a.startAt.localeCompare(b.startAt))
 }
 
 export function isSlotAvailable(input: {
@@ -254,23 +333,15 @@ export function isSlotAvailable(input: {
   const dateIso = toDateIsoLocal(startAt)
   if (!dateIso) return false
 
-  const window = resolveDayWindow(professionalId, dateIso, availability, exceptions)
-  if (!window) return false
+  const windows = resolveDayWindows(professionalId, dateIso, availability, exceptions)
+  if (windows.length === 0) return false
 
-  const startMins = parseTimeToMinutes(window.startTime)
-  const endMins = parseTimeToMinutes(window.endTime)
   const slotStart = localMinutesFromIso(startAt)
   const slotEnd = localMinutesFromIso(endAt)
-  if (
-    startMins === null ||
-    endMins === null ||
-    slotStart === null ||
-    slotEnd === null ||
-    slotStart < startMins ||
-    slotEnd > endMins
-  ) {
-    return false
-  }
+  if (slotStart === null || slotEnd === null) return false
+
+  const fits = windows.some((w) => slotFitsWindow(slotStart, slotEnd, w))
+  if (!fits) return false
 
   const candidate = bufferedRange(startAt, endAt, service)
   return !bookingsBlockSlot(
@@ -281,6 +352,72 @@ export function isSlotAvailable(input: {
     excludeBookingId,
     service,
   )
+}
+
+export type FindNextAvailableSlotInput = {
+  professionalId: string
+  service: ProfessionalService
+  availability: ProfessionalAvailability[]
+  exceptions?: ProfessionalAvailabilityException[]
+  bookings: Booking[]
+  now?: Date
+  /** Inclusive start date YYYY-MM-DD; defaults to local today. */
+  fromDate?: string
+  horizonDays?: number
+}
+
+/** First real bookable slot within horizon, or null. Never invents fake dates. */
+export function findNextAvailableSlot(
+  input: FindNextAvailableSlotInput,
+): TimeSlot | null {
+  const {
+    professionalId,
+    service,
+    availability,
+    exceptions = [],
+    bookings,
+    now = new Date(),
+    horizonDays = 28,
+  } = input
+
+  const start =
+    input.fromDate ??
+    (() => {
+      const d = now
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    })()
+
+  const [y, mo, d] = start.split('-').map(Number)
+  for (let i = 0; i < horizonDays; i++) {
+    const dt = new Date(y, mo - 1, d + i)
+    const dateIso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+    const slots = getAvailableSlots({
+      professionalId,
+      service,
+      date: dateIso,
+      availability,
+      exceptions,
+      bookings,
+      now,
+    })
+    if (slots.length > 0) return slots[0]
+  }
+  return null
+}
+
+/** Format next slot for public UI: "Dnes 14:00" / "Zítra 9:30" / "15. 9. 10:00". */
+export function formatNextAvailableLabel(
+  slot: TimeSlot,
+  now: Date = new Date(),
+): string {
+  const start = new Date(slot.startAt)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const slotDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  const diffDays = Math.round((slotDay.getTime() - today.getTime()) / 86_400_000)
+  const time = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+  if (diffDays === 0) return `Dnes ${time}`
+  if (diffDays === 1) return `Zítra ${time}`
+  return `${start.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} ${time}`
 }
 
 function toDateIsoLocal(iso: string): string | null {

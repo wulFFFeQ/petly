@@ -5,8 +5,10 @@ export type {
   BookingErrorCode,
   BookingResult,
   BookingStatus,
+  DayTimeWindow,
   ProfessionalAvailability,
   ProfessionalAvailabilityException,
+  ProfessionalAvailabilitySettings,
   ProfessionalService,
   PublicProfessionalService,
   ServiceCategory,
@@ -29,6 +31,8 @@ export {
   PROFESSIONAL_SERVICES_STORAGE_KEY,
   PROFESSIONAL_AVAILABILITY_STORAGE_KEY,
   PROFESSIONAL_AVAILABILITY_EXCEPTIONS_STORAGE_KEY,
+  PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY,
+  DEFAULT_AVAILABILITY_TIMEZONE,
   createBookingId,
   loadBookings,
   saveBookings,
@@ -38,9 +42,13 @@ export {
   saveProfessionalAvailability,
   loadAvailabilityExceptions,
   saveAvailabilityExceptions,
+  loadAvailabilitySettings,
+  saveAvailabilitySettings,
   normalizeBooking,
   normalizeProfessionalService,
   normalizeProfessionalAvailability,
+  normalizeAvailabilityException,
+  normalizeAvailabilitySettings,
 } from './storage'
 
 export {
@@ -70,15 +78,24 @@ export {
   getAvailability,
   getAvailabilityExceptions,
   ensureDefaultAvailability,
+  ensureAvailabilitySettings,
+  getAvailabilitySettings,
+  setAvailabilityTimezone,
   setWeeklyAvailability,
+  availabilityToWeeklyDays,
   upsertAvailabilityException,
+  removeAvailabilityException,
   type WeeklyAvailabilityRow,
+  type WeeklyAvailabilityDay,
 } from './availability'
 
 export {
   getProfessionalAvailability,
+  getProfessionalAvailabilityWindows,
   getAvailableSlots,
   isSlotAvailable,
+  findNextAvailableSlot,
+  formatNextAvailableLabel,
   bookingsBlockSlot,
   bufferedRange,
   rangesOverlap,
@@ -87,7 +104,9 @@ export {
   minutesToTime,
   weekdayFromDate,
   resolveDayWindow,
+  resolveDayWindows,
   type GetAvailableSlotsInput,
+  type FindNextAvailableSlotInput,
 } from './slots'
 
 export {
@@ -117,15 +136,19 @@ export {
 export {
   BOOKING_FORBIDDEN_PET_KEYS,
   PUBLIC_SERVICE_FORBIDDEN_KEYS,
+  PUBLIC_AVAILABILITY_FORBIDDEN_KEYS,
   projectPetForBooking,
   projectOwnerForBooking,
   assertBookingPayloadSafe,
   assertPublicServiceSafe,
+  assertPublicAvailabilitySafe,
   toPublicProfessionalService,
+  toPublicNextAvailable,
   formatServicePrice,
   bookingServiceName,
   bookingPriceLabel,
   bookingDurationMinutes,
+  type PublicNextAvailable,
 } from './privacy'
 
 export {
@@ -149,6 +172,8 @@ export {
   cancelBookingRequest,
   completeBookingRequest,
   getAvailableSlotsForService,
+  findNextAvailableSlotForService,
+  hasAnyAvailableSlotForService,
   type BookingUpsertNotification,
   type BookingCalendarSync,
 } from './session'

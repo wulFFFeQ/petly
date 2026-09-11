@@ -138,28 +138,56 @@ export interface PublicProfessionalService {
 /** 0 = Monday … 6 = Sunday (app week). */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
+/**
+ * One working-hours window for a weekday.
+ * Multiple intervals per day = multiple rows with the same weekday.
+ * Wall-clock HH:mm in the professional's local zone — never store as UTC timestamps.
+ * Future: Professional → Team member → Availability (single shared schedule today).
+ */
 export interface ProfessionalAvailability {
   id: string
   professionalId: string
   weekday: Weekday
-  /** HH:mm */
+  /** Local wall-clock HH:mm */
   startTime: string
-  /** HH:mm */
+  /** Local wall-clock HH:mm */
   endTime: string
   active: boolean
 }
 
 export type AvailabilityExceptionType = 'closed' | 'custom_hours'
 
-/** Extension point — DEMO UI does not edit these yet. */
+/**
+ * Date-specific override of weekly availability.
+ * Multiple custom_hours rows may share a date (multi-window exception day).
+ * `label` is internal-only — never expose to public booking UI.
+ */
 export interface ProfessionalAvailabilityException {
   id: string
   professionalId: string
-  /** YYYY-MM-DD */
+  /** YYYY-MM-DD (local calendar date) */
   date: string
   startTime?: string
   endTime?: string
   type: AvailabilityExceptionType
+  /** Internal reason (e.g. Dovolená) — not shown to customers. */
+  label?: string
+}
+
+/**
+ * Backend-ready timezone settings. DEMO slot math still uses browser-local Date;
+ * HH:mm working hours remain wall-clock, not absolute UTC.
+ */
+export interface ProfessionalAvailabilitySettings {
+  professionalId: string
+  /** IANA timezone, e.g. Europe/Prague */
+  timezone?: string
+}
+
+/** A single local wall-clock window. */
+export type DayTimeWindow = {
+  startTime: string
+  endTime: string
 }
 
 export interface TimeSlot {

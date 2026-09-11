@@ -2,9 +2,13 @@ import { Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { PublicProfessionalProfile } from '../../../lib/professional'
 import {
+  assertPublicAvailabilitySafe,
   ensureDefaultAvailability,
   ensureSeedServices,
+  findNextAvailableSlotForService,
+  formatNextAvailableLabel,
   listPublicServices,
+  toPublicNextAvailable,
   type ProfessionalService,
 } from '../../../lib/booking'
 import { loadProfessionalProfiles } from '../../../lib/professional/storage'
@@ -30,6 +34,24 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
     ensureDefaultAvailability(pub.id)
     return listPublicServices(pub.id)
   }, [pub.id])
+
+  const nextByService = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const service of publicServices) {
+      if (!(service.active && service.bookingEnabled && service.publicVisibility === 'public')) {
+        continue
+      }
+      const slot = findNextAvailableSlotForService(pub.id, service.id, { horizonDays: 28 })
+      const when = slot ? formatNextAvailableLabel(slot) : null
+      const projected = toPublicNextAvailable(slot, when)
+      if (projected && !assertPublicAvailabilitySafe(projected)) {
+        map.set(service.id, null)
+        continue
+      }
+      map.set(service.id, projected?.when ?? null)
+    }
+    return map
+  }, [publicServices, pub.id])
 
   const marketingFallback = pub.services ?? []
   const hasPublic = publicServices.length > 0
@@ -61,6 +83,7 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
                 service={service}
                 onBook={(s) => openBooking(s.id)}
                 onContact={onContact}
+                nextAvailableLabel={nextByService.get(service.id)}
               />
             ))}
             {hasBookable ? (
@@ -114,6 +137,7 @@ export function ProfessionalServices({ pub, onContact }: ProfessionalServicesPro
         onClose={() => setBookingOpen(false)}
         professionalId={pub.id}
         initialServiceId={initialServiceId}
+        onContact={onContact}
       />
     </>
   )

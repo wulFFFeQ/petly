@@ -6,11 +6,21 @@ import {
   listTodaysEventsForProfessional,
 } from '../../lib/professional/dashboard'
 import { isAccessEffective, getAccessListForProfessional } from '../../lib/professional'
-import { listBookings } from '../../lib/booking'
+import {
+  ensureDefaultAvailability,
+  getAvailability,
+  getAvailabilityExceptions,
+  listBookings,
+  resolveDayWindows,
+} from '../../lib/booking'
 import { APP_TODAY, parseEventDate } from '../../lib/dashboardDates'
 import { EmptyState } from '../../components/professional/dashboard/EmptyState'
 import { Card } from '../../components/ui/Card'
 import { BookingStatusBadge } from '../../components/booking'
+
+function todayIsoFromApp(): string {
+  return `${APP_TODAY.getFullYear()}-${String(APP_TODAY.getMonth() + 1).padStart(2, '0')}-${String(APP_TODAY.getDate()).padStart(2, '0')}`
+}
 
 export function ProfessionalCalendarPage() {
   const { calendarEvents } = useApp()
@@ -21,16 +31,35 @@ export function ProfessionalCalendarPage() {
     return listTodaysEventsForProfessional(profile.id, calendarEvents)
   }, [profile, calendarEvents])
 
+  const todayIso = todayIsoFromApp()
+
   const bookingEventsToday = useMemo(() => {
     if (!profile) return []
     return calendarEvents.filter(
       (ev) =>
         ev.type === 'booking' &&
         ev.professionalId === profile.id &&
-        ev.date ===
-          `${APP_TODAY.getFullYear()}-${String(APP_TODAY.getMonth() + 1).padStart(2, '0')}-${String(APP_TODAY.getDate()).padStart(2, '0')}`,
+        ev.date === todayIso,
     )
-  }, [profile, calendarEvents])
+  }, [profile, calendarEvents, todayIso])
+
+  const daySchedule = useMemo(() => {
+    if (!profile) {
+      return { kind: 'none' as const, windows: [] as { startTime: string; endTime: string }[] }
+    }
+    ensureDefaultAvailability(profile.id)
+    const availability = getAvailability(profile.id)
+    const exceptions = getAvailabilityExceptions(profile.id)
+    const dayExc = exceptions.filter((e) => e.date === todayIso)
+    const closed = dayExc.some((e) => e.type === 'closed')
+    const windows = resolveDayWindows(profile.id, todayIso, availability, exceptions)
+    if (closed) return { kind: 'blocked' as const, windows: [] }
+    if (dayExc.some((e) => e.type === 'custom_hours')) {
+      return { kind: 'custom' as const, windows }
+    }
+    if (windows.length === 0) return { kind: 'off' as const, windows: [] }
+    return { kind: 'work' as const, windows }
+  }, [profile, todayIso])
 
   const upcoming = useMemo(() => {
     if (!profile) return []
@@ -106,10 +135,68 @@ export function ProfessionalCalendarPage() {
       <div>
         <h1 className="text-lg font-bold text-[#191E1B]">Kalendář</h1>
         <p className="text-xs text-[#7D8B82]">
-          Události propojených mazlíčků a vaše rezervace. Osobní / zdravotní / booking jsou
-          v jednom kalendáři.
+          Pracovní dostupnost, blokace a rezervace — odděleně. Osobní / zdravotní /
+          booking zůstávají v jednom kalendáři.
         </p>
       </div>
+
+      <Card variant="elevated" data-testid="calendar-availability-today">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-[#191E1B]">Dnes — dostupnost</h2>
+          <Link
+            to="/professional/availability"
+            className="text-[11px] font-semibold text-[#2C4A3E] hover:underline"
+          >
+            Upravit
+          </Link>
+        </div>
+        <ul className="mt-3 space-y-2">
+          {daySchedule.kind === 'blocked' ? (
+            <li
+              className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"
+              data-testid="calendar-layer-blocked"
+            >
+              <span className="rounded bg-rose-200 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                Blokováno
+              </span>
+              Celý den nedostupný (výjimka)
+            </li>
+          ) : null}
+          {daySchedule.kind === 'off' ? (
+            <li
+              className="rounded-lg border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2 text-xs text-[#7D8B82]"
+              data-testid="calendar-layer-off"
+            >
+              Dnes nemáte nastavenou pracovní dobu.
+            </li>
+          ) : null}
+          {daySchedule.windows.map((w) => (
+            <li
+              key={`${w.startTime}-${w.endTime}`}
+              className="flex items-center gap-2 rounded-lg border border-[#D5E5DC] bg-[#EBF2EE] px-3 py-2 text-xs text-[#2C4A3E]"
+              data-testid="calendar-layer-work"
+            >
+              <span className="rounded bg-[#2C4A3E]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                {daySchedule.kind === 'custom' ? 'Vlastní hodiny' : 'Pracovní doba'}
+              </span>
+              {w.startTime}–{w.endTime}
+            </li>
+          ))}
+          {bookingEventsToday.map((ev) => (
+            <li
+              key={ev.id}
+              className="flex items-center gap-2 rounded-lg border border-[#E8D9B8] bg-[#FBF6EB] px-3 py-2 text-xs text-[#5C4A1F]"
+              data-testid="calendar-layer-booking"
+            >
+              <span className="rounded bg-[#B8934A]/25 px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                Rezervace
+              </span>
+              {ev.title}
+              {ev.time ? ` · ${ev.time}` : ''}
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <Card variant="elevated">
         <div className="flex items-center justify-between gap-2">

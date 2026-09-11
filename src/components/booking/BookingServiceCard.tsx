@@ -7,11 +7,14 @@ export function BookingServiceCard({
   onBook,
   onContact,
   showActions = true,
+  nextAvailableLabel,
 }: {
   service: ProfessionalService
   onBook?: (service: ProfessionalService) => void
   onContact?: () => void
   showActions?: boolean
+  /** Public-safe label e.g. "Dnes 14:00" — never include exception reasons. */
+  nextAvailableLabel?: string | null
 }) {
   const canBook = isServiceBookable(service)
 
@@ -40,6 +43,16 @@ export function BookingServiceCard({
             {service.durationMinutes} min ·{' '}
             {formatServicePrice(service.price, service.currency, service.priceType)}
           </p>
+          {canBook ? (
+            <p
+              className="mt-1 text-[11px] text-[#7D8B82]"
+              data-testid={`next-available-${service.id}`}
+            >
+              {nextAvailableLabel
+                ? `Nejbližší dostupný termín: ${nextAvailableLabel}`
+                : 'Momentálně nejsou dostupné termíny.'}
+            </p>
+          ) : null}
         </div>
         {showActions ? (
           <div className="shrink-0">

@@ -10,6 +10,7 @@ import {
   ensureSeedServices,
   formatServicePrice,
   getAvailableSlotsForService,
+  hasAnyAvailableSlotForService,
   isSlotAvailable,
   getAvailability,
   getAvailabilityExceptions,
@@ -59,11 +60,13 @@ export function BookingRequestModal({
   onClose,
   professionalId,
   initialServiceId,
+  onContact,
 }: {
   open: boolean
   onClose: () => void
   professionalId: string
   initialServiceId?: string
+  onContact?: () => void
 }) {
   const navigate = useNavigate()
   const { pets, showToast, upsertNotification, syncCalendarEvents, setActiveModal } = useApp()
@@ -110,6 +113,11 @@ export function BookingRequestModal({
     if (!serviceId || !open) return []
     return getAvailableSlotsForService(professionalId, serviceId, selectedDate)
   }, [professionalId, serviceId, selectedDate, open])
+
+  const hasHorizonSlots = useMemo(() => {
+    if (!serviceId || !open) return true
+    return hasAnyAvailableSlotForService(professionalId, serviceId, 14)
+  }, [professionalId, serviceId, open])
 
   const handleClose = () => {
     onClose()
@@ -301,20 +309,44 @@ export function BookingRequestModal({
               {slotError}
             </p>
           ) : null}
-          <BookingCalendar
-            selectedDate={selectedDate}
-            onSelectDate={(d) => {
-              setSelectedDate(d)
-              setSlot(null)
-              setSlotError(null)
-            }}
-            slots={slots}
-            selectedStartAt={slot?.startAt ?? null}
-            onSelectSlot={(s) => {
-              setSlot(s)
-              setSlotError(null)
-            }}
-          />
+          {!hasHorizonSlots ? (
+            <div
+              className="space-y-3 rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-4"
+              data-testid="booking-no-availability"
+            >
+              <p className="text-sm text-[#4A564F]">
+                Tento profesionál momentálně nemá dostupné termíny.
+              </p>
+              {onContact ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="booking-contact-no-slots"
+                  onClick={() => {
+                    onContact()
+                    handleClose()
+                  }}
+                >
+                  Kontaktovat profesionála
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <BookingCalendar
+              selectedDate={selectedDate}
+              onSelectDate={(d) => {
+                setSelectedDate(d)
+                setSlot(null)
+                setSlotError(null)
+              }}
+              slots={slots}
+              selectedStartAt={slot?.startAt ?? null}
+              onSelectSlot={(s) => {
+                setSlot(s)
+                setSlotError(null)
+              }}
+            />
+          )}
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setStep('pet')}>
               Zpět
@@ -322,7 +354,7 @@ export function BookingRequestModal({
             <Button
               variant="primary"
               size="sm"
-              disabled={!slot}
+              disabled={!slot || !hasHorizonSlots}
               onClick={() => setStep('note')}
               data-testid="booking-slot-continue"
             >

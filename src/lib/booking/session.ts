@@ -20,7 +20,11 @@ import {
 import { syncBookingCalendarEvent, removeBookingCalendarEvent } from './calendarSync'
 import { getProfessionalService } from './services'
 import { getAvailability, getAvailabilityExceptions } from './availability'
-import { getAvailableSlots as getAvailableSlotsPure } from './slots'
+import {
+  findNextAvailableSlot as findNextAvailableSlotPure,
+  formatNextAvailableLabel,
+  getAvailableSlots as getAvailableSlotsPure,
+} from './slots'
 import { loadBookings } from './storage'
 import type { Booking, BookingResult, TimeSlot } from './types'
 import type { CalendarEvent } from '../../types'
@@ -50,6 +54,39 @@ export function getAvailableSlotsForService(
     now,
   })
 }
+
+export function findNextAvailableSlotForService(
+  professionalId: string,
+  serviceId: string,
+  opts?: { now?: Date; horizonDays?: number; fromDate?: string },
+): TimeSlot | null {
+  const service = getProfessionalService(serviceId)
+  if (!service) return null
+  return findNextAvailableSlotPure({
+    professionalId,
+    service,
+    availability: getAvailability(professionalId),
+    exceptions: getAvailabilityExceptions(professionalId),
+    bookings: loadBookings(),
+    now: opts?.now,
+    horizonDays: opts?.horizonDays,
+    fromDate: opts?.fromDate,
+  })
+}
+
+/** True when no bookable slot exists in the booking calendar horizon. */
+export function hasAnyAvailableSlotForService(
+  professionalId: string,
+  serviceId: string,
+  horizonDays = 14,
+  now?: Date,
+): boolean {
+  return Boolean(
+    findNextAvailableSlotForService(professionalId, serviceId, { horizonDays, now }),
+  )
+}
+
+export { formatNextAvailableLabel }
 
 function applyCalendar(
   sync: BookingCalendarSync | undefined,

@@ -7,6 +7,7 @@ import {
   type BookingStatus,
   type ProfessionalAvailability,
   type ProfessionalAvailabilityException,
+  type ProfessionalAvailabilitySettings,
   type ProfessionalService,
   type ServiceLocationType,
   type ServicePriceType,
@@ -19,6 +20,10 @@ export const PROFESSIONAL_SERVICES_STORAGE_KEY = 'lovedandknown.professionalServ
 export const PROFESSIONAL_AVAILABILITY_STORAGE_KEY = 'lovedandknown.professionalAvailability'
 export const PROFESSIONAL_AVAILABILITY_EXCEPTIONS_STORAGE_KEY =
   'lovedandknown.professionalAvailabilityExceptions'
+export const PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY =
+  'lovedandknown.professionalAvailabilitySettings'
+
+export const DEFAULT_AVAILABILITY_TIMEZONE = 'Europe/Prague'
 
 const STATUS_SET = new Set<string>(BOOKING_STATUSES)
 const EXCEPTION_TYPES = new Set<AvailabilityExceptionType>(['closed', 'custom_hours'])
@@ -259,7 +264,19 @@ export function normalizeAvailabilityException(
   }
   if (asString(raw.startTime)) exception.startTime = asString(raw.startTime)
   if (asString(raw.endTime)) exception.endTime = asString(raw.endTime)
+  if (asString(raw.label)) exception.label = asString(raw.label)
   return exception
+}
+
+export function normalizeAvailabilitySettings(
+  raw: unknown,
+): ProfessionalAvailabilitySettings | null {
+  if (!isRecord(raw)) return null
+  const professionalId = asString(raw.professionalId)
+  if (!professionalId) return null
+  const settings: ProfessionalAvailabilitySettings = { professionalId }
+  if (asString(raw.timezone)) settings.timezone = asString(raw.timezone)
+  return settings
 }
 
 function loadArray<T>(
@@ -337,5 +354,38 @@ export function saveAvailabilityExceptions(rows: ProfessionalAvailabilityExcepti
   saveArray(
     PROFESSIONAL_AVAILABILITY_EXCEPTIONS_STORAGE_KEY,
     rows.map((r) => normalizeAvailabilityException(r)).filter(Boolean),
+  )
+}
+
+export function loadAvailabilitySettings(): ProfessionalAvailabilitySettings[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    const out: ProfessionalAvailabilitySettings[] = []
+    const seen = new Set<string>()
+    for (const item of parsed) {
+      const n = normalizeAvailabilitySettings(item)
+      if (!n) continue
+      if (seen.has(n.professionalId)) continue
+      seen.add(n.professionalId)
+      out.push(n)
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+export function saveAvailabilitySettings(rows: ProfessionalAvailabilitySettings[]): void {
+  if (typeof localStorage === 'undefined') return
+  const cleaned = rows
+    .map((r) => normalizeAvailabilitySettings(r))
+    .filter((r): r is ProfessionalAvailabilitySettings => Boolean(r))
+  localStorage.setItem(
+    PROFESSIONAL_AVAILABILITY_SETTINGS_STORAGE_KEY,
+    JSON.stringify(cleaned),
   )
 }

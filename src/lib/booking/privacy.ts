@@ -118,6 +118,59 @@ export function assertPublicServiceSafe(payload: unknown): boolean {
   return true
 }
 
+/** Keys that must never appear on public availability / next-slot surfaces. */
+export const PUBLIC_AVAILABILITY_FORBIDDEN_KEYS = [
+  'label',
+  'reason',
+  'notes',
+  'privateNotes',
+  'teamMemberId',
+  'employeeId',
+  'employee',
+  'internal',
+  'bookingBufferBeforeMinutes',
+  'bookingBufferAfterMinutes',
+] as const
+
+/**
+ * Public booking may only see dates/slots/next-available labels —
+ * never exception reasons, employee data, or internal notes.
+ */
+export function assertPublicAvailabilitySafe(payload: unknown): boolean {
+  if (payload == null) return true
+  if (typeof payload !== 'object') return true
+  const walk = (value: unknown, depth: number): boolean => {
+    if (depth > 6 || value == null) return true
+    if (Array.isArray(value)) return value.every((v) => walk(v, depth + 1))
+    if (typeof value !== 'object') return true
+    for (const key of Object.keys(value as object)) {
+      const lower = key.toLowerCase()
+      for (const forbidden of PUBLIC_AVAILABILITY_FORBIDDEN_KEYS) {
+        if (lower === forbidden.toLowerCase() || lower.includes('employee')) return false
+      }
+      if (!walk((value as Record<string, unknown>)[key], depth + 1)) return false
+    }
+    return true
+  }
+  return walk(payload, 0)
+}
+
+/** Public-safe next-slot projection (no exception reasons / internals). */
+export type PublicNextAvailable = {
+  startAt: string
+  endAt: string
+  /** Human-readable when, e.g. "Dnes 14:00" — not an exception reason. */
+  when: string
+}
+
+export function toPublicNextAvailable(
+  slot: { startAt: string; endAt: string } | null,
+  when: string | null,
+): PublicNextAvailable | null {
+  if (!slot || !when) return null
+  return { startAt: slot.startAt, endAt: slot.endAt, when }
+}
+
 function formatMoney(price: number, currency?: string): string {
   const cur = currency?.trim() || 'CZK'
   try {
