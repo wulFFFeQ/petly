@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   BookingActions,
   BookingCancelDialog,
+  BookingCommunicationSection,
   BookingDetail,
   BookingRescheduleModal,
 } from '../../components/booking'
@@ -146,6 +147,13 @@ export function ProfessionalBookingDetailPage() {
           />
         </div>
       </Card>
+
+      <BookingCommunicationSection
+        bookingId={booking.id}
+        callerAccountId={profile.accountId}
+        role="professional"
+        revision={revision}
+      />
 
       <BookingCancelDialog
         open={cancelOpen}

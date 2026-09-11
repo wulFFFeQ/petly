@@ -7,14 +7,16 @@ import {
   HelpCircle,
   LayoutDashboard,
   Link2,
+  MessageCircle,
   ScrollText,
   Settings,
   Sparkles,
   UserRound,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
-import { setUiWorkspace } from '../../lib/account'
+import { getSelfAccount, setUiWorkspace } from '../../lib/account'
 import { canSwitchWorkspace } from '../../lib/professional/dashboard'
+import { getUnreadCountForAccount } from '../../lib/messaging'
 import { cn } from '../../lib/utils'
 import { Avatar } from '../ui/Avatar'
 import { SidebarBrandHeader } from './Logo'
@@ -24,6 +26,7 @@ const mainNav = [
   { to: '/professional/pets', label: 'Propojení', icon: Link2 },
   { to: '/professional/access', label: 'Žádosti', icon: ClipboardList },
   { to: '/professional/bookings', label: 'Rezervace', icon: CalendarCheck2 },
+  { to: '/professional/messages', label: 'Zprávy', icon: MessageCircle },
   { to: '/professional/calendar', label: 'Kalendář', icon: Calendar },
   { to: '/professional/records', label: 'Záznamy', icon: FileText },
   { to: '/professional/profile', label: 'Veřejný profil', icon: UserRound },
@@ -38,6 +41,8 @@ const bottomNav = [
 
 export function ProfessionalSidebar() {
   const showSwitch = canSwitchWorkspace()
+  const self = getSelfAccount()
+  const unreadMessages = self?.id ? getUnreadCountForAccount(self.id) : 0
 
   return (
     <aside
@@ -73,17 +78,29 @@ export function ProfessionalSidebar() {
                 }
               >
                 {({ isActive }) => (
-                  <div className="flex items-center gap-3">
-                    <Icon
-                      size={19}
-                      strokeWidth={isActive ? 2.2 : 1.75}
-                      className={cn(
-                        'transition-colors',
-                        isActive ? 'text-[#2C4A3E]' : 'text-[#7D8B82] group-hover:text-[#191E1B]',
-                      )}
-                    />
-                    <span>{label}</span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        size={19}
+                        strokeWidth={isActive ? 2.2 : 1.75}
+                        className={cn(
+                          'transition-colors',
+                          isActive
+                            ? 'text-[#2C4A3E]'
+                            : 'text-[#7D8B82] group-hover:text-[#191E1B]',
+                        )}
+                      />
+                      <span>{label}</span>
+                    </div>
+                    {to === '/professional/messages' && unreadMessages > 0 ? (
+                      <span
+                        className="rounded-full bg-[#2C4A3E] px-1.5 py-0.5 text-[10px] font-bold text-white"
+                        data-testid="professional-messages-unread"
+                      >
+                        {unreadMessages > 9 ? '9+' : unreadMessages}
+                      </span>
+                    ) : null}
+                  </>
                 )}
               </NavLink>
             ))}

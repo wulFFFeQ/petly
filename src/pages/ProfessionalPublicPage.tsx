@@ -29,6 +29,7 @@ import {
   toPublicProfessionalProfile,
 } from '../lib/professional'
 import { emitProfessionalAccessNotification } from '../lib/notifications'
+import { openProfessionalConversationRequest } from '../lib/messaging'
 import { loadVerifications } from '../lib/verification'
 import { useApp } from '../context/AppContext'
 
@@ -167,6 +168,23 @@ export function ProfessionalPublicPage() {
     showToast('Sdílení', url || 'Otevřete adresu z prohlížeče.', 'info')
   }
 
+  const handleContact = () => {
+    if (!profile || !selfAccount) {
+      showToast('Přihlášení', 'Pro kontakt potřebujete účet.', 'info')
+      return
+    }
+    if (isOwnProfile) {
+      showToast('Váš profil', 'Nelze otevřít konverzaci se sebou.', 'info')
+      return
+    }
+    const result = openProfessionalConversationRequest(profile.id, selfAccount.id)
+    if (!result.ok) {
+      showToast('Kontakt', result.message, 'error')
+      return
+    }
+    navigate(`/messages?conversationId=${encodeURIComponent(result.data.id)}`)
+  }
+
   const requestActive =
     hasAnyOpenForSelfPets && pendingOrActiveForFirstPet?.status === 'active'
   const requestPending =
@@ -207,7 +225,7 @@ export function ProfessionalPublicPage() {
         upsertNotification={upsertNotification}
       />
       <ProfessionalAbout pub={pub} />
-      <ProfessionalServices pub={pub} onContact={() => setConnectOpen(true)} />
+      <ProfessionalServices pub={pub} onContact={handleContact} />
       <ProfessionalSpecializations pub={pub} />
       {breedingShowcase ? <ProfessionalBreedingSection showcase={breedingShowcase} /> : null}
       <ProfessionalLocation pub={pub} />

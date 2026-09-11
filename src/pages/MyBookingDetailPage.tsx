@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   BookingActions,
   BookingCancelDialog,
+  BookingCommunicationSection,
   BookingDetail,
   BookingRescheduleModal,
 } from '../components/booking'
@@ -105,6 +106,13 @@ export function MyBookingDetailPage() {
           />
         </div>
       </Card>
+
+      <BookingCommunicationSection
+        bookingId={booking.id}
+        callerAccountId={self.id}
+        role="owner"
+        revision={revision}
+      />
 
       {booking.status === 'completed' ? (
         <Card variant="elevated" data-testid="booking-review-cta">

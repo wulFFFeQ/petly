@@ -49,4 +49,11 @@ export {
   type ProfessionalReviewNotificationContext,
   type ProfessionalReviewNotificationEvent,
 } from './fromReview'
+export {
+  buildMessageReceivedNotification,
+  emitMessageReceivedNotification,
+  isSafeMessageNotificationPayload,
+  messageDedupeKey,
+  type MessageReceivedContext,
+} from './fromMessaging'
 export { buildSeedNotifications } from './seed'

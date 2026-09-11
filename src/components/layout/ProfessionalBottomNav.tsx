@@ -3,22 +3,25 @@ import {
   CalendarCheck2,
   ClipboardList,
   LayoutDashboard,
+  MessageCircle,
   MoreHorizontal,
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { setUiWorkspace } from '../../lib/account'
+import { getSelfAccount, setUiWorkspace } from '../../lib/account'
 import { canSwitchWorkspace } from '../../lib/professional/dashboard'
+import { getUnreadCountForAccount } from '../../lib/messaging'
 import { cn } from '../../lib/utils'
 
 const mainItems = [
   { to: '/professional', label: 'Přehled', icon: LayoutDashboard, end: true },
   { to: '/professional/bookings', label: 'Rezervace', icon: CalendarCheck2 },
-  { to: '/professional/access', label: 'Žádosti', icon: ClipboardList },
+  { to: '/professional/messages', label: 'Zprávy', icon: MessageCircle },
   { to: '/professional/calendar', label: 'Kalendář', icon: Calendar },
 ]
 
 const moreItems = [
+  { to: '/professional/access', label: 'Žádosti' },
   { to: '/professional/pets', label: 'Propojení' },
   { to: '/professional/services', label: 'Služby' },
   { to: '/professional/availability', label: 'Dostupnost' },
@@ -31,6 +34,8 @@ const moreItems = [
 export function ProfessionalBottomNav() {
   const [showMore, setShowMore] = useState(false)
   const showSwitch = canSwitchWorkspace()
+  const self = getSelfAccount()
+  const unreadMessages = self?.id ? getUnreadCountForAccount(self.id) : 0
 
   return (
     <>
@@ -93,7 +98,7 @@ export function ProfessionalBottomNav() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium',
+                  'relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium',
                   isActive ? 'text-[#2C4A3E]' : 'text-[#7D8B82]',
                 )
               }
@@ -102,6 +107,9 @@ export function ProfessionalBottomNav() {
                 <>
                   <Icon size={20} strokeWidth={isActive ? 2.2 : 1.75} />
                   <span className="truncate">{label}</span>
+                  {to === '/professional/messages' && unreadMessages > 0 ? (
+                    <span className="absolute right-2 top-1 h-1.5 w-1.5 rounded-full bg-[#2C4A3E]" />
+                  ) : null}
                 </>
               )}
             </NavLink>

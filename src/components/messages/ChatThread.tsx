@@ -1,5 +1,7 @@
 import type { Conversation, DiscoverPet, HealthRecord } from '../../types'
 import { cn } from '../../lib/utils'
+import { BookingContextBanner } from './BookingContextBanner'
+import { BookingMessageComposer } from './BookingMessageComposer'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatThreadHeader } from './ChatThreadHeader'
 import { MessageComposer } from './MessageComposer'
@@ -30,6 +32,10 @@ interface ChatThreadProps {
   onAttachFile: () => void
 }
 
+function isAccountThread(c: Conversation): boolean {
+  return Boolean(c.participantAccountIds?.length) || c.contactType === 'professional'
+}
+
 export function ChatThread({
   conversation: active,
   contactPet,
@@ -54,12 +60,15 @@ export function ChatThread({
   onShareSelectedRecords,
   onAttachFile,
 }: ChatThreadProps) {
+  const accountThread = active ? isAccountThread(active) : false
+
   return (
     <div
       className={cn(
         'flex flex-1 flex-col bg-[#FAF8F5]',
         !mobileShowChat ? 'hidden md:flex' : 'flex',
       )}
+      data-testid="chat-thread"
     >
       {active ? (
         <>
@@ -73,22 +82,31 @@ export function ChatThread({
             onCall={onCall}
             onVideoCall={onVideoCall}
           />
+          {accountThread ? <BookingContextBanner conversation={active} /> : null}
           <MessageThread conversation={active} chatEndRef={chatEndRef} />
-          <MessageComposer
-            conversation={active}
-            message={message}
-            onMessageChange={onMessageChange}
-            onSubmit={onSubmitMessage}
-            shareMenuOpen={shareMenuOpen}
-            onShareMenuToggle={onShareMenuToggle}
-            shareMenuRef={shareMenuRef}
-            shareableRecords={shareableRecords}
-            selectedShareIds={selectedShareIds}
-            onToggleShareSelection={onToggleShareSelection}
-            onToggleSelectAllShareRecords={onToggleSelectAllShareRecords}
-            onShareSelectedRecords={onShareSelectedRecords}
-            onAttachFile={onAttachFile}
-          />
+          {accountThread ? (
+            <BookingMessageComposer
+              message={message}
+              onMessageChange={onMessageChange}
+              onSubmit={onSubmitMessage}
+            />
+          ) : (
+            <MessageComposer
+              conversation={active}
+              message={message}
+              onMessageChange={onMessageChange}
+              onSubmit={onSubmitMessage}
+              shareMenuOpen={shareMenuOpen}
+              onShareMenuToggle={onShareMenuToggle}
+              shareMenuRef={shareMenuRef}
+              shareableRecords={shareableRecords}
+              selectedShareIds={selectedShareIds}
+              onToggleShareSelection={onToggleShareSelection}
+              onToggleSelectAllShareRecords={onToggleSelectAllShareRecords}
+              onShareSelectedRecords={onShareSelectedRecords}
+              onAttachFile={onAttachFile}
+            />
+          )}
         </>
       ) : (
         <ChatEmptyState />

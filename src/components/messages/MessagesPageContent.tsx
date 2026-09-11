@@ -4,9 +4,22 @@ import { healthRecords } from '../../data/mockData'
 import { bumpDiscoverEngagement, getDiscoverPetById } from '../../lib/discover'
 import { saveConversationPrefs } from '../../lib/archivedConversations'
 import { savePersistedInboxConversations } from '../../lib/messages/inboxStorage'
+import {
+  accessConversationRequest,
+  canAccessConversation,
+  getConversation,
+  listConversationsForAccount,
+  markConversationReadRequest,
+  openBookingConversationRequest,
+  projectConversationForViewer,
+  sendMessageRequest,
+  sortConversationsForInbox,
+} from '../../lib/messaging'
+import { getSelfAccount } from '../../lib/account'
 import { useApp } from '../../context/AppContext'
 import type { Conversation } from '../../types'
 import { Card } from '../ui/Card'
+import { Button } from '../ui/Button'
 import { ChatThread } from './ChatThread'
 import { ContactProfileModal } from './ContactProfileModal'
 import { ConversationSidebar } from './ConversationSidebar'
@@ -19,14 +32,34 @@ import {
 } from './messageShareUtils'
 import { takeConnectMessageDraft } from '../../lib/connections'
 
-export function MessagesPageContent() {
+function isAccountThread(c: Conversation): boolean {
+  return Boolean(c.participantAccountIds?.length) || c.contactType === 'professional'
+}
+
+export type MessagesPageVariant = 'consumer' | 'professional'
+
+export function MessagesPageContent({
+  variant = 'consumer',
+}: {
+  variant?: MessagesPageVariant
+}) {
   const { showToast, lostConversations, sendLostFinderMessage, upsertNotification, pets } =
     useApp()
+  const self = getSelfAccount()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [conversations, setConversations] = useState<Conversation[]>(buildInitialConversations)
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const initial = buildInitialConversations()
+    if (variant === 'professional' && self?.id) {
+      return listConversationsForAccount(self.id, { professionalOnly: true })
+    }
+    return initial
+  })
   const [listMode, setListMode] = useState<'inbox' | 'archive'>('inbox')
   const [activeId, setActiveId] = useState(() => {
-    const initial = buildInitialConversations()
+    const initial =
+      variant === 'professional' && self?.id
+        ? listConversationsForAccount(self.id, { professionalOnly: true })
+        : buildInitialConversations()
     return initial.find((c) => !c.archived)?.id ?? initial[0]?.id ?? ''
   })
   const [message, setMessage] = useState('')
@@ -35,23 +68,87 @@ export function MessagesPageContent() {
   const [shareMenuOpen, setShareMenuOpen] = useState(false)
   const [selectedShareIds, setSelectedShareIds] = useState<string[]>([])
   const [contactProfileOpen, setContactProfileOpen] = useState(false)
+  const [accessDenied, setAccessDenied] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
+
+  const refreshAccountThreads = () => {
+    if (!self?.id) return
+    if (variant === 'professional') {
+      setConversations(listConversationsForAccount(self.id, { professionalOnly: true }))
+      return
+    }
+    setConversations((prev) => {
+      const accountThreads = listConversationsForAccount(self.id)
+      const accountIds = new Set(accountThreads.map((c) => c.id))
+      const legacy = prev.filter((c) => !accountIds.has(c.id) && !isAccountThread(c))
+      const merged = [...accountThreads, ...legacy]
+      return sortConversationsForInbox(merged)
+    })
+  }
 
   useEffect(() => {
     const contactPetId = searchParams.get('contactPetId')
     const contactAuthorId = searchParams.get('contactAuthorId')
     const conversationId = searchParams.get('conversationId')
-    if (!contactPetId && !contactAuthorId && !conversationId) return
+    const bookingId = searchParams.get('bookingId')
+    if (!contactPetId && !contactAuthorId && !conversationId && !bookingId) return
 
     let openedId: string | null = null
     let createdNewDiscoverThread = false
 
+    if (bookingId && self?.id) {
+      const result = openBookingConversationRequest(bookingId, self.id)
+      if (!result.ok) {
+        setAccessDenied(true)
+        setActiveId('')
+        setSearchParams({}, { replace: true })
+        return
+      }
+      setAccessDenied(false)
+      refreshAccountThreads()
+      openedId = result.data.id
+      setListMode('inbox')
+      setActiveId(openedId)
+      setMobileShowChat(true)
+      markConversationReadRequest(openedId, self.id)
+      setSearchParams({}, { replace: true })
+      return
+    }
+
     if (conversationId) {
+      if (self?.id) {
+        const stored = getConversation(conversationId)
+        if (stored?.participantAccountIds?.length) {
+          const access = accessConversationRequest(conversationId, self.id)
+          if (!access.ok) {
+            setAccessDenied(true)
+            setActiveId('')
+            setSearchParams({}, { replace: true })
+            return
+          }
+          setAccessDenied(false)
+          refreshAccountThreads()
+          markConversationReadRequest(conversationId, self.id)
+          setListMode('inbox')
+          setActiveId(conversationId)
+          setMobileShowChat(true)
+          setSearchParams({}, { replace: true })
+          return
+        }
+      }
+
       setConversations((prev) => {
         const fromLost = lostConversations.find((c) => c.id === conversationId)
         const existing = prev.find((c) => c.id === conversationId)
         if (existing) {
+          if (
+            existing.participantAccountIds?.length &&
+            self?.id &&
+            !canAccessConversation(self.id, existing)
+          ) {
+            return prev
+          }
           openedId = existing.id
           return prev.map((c) =>
             c.id === existing.id ? { ...c, archived: false, unread: 0 } : c,
@@ -61,13 +158,29 @@ export function MessagesPageContent() {
           openedId = fromLost.id
           return [{ ...fromLost, archived: false, unread: 0 }, ...prev]
         }
+        // Unknown ACL conversation — deny if we have a self account and it looks gated
+        if (self?.id) {
+          const gated = getConversation(conversationId)
+          if (gated && !canAccessConversation(self.id, gated)) {
+            return prev
+          }
+        }
         return prev
       })
       if (openedId) {
+        setAccessDenied(false)
         setListMode('inbox')
         setActiveId(openedId)
         setMobileShowChat(true)
+      } else if (self?.id && getConversation(conversationId)) {
+        setAccessDenied(true)
+        setActiveId('')
       }
+      setSearchParams({}, { replace: true })
+      return
+    }
+
+    if (variant === 'professional') {
       setSearchParams({}, { replace: true })
       return
     }
@@ -179,10 +292,11 @@ export function MessagesPageContent() {
     }
 
     setSearchParams({}, { replace: true })
-  }, [searchParams, setSearchParams, lostConversations, upsertNotification, pets])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open deep links once per params change
+  }, [searchParams, setSearchParams, lostConversations, upsertNotification, pets, self?.id, variant])
 
-  // Merge lost-pet finder threads into inbox without wiping local edits.
   useEffect(() => {
+    if (variant === 'professional') return
     if (lostConversations.length === 0) return
     setConversations((prev) => {
       const byId = new Map(prev.map((c) => [c.id, c]))
@@ -215,68 +329,54 @@ export function MessagesPageContent() {
       const lostMerged = lostConversations.map((c) => byId.get(c.id) ?? c)
       return [...lostMerged, ...rest]
     })
-  }, [lostConversations])
+  }, [lostConversations, variant])
 
   const active = conversations.find((c) => c.id === activeId)
   const contactPet = active?.contactPetId
     ? getDiscoverPetById(active.contactPetId, pets)
     : undefined
-  const archivedCount = conversations.filter((c) => c.archived).length
-
-  useEffect(() => {
-    const unreadById: Record<string, number> = {}
-    for (const conversation of conversations) {
-      unreadById[conversation.id] = conversation.unread
-    }
-    saveConversationPrefs({
-      archivedIds: conversations.filter((c) => c.archived).map((c) => c.id),
-      unreadById,
-    })
-    savePersistedInboxConversations(conversations)
-  }, [conversations])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [active?.messages])
+  }, [active?.messages, message])
 
   useEffect(() => {
-    setContactProfileOpen(false)
-  }, [activeId])
-
-  useEffect(() => {
-    setShareMenuOpen(false)
-    setSelectedShareIds([])
-  }, [activeId])
-
-  useEffect(() => {
-    if (!shareMenuOpen) return
-    const handleClick = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
         setShareMenuOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [shareMenuOpen])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-  const shareableRecords = active?.petId
-    ? healthRecords.filter((r) => r.petId === active.petId)
-    : []
+  useEffect(() => {
+    savePersistedInboxConversations(conversations)
+    saveConversationPrefs({
+      archivedIds: conversations.filter((c) => c.archived).map((c) => c.id),
+      unreadById: Object.fromEntries(conversations.map((c) => [c.id, c.unread])),
+    })
+  }, [conversations])
+
+  const archivedCount = conversations.filter((c) => c.archived).length
+
+  const shareableRecords = healthRecords.filter((r) => {
+    if (!active?.petId) return false
+    return r.petId === active.petId
+  })
 
   const toggleShareSelection = (recordId: string) => {
     setSelectedShareIds((prev) =>
-      prev.includes(recordId)
-        ? prev.filter((id) => id !== recordId)
-        : [...prev, recordId],
+      prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId],
     )
   }
 
   const handleShareSelectedRecords = () => {
     if (!activeId || selectedShareIds.length === 0) return
-
-    const records = shareableRecords.filter((r) => selectedShareIds.includes(r.id))
-    const newMsgs = records.map((record, index) => buildHealthShareMessage(record, index))
+    const records = healthRecords.filter((r) => selectedShareIds.includes(r.id))
+    const newMsgs = records.map((r, i) => buildHealthShareMessage(r, i))
     const lastMsg = newMsgs[newMsgs.length - 1]
+    if (!lastMsg) return
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -297,46 +397,25 @@ export function MessagesPageContent() {
       records.length === 1
         ? '1 zdravotní záznam'
         : `${records.length} zdravotní záznamy`
-    showToast('Záznamy sdíleny', `${countLabel} odeslán${records.length > 1 ? 'y' : ''} veterináři.`, 'gold')
-
-    if (activeId === 'conv2') {
-      setTimeout(() => {
-        const replyMsg = {
-          id: `m_reply_${Date.now()}`,
-          sender: 'them' as const,
-          text: 'Děkuji za sdílené údaje. Projdu je a doplním do klinické karty Luny.',
-          time: `${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2, '0')}`,
-        }
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === activeId
-              ? {
-                  ...c,
-                  lastMessage: replyMsg.text,
-                  time: 'Právě teď',
-                  messages: [...c.messages, replyMsg],
-                }
-              : c,
-          ),
-        )
-        upsertNotification({
-          id: `n_msg_${replyMsg.id}`,
-          type: 'message',
-          title: 'Nová zpráva',
-          message: 'Máte novou zprávu.',
-          priority: 'normal',
-          dedupeKey: `msg:${activeId}:${replyMsg.id}`,
-          href: `/messages?conversationId=${activeId}`,
-          conversationId: activeId,
-          time: 'právě teď',
-        })
-      }, 1400)
-    }
+    showToast(
+      'Záznamy sdíleny',
+      `${countLabel} odeslán${records.length > 1 ? 'y' : ''} veterináři.`,
+      'gold',
+    )
   }
 
   const selectConversation = (id: string) => {
+    setAccessDenied(false)
     setActiveId(id)
     setMobileShowChat(true)
+    if (self?.id) {
+      const target = conversations.find((c) => c.id === id) ?? getConversation(id)
+      if (target && isAccountThread(target)) {
+        markConversationReadRequest(id, self.id)
+        refreshAccountThreads()
+        return
+      }
+    }
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
     )
@@ -353,6 +432,29 @@ export function MessagesPageContent() {
     ) {
       sendLostFinderMessage(activeId, message.trim(), 'owner')
       setMessage('')
+      return
+    }
+
+    if (activeConv && isAccountThread(activeConv) && self?.id) {
+      const result = sendMessageRequest(
+        {
+          conversationId: activeId,
+          senderAccountId: self.id,
+          text: message.trim(),
+        },
+        { upsertNotification },
+      )
+      setMessage('')
+      if (!result.ok) {
+        showToast('Zprávu nelze odeslat', result.message, 'error')
+        return
+      }
+      refreshAccountThreads()
+      setConversations((prev) => {
+        const projected = projectConversationForViewer(result.data.conversation, self.id)
+        const rest = prev.filter((c) => c.id !== projected.id)
+        return sortConversationsForInbox([projected, ...rest])
+      })
       return
     }
 
@@ -454,17 +556,45 @@ export function MessagesPageContent() {
     )
   }
 
-  const filteredConversations = conversations.filter((c) => {
-    const inCurrentList = listMode === 'archive' ? Boolean(c.archived) : !c.archived
-    if (!inCurrentList) return false
-    const q = search.toLowerCase()
-    if (!q) return true
+  const filteredConversations = sortConversationsForInbox(
+    conversations.filter((c) => {
+      if (variant === 'professional' && self?.id && !canAccessConversation(self.id, c)) {
+        return false
+      }
+      const inCurrentList = listMode === 'archive' ? Boolean(c.archived) : !c.archived
+      if (!inCurrentList) return false
+      const q = search.toLowerCase()
+      if (!q) return true
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.lastMessage.toLowerCase().includes(q) ||
+        c.petContext.toLowerCase().includes(q) ||
+        (c.serviceNameSnapshot?.toLowerCase().includes(q) ?? false)
+      )
+    }),
+  )
+
+  if (accessDenied) {
     return (
-      c.name.toLowerCase().includes(q) ||
-      c.lastMessage.toLowerCase().includes(q) ||
-      c.petContext.toLowerCase().includes(q)
+      <Card variant="elevated" className="mx-auto max-w-lg" data-testid="messaging-denied">
+        <p className="text-sm font-bold text-[#191E1B]">Přístup odepřen</p>
+        <p className="mt-1 text-xs text-[#7D8B82]">
+          Tato konverzace neexistuje nebo k ní nemáte oprávnění.
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            setAccessDenied(false)
+            refreshAccountThreads()
+          }}
+        >
+          Zpět na zprávy
+        </Button>
+      </Card>
     )
-  })
+  }
 
   return (
     <>
@@ -472,6 +602,9 @@ export function MessagesPageContent() {
         variant="elevated"
         padding="none"
         className="flex h-[calc(100vh-210px)] min-h-[540px] max-h-[800px] overflow-hidden"
+        data-testid={
+          variant === 'professional' ? 'professional-messages-page' : 'messages-page-content'
+        }
       >
         <ConversationSidebar
           listMode={listMode}
@@ -549,13 +682,13 @@ export function MessagesPageContent() {
       {active &&
         active.contactType !== 'lost_finder' &&
         active.contactType !== 'emergency_finder' && (
-        <ContactProfileModal
-          conversation={active}
-          contactPet={contactPet}
-          open={contactProfileOpen}
-          onClose={() => setContactProfileOpen(false)}
-        />
-      )}
+          <ContactProfileModal
+            conversation={active}
+            contactPet={contactPet}
+            open={contactProfileOpen}
+            onClose={() => setContactProfileOpen(false)}
+          />
+        )}
     </>
   )
 }

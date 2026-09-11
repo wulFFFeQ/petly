@@ -737,6 +737,12 @@ export interface Message {
   sender: 'me' | 'them'
   text: string
   time: string
+  /** Account that authored the message (booking / account-based threads). */
+  senderAccountId?: string
+  /** ISO timestamp — prefer over display `time` when present. */
+  createdAt?: string
+  /** Set when the other participant has read the message. */
+  readAt?: string
   attachment?: {
     kind: 'health_record'
     recordId: string
@@ -746,6 +752,15 @@ export interface Message {
     category?: 'vaccination' | 'medication' | 'visit' | 'results'
   }
 }
+
+export type ConversationContactType =
+  | 'vet'
+  | 'trainer'
+  | 'community'
+  | 'lost_finder'
+  | 'emergency_finder'
+  /** Booking / professional DM (account-based ACL via participantAccountIds). */
+  | 'professional'
 
 export interface Conversation {
   id: string
@@ -759,7 +774,7 @@ export interface Conversation {
   contactPetId?: string
   /** Community feed author id for DMs started from a post (dedupe key with conv id). */
   contactAuthorId?: string
-  contactType: 'vet' | 'trainer' | 'community' | 'lost_finder' | 'emergency_finder'
+  contactType: ConversationContactType
   online?: boolean
   lastMessage: string
   time: string
@@ -771,6 +786,16 @@ export interface Conversation {
   lostAnnouncementId?: string
   lostReportId?: string
   finderAnonymousId?: string
+  /** Account-based ACL — only these accounts may open the thread. */
+  participantAccountIds?: string[]
+  /** Optional booking context (does not grant access by itself). */
+  bookingId?: string
+  professionalId?: string
+  createdAt?: string
+  updatedAt?: string
+  /** Snapshot labels for list UI (booking threads). */
+  serviceNameSnapshot?: string
+  bookingStatusSnapshot?: string
 }
 
 export interface WeightDataPoint {

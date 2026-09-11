@@ -63,6 +63,13 @@ export function ConversationListItem({
             {conv.petContext}
           </p>
 
+          {conv.serviceNameSnapshot ? (
+            <p className="text-[10px] text-[#7D8B82] truncate" data-testid="conversation-service">
+              {conv.serviceNameSnapshot}
+              {conv.bookingStatusSnapshot ? ` · ${conv.bookingStatusSnapshot}` : ''}
+            </p>
+          ) : null}
+
           <p
             className={cn(
               'text-xs truncate mt-1',

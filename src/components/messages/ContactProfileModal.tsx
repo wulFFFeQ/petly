@@ -54,7 +54,9 @@ export function ContactProfileModal({
                 ? 'Veterinář'
                 : active.contactType === 'trainer'
                   ? 'Trenér'
-                  : 'Komunita'}
+                  : active.contactType === 'professional'
+                    ? active.role || 'Profesionál'
+                    : 'Komunita'}
             </Badge>
           </div>
         </div>
