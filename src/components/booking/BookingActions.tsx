@@ -24,6 +24,11 @@ export function BookingActions({
 
   if (!canConfirm && !canDecline && !canCancel) return null
 
+  const cancelLabel =
+    role === 'owner' && booking.status === 'requested'
+      ? 'Zrušit žádost'
+      : 'Zrušit rezervaci'
+
   return (
     <div className="flex flex-wrap gap-2" data-testid="booking-actions">
       {canConfirm && onConfirm ? (
@@ -56,7 +61,7 @@ export function BookingActions({
           data-testid="booking-cancel"
           onClick={onCancel}
         >
-          Zrušit
+          {cancelLabel}
         </Button>
       ) : null}
     </div>

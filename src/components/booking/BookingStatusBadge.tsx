@@ -2,13 +2,13 @@ import type { BookingStatus } from '../../lib/booking'
 import { Badge } from '../ui/Badge'
 
 const LABELS: Record<BookingStatus, string> = {
-  requested: 'Žádost',
+  requested: 'Čeká na potvrzení',
   confirmed: 'Potvrzeno',
   declined: 'Odmítnuto',
-  cancelled_by_owner: 'Zrušeno majitelem',
-  cancelled_by_professional: 'Zrušeno profesionálem',
+  cancelled_by_owner: 'Zrušeno',
+  cancelled_by_professional: 'Zrušeno',
   completed: 'Dokončeno',
-  no_show: 'Nedostavil se',
+  no_show: 'Nedostavil/a se',
 }
 
 const VARIANTS: Record<

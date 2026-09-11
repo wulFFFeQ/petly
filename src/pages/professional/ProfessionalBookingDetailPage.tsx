@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BookingActions, BookingDetail } from '../../components/booking'
 import { EmptyState } from '../../components/professional/dashboard/EmptyState'
@@ -21,9 +21,10 @@ export function ProfessionalBookingDetailPage() {
   const profile = getActiveSelfProfessionalProfile()
   const [busy, setBusy] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [reason, setReason] = useState('')
   const [revision, setRevision] = useState(0)
 
-  const booking = id ? getBooking(id) : null
+  const booking = useMemo(() => (id ? getBooking(id) : null), [id, revision])
 
   if (!profile) {
     return (
@@ -69,8 +70,6 @@ export function ProfessionalBookingDetailPage() {
     setRevision((r) => r + 1)
   }
 
-  void revision
-
   return (
     <div className="space-y-5 pb-8" data-testid="professional-booking-detail-page">
       <Link
@@ -81,6 +80,14 @@ export function ProfessionalBookingDetailPage() {
       </Link>
 
       <Card variant="elevated">
+        {booking.status === 'requested' ? (
+          <p
+            className="mb-3 text-xs font-semibold text-[#B8934A]"
+            data-testid="new-booking-request-banner"
+          >
+            Nová žádost o rezervaci
+          </p>
+        ) : null}
         <BookingDetail booking={booking} showOwner />
         <div className="mt-4">
           <BookingActions
@@ -98,14 +105,20 @@ export function ProfessionalBookingDetailPage() {
         </div>
       </Card>
 
-      <Modal
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        title="Zrušit rezervaci?"
-      >
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Zrušit rezervaci?">
         <p className="text-sm text-[#4A564F]">
-          Opravdu chcete zrušit tuto rezervaci? Majitel obdrží notifikaci.
+          Opravdu chcete tuto rezervaci zrušit?
         </p>
+        <label className="mt-3 block text-xs font-semibold text-[#4A564F]">
+          Důvod zrušení (volitelné)
+          <textarea
+            className="mt-1.5 w-full rounded-xl border border-[#E8E4DC] px-3 py-2 text-sm outline-none focus:border-[#2C4A3E]"
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            data-testid="cancel-reason-input"
+          />
+        </label>
         <div className="mt-4 flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>
             Zpět
@@ -122,6 +135,7 @@ export function ProfessionalBookingDetailPage() {
                   booking.id,
                   { kind: 'professional', professionalId: profile.id },
                   opts,
+                  reason.trim() || undefined,
                 ),
               )
             }}

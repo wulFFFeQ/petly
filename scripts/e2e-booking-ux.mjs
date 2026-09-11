@@ -1,6 +1,6 @@
 /**
- * E2E: Booking flow (KROK 25)
- * Run: node scripts/e2e-booking.mjs
+ * E2E: Booking UX (KROK 26)
+ * Run: node scripts/e2e-booking-ux.mjs
  * Requires: npm run dev
  */
 import { chromium } from 'playwright'
@@ -23,19 +23,19 @@ function assert(cond, msg) {
 async function shot(page, name) {
   fs.mkdirSync(OUT, { recursive: true })
   await page.screenshot({
-    path: path.join(OUT, `booking-${name}.png`),
+    path: path.join(OUT, `booking-ux-${name}.png`),
     fullPage: true,
   })
 }
 
-const VET_ID = 'e2e_booking_vet'
-const PET_ID = 'e2e_booking_luna'
+const VET_ID = 'e2e_ux_vet'
+const PET_ID = 'e2e_ux_luna'
 
 const SEED_ACCOUNT = {
   id: 'owner_self',
   kind: 'consumer',
   roles: ['owner', 'veterinarian'],
-  displayName: 'E2E Booking Owner',
+  displayName: 'E2E UX Owner',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
@@ -44,7 +44,7 @@ const SEED_PROFILE = {
   id: VET_ID,
   accountId: 'owner_self',
   type: 'veterinarian',
-  displayName: 'MVDr. E2E Booking Vet',
+  displayName: 'MVDr. E2E UX Vet',
   city: 'Praha',
   services: ['Preventivní péče'],
   verificationStatus: 'unverified',
@@ -55,7 +55,7 @@ const SEED_PROFILE = {
 
 const SEED_PET = {
   id: PET_ID,
-  name: 'Luna Booking',
+  name: 'Luna UX',
   type: 'dog',
   breed: 'Labrador',
   age: 2,
@@ -68,6 +68,7 @@ const SEED_PET = {
 async function seed(page) {
   await page.addInitScript(
     ({ account, profile, pet }) => {
+      // Only bootstrap once per browser context — never wipe live booking data on SPA navigations.
       if (sessionStorage.getItem('lovedandknown.e2eSeeded') === '1') return
       sessionStorage.setItem('lovedandknown.e2eSeeded', '1')
       sessionStorage.setItem('lovedandknown.uiWorkspace', 'consumer')
@@ -105,118 +106,126 @@ async function seed(page) {
 
 async function main() {
   const browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
 
   try {
     await seed(page)
 
+    // Empty state
+    await page.goto(`${BASE}/bookings`)
+    await page.waitForSelector('[data-testid="my-bookings-page"]')
+    assert(
+      (await page.locator('[data-testid="bookings-empty-all"]').count()) > 0,
+      'Empty state on /bookings',
+    )
+    await shot(page, 'empty')
+
+    // Request flow
     await page.goto(`${BASE}/professionals/${VET_ID}`)
     await page.waitForSelector('[data-testid="professional-public-page"]')
-    await shot(page, 'public-profile')
-
     const bookBtn = page.locator('[data-testid^="book-service-"]').first()
     const anyBook = page.locator('[data-testid="book-any-service"]')
-    const hasBook =
-      (await bookBtn.count()) > 0 || (await anyBook.count()) > 0
-    assert(hasBook, 'Rezervovat CTA visible on public profile')
-
     if ((await bookBtn.count()) > 0) await bookBtn.click()
     else await anyBook.click()
 
-    await page.waitForSelector('[data-testid="booking-step-pet"], [data-testid="booking-step-service"]')
+    await page.waitForSelector('[data-testid="booking-step-pet"], [data-testid="booking-step-service"]', {
+      timeout: 10000,
+    })
     if (await page.locator('[data-testid="booking-step-service"]').count()) {
-      await page
-        .locator('[data-testid="booking-step-service"] [data-testid^="book-service-"]')
-        .first()
-        .click()
+      await page.locator('[data-testid="booking-step-service"] [data-testid^="book-service-"]').first().click()
     }
 
-    await page.waitForSelector('[data-testid="booking-step-pet"]')
-    await page.locator(`[data-testid="booking-pet-${PET_ID}"]`).click()
+    await page.waitForSelector('[data-testid="booking-step-pet"]', { timeout: 10000 })
+    const petBtn = page.locator(`[data-testid="booking-pet-${PET_ID}"]`)
+    if ((await petBtn.count()) === 0) {
+      const empty = await page.locator('[data-testid="booking-add-pet-cta"]').count()
+      throw new Error(`Pet not listed in booking modal (add-pet CTA visible: ${empty > 0})`)
+    }
+    assert((await petBtn.textContent())?.includes('Luna UX'), 'Pet card shows name')
+    await petBtn.click()
 
     await page.waitForSelector('[data-testid="booking-step-slot"]')
-    // pick a day with slots — click through days until slots appear
-    let foundSlot = false
     const dayButtons = page.locator('[data-testid^="booking-day-"]')
     const dayCount = await dayButtons.count()
+    let found = false
     for (let i = 0; i < dayCount; i++) {
       await dayButtons.nth(i).click()
-      await page.waitForTimeout(100)
+      await page.waitForTimeout(80)
       const slots = page.locator('[data-testid^="booking-time-"]')
       if ((await slots.count()) > 0) {
         await slots.first().click()
-        foundSlot = true
+        found = true
         break
       }
     }
-    assert(foundSlot, 'Found an available slot')
+    assert(found, 'Available slot selectable')
     await page.locator('[data-testid="booking-slot-continue"]').click()
-
-    await page.waitForSelector('[data-testid="booking-step-note"]')
-    await page.locator('[data-testid="booking-note-input"]').fill('E2E test note')
     await page.locator('[data-testid="booking-note-continue"]').click()
 
     await page.waitForSelector('[data-testid="booking-step-summary"]')
+    const summary = await page.locator('[data-testid="booking-step-summary"]').textContent()
+    assert(summary?.includes('Rezervace bude potvrzena až profesionálem'), 'Summary disclaimer')
     await page.locator('[data-testid="booking-submit"]').click()
 
     await page.waitForSelector('[data-testid="booking-confirmation"]')
-    assert(
-      (await page.locator('[data-testid="booking-confirmation"]').count()) > 0,
-      'Confirmation shown',
-    )
-    await shot(page, 'confirmation')
     await page.locator('[data-testid="booking-confirmation-view"]').click()
     await page.waitForSelector('[data-testid="my-booking-detail-page"]')
+    assert(
+      (await page.locator('[data-testid="booking-detail"]').count()) > 0,
+      'Owner booking detail',
+    )
+    await shot(page, 'owner-detail')
 
-    const stored = await page.evaluate(() => {
-      const bookings = JSON.parse(localStorage.getItem('lovedandknown.bookings') || '[]')
-      const notifs = JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]')
-      const events = JSON.parse(localStorage.getItem('lovedandknown.calendarEvents') || '[]')
-      return { bookings, notifs, events }
+    const bookingId = await page.evaluate(() => {
+      const list = JSON.parse(localStorage.getItem('lovedandknown.bookings') || '[]')
+      return list[0]?.id
     })
-    assert(stored.bookings.length >= 1, 'Booking persisted')
-    assert(stored.bookings[0].status === 'requested', 'Status requested')
+    assert(Boolean(bookingId), 'Booking id exists')
+
+    // Owner list
+    await page.goto(`${BASE}/bookings`)
+    await page.waitForSelector('[data-testid="my-bookings-list"]')
     assert(
-      stored.notifs.some((n) => n.type === 'booking_requested'),
-      'booking_requested notification',
-    )
-    assert(
-      stored.events.some((e) => e.type === 'booking' || e.sourceBookingId),
-      'Calendar booking event synced',
+      (await page.locator(`[data-testid="my-booking-card-${bookingId}"]`).count()) > 0,
+      'Owner sees booking card',
     )
 
-    // Professional workspace – confirm
+    // Denied foreign URL simulation: clear owner mismatch by navigating with wrong id
+    await page.goto(`${BASE}/bookings/not_mine`)
+    await page.waitForSelector('[data-testid="my-booking-denied"]')
+    assert(
+      (await page.locator('[data-testid="my-booking-denied"]').count()) > 0,
+      'Denied for unknown booking',
+    )
+
+    // Pro confirm
     await page.evaluate(() => {
       sessionStorage.setItem('lovedandknown.uiWorkspace', 'professional')
     })
+    await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto(`${BASE}/professional/bookings`)
-    await page.waitForSelector('[data-testid="professional-bookings-page"]')
-    await shot(page, 'pro-bookings')
-
-    const bookingId = stored.bookings[0].id
-    await page.goto(`${BASE}/professional/bookings/${bookingId}`)
-    await page.waitForSelector('[data-testid="professional-booking-detail-page"]')
-    await page.locator('[data-testid="booking-confirm"]').click()
-    await page.waitForTimeout(300)
-
-    const after = await page.evaluate(() => {
-      return JSON.parse(localStorage.getItem('lovedandknown.bookings') || '[]')
-    })
-    const updated = after.find((b) => b.id === bookingId)
-    assert(updated?.status === 'confirmed', 'Professional confirmed booking')
-
-    await page.goto(`${BASE}/professional/services`)
-    await page.waitForSelector('[data-testid="professional-services-page"]')
+    await page.waitForSelector('[data-testid="professional-bookings-stats"]')
     assert(
-      (await page.locator('[data-testid="professional-services-page"]').count()) > 0,
-      'Services page loads',
+      (await page.locator('[data-testid="professional-bookings-stats"]').count()) > 0,
+      'Pro stats visible',
     )
+    await page.goto(`${BASE}/professional/bookings/${bookingId}`)
+    await page.waitForSelector('[data-testid="new-booking-request-banner"]')
+    await page.locator('[data-testid="booking-confirm"]').click()
+    await page.waitForTimeout(250)
 
-    await page.goto(`${BASE}/professional/availability`)
-    await page.waitForSelector('[data-testid="professional-availability-page"]')
+    const status = await page.evaluate((id) => {
+      const list = JSON.parse(localStorage.getItem('lovedandknown.bookings') || '[]')
+      return list.find((b) => b.id === id)?.status
+    }, bookingId)
+    assert(status === 'confirmed', 'Confirmed after pro action')
+
+    const notifs = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('lovedandknown.notifications') || '[]'),
+    )
     assert(
-      (await page.locator('[data-testid="availability-week"]').count()) > 0,
-      'Availability page loads',
+      notifs.some((n) => n.type === 'booking_requested' || n.type === 'booking_confirmed'),
+      'Notifications present',
     )
   } catch (err) {
     failures.push(String(err))
@@ -234,7 +243,7 @@ async function main() {
     console.error(`\n${failures.length} failure(s)`)
     process.exit(1)
   }
-  console.log('\nE2E booking OK')
+  console.log('\nE2E booking UX OK')
 }
 
 main()

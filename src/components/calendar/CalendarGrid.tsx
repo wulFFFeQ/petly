@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BRAND_NAME } from '../../lib/brand'
 import {
   CALENDAR_CATEGORY_OPTIONS,
@@ -72,6 +73,7 @@ function addEventToDayMap(
 }
 
 export function CalendarGrid() {
+  const navigate = useNavigate()
   const {
     calendarEvents,
     setActiveModal,
@@ -251,6 +253,13 @@ export function CalendarGrid() {
   }
 
   const handleEdit = (event: CalendarDayEvent) => {
+    if (event.type === 'booking' || event.sourceBookingId) {
+      const bookingId = event.sourceBookingId
+      if (bookingId) {
+        navigate(`/bookings/${bookingId}`)
+        return
+      }
+    }
     if (event.type === 'heat' || event.type === 'pregnancy') {
       const master = calendarEvents.find((e) => e.id === event.id)
       openEditCalendarEvent(event.id, {

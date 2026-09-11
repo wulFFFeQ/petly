@@ -101,7 +101,7 @@ export function buildBookingNotification(
       message = when
         ? `${proName} potvrdil/a ${serviceName} (${when}).`
         : `${proName} potvrdil/a ${serviceName}.`
-      href = `/calendar?bookingId=${booking.id}`
+      href = `/bookings/${booking.id}`
       break
     }
     case 'declined': {
@@ -109,7 +109,7 @@ export function buildBookingNotification(
       type = 'booking_declined'
       title = 'Rezervace odmítnuta'
       message = `${proName} odmítl/a žádost o ${serviceName}.`
-      href = `/calendar?bookingId=${booking.id}`
+      href = `/bookings/${booking.id}`
       break
     }
     case 'cancelled': {
@@ -121,7 +121,7 @@ export function buildBookingNotification(
         ? `${proName} zrušil/a rezervaci ${serviceName}.`
         : `Majitel zrušil rezervaci ${serviceName}.`
       href = byPro
-        ? `/calendar?bookingId=${booking.id}`
+        ? `/bookings/${booking.id}`
         : `/professional/bookings/${booking.id}`
       break
     }
@@ -130,7 +130,7 @@ export function buildBookingNotification(
       type = 'booking_completed'
       title = 'Rezervace dokončena'
       message = `${serviceName} u ${proName} byla dokončena.`
-      href = `/calendar?bookingId=${booking.id}`
+      href = `/bookings/${booking.id}`
       break
     }
     case 'reminder': {
@@ -141,7 +141,7 @@ export function buildBookingNotification(
       message = when
         ? `Blíží se rezervace ${serviceName} u ${proName} (${when}).`
         : `Blíží se rezervace ${serviceName} u ${proName}.`
-      href = `/calendar?bookingId=${booking.id}`
+      href = `/bookings/${booking.id}`
       break
     }
     default:

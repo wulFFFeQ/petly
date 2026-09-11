@@ -76,7 +76,7 @@ export function BookingCalendar({
               <button
                 key={slot.startAt}
                 type="button"
-                data-testid={`booking-slot-${slot.startAt}`}
+                data-testid={`booking-time-${slot.startAt}`}
                 onClick={() => onSelectSlot(slot)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active

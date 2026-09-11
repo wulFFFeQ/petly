@@ -11,6 +11,8 @@ import { CommunityPage } from './pages/CommunityPage'
 import { ConciergePage } from './pages/ConciergePage'
 import { ContactsPage } from './pages/ContactsPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { MyBookingsPage } from './pages/MyBookingsPage'
+import { MyBookingDetailPage } from './pages/MyBookingDetailPage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { DiscoverPetPage } from './pages/DiscoverPetPage'
 import { FoundPetPage } from './pages/FoundPetPage'
@@ -125,6 +127,8 @@ function App() {
               <Route path="community" element={<CommunityPage />} />
               <Route path="health" element={<HealthPage />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="bookings" element={<MyBookingsPage />} />
+              <Route path="bookings/:id" element={<MyBookingDetailPage />} />
               <Route path="messages" element={<MessagesPage />} />
               <Route path="travel" element={<TravelPage />} />
               <Route path="contacts" element={<ContactsPage />} />

@@ -408,6 +408,43 @@ export function partitionProfessionalBookings(
   return { neue, confirmed, today, upcoming, history }
 }
 
+/** Consumer „Moje rezervace“ sections. */
+export function partitionOwnerBookings(
+  ownerAccountId: string,
+  now = new Date(),
+): {
+  pending: Booking[]
+  upcoming: Booking[]
+  past: Booking[]
+  cancelled: Booking[]
+} {
+  const all = listBookings({ ownerAccountId })
+  const nowMs = now.getTime()
+  const pending = all
+    .filter((b) => b.status === 'requested')
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+  const upcoming = all
+    .filter(
+      (b) =>
+        b.status === 'confirmed' && Date.parse(b.startAt) >= nowMs,
+    )
+    .sort((a, b) => a.startAt.localeCompare(b.startAt))
+  const past = all
+    .filter(
+      (b) =>
+        b.status === 'completed' ||
+        b.status === 'no_show' ||
+        (b.status === 'confirmed' && Date.parse(b.startAt) < nowMs),
+    )
+    .sort((a, b) => b.startAt.localeCompare(a.startAt))
+  const cancelled = all
+    .filter((b) =>
+      ['declined', 'cancelled_by_owner', 'cancelled_by_professional'].includes(b.status),
+    )
+    .sort((a, b) => b.startAt.localeCompare(a.startAt))
+  return { pending, upcoming, past, cancelled }
+}
+
 function toLocalDateIso(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')

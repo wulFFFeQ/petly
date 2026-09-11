@@ -1,5 +1,6 @@
 import {
   Calendar,
+  CalendarCheck2,
   Heart,
   HelpCircle,
   LayoutDashboard,
@@ -29,6 +30,7 @@ export function Sidebar() {
     { to: '/community', label: 'Komunita', icon: Users },
     { to: '/health', label: 'Zdraví', icon: Heart, badge: 'Aktivní' },
     { to: '/calendar', label: 'Kalendář', icon: Calendar },
+    { to: '/bookings', label: 'Rezervace', icon: CalendarCheck2 },
     { to: '/messages', label: 'Zprávy', icon: MessageCircle, badge: '2' },
   ]
 

@@ -214,9 +214,14 @@ export function notificationHrefFallback(item: AppNotification): string | null {
     item.type === 'booking_completed' ||
     item.type === 'booking_reminder'
   ) {
-    if (item.relatedBookingId && item.href) return item.href
-    if (item.relatedBookingId) return `/calendar?bookingId=${item.relatedBookingId}`
-    return '/calendar'
+    if (item.href) return item.href
+    if (item.relatedBookingId) {
+      if (item.type === 'booking_requested') {
+        return `/professional/bookings/${item.relatedBookingId}`
+      }
+      return `/bookings/${item.relatedBookingId}`
+    }
+    return '/bookings'
   }
   return null
 }

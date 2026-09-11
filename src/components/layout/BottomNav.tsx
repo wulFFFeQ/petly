@@ -1,5 +1,6 @@
 import {
   Calendar,
+  CalendarCheck2,
   Heart,
   LayoutDashboard,
   MessageCircle,
@@ -28,6 +29,7 @@ const mainItems = [
 
 const moreItems = [
   { to: '/calendar', label: 'Kalendář', icon: Calendar },
+  { to: '/bookings', label: 'Rezervace', icon: CalendarCheck2 },
   { to: '/messages', label: 'Zprávy', icon: MessageCircle },
   { to: '/travel', label: 'Cestování', icon: Plane },
   { to: '/contacts', label: 'Důležité kontakty', icon: Phone },

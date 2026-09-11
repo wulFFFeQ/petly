@@ -312,6 +312,11 @@ export function getCalendarChipTitle(event: {
   vaccineName?: string
   partnerName?: string
 }): string {
+  if (event.type === 'booking') {
+    const t = event.title.replace(/^Rezervace\s*[–-]\s*/i, '').trim()
+    if (t) return t.length > 16 ? `Rez. · ${t.slice(0, 12)}…` : `Rez. · ${t}`
+    return 'Rezervace'
+  }
   if (event.type === 'medication') {
     const name = event.medicationName?.trim()
     if (name) return name.length > 18 ? `Lék – ${name.slice(0, 16)}…` : `Lék – ${name}`

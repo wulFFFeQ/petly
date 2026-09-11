@@ -80,6 +80,7 @@ export {
   completeBooking,
   markNoShow,
   partitionProfessionalBookings,
+  partitionOwnerBookings,
   type CreateBookingInput,
   type ListBookingsFilter,
   type CancelBookingActor,
