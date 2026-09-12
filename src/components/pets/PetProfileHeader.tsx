@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { petTypeLabel } from '../../data/mockData'
+import { getPetTypeGenderLabel } from '../../lib/petTypes'
 import { useApp } from '../../context/AppContext'
 import type { Pet } from '../../types'
 import { BRAND_NAME } from '../../lib/brand'
@@ -484,7 +484,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
                 )}
                 {/* BREED ROW */}
                 <p className={`${pet.lostStatus === 'found' || pet.lostStatus === 'closed' ? 'mt-0.5' : 'mt-1.5'} text-sm font-medium leading-normal text-[#4A564F]`}>
-                  {pet.breed} · {petTypeLabel[pet.type]}
+                  {pet.breed} · {getPetTypeGenderLabel(pet.type, pet.gender)}
                 </p>
               </div>
             </div>

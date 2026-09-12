@@ -107,3 +107,15 @@ export function normalizeGenderForType(
   // Unknown legacy value → default by species
   return getDefaultGender(type)
 }
+
+/**
+ * Badge / display label by species + gender:
+ * dog → Pes / Fena, cat → Kocour / Kočka.
+ * Falls back to generic species label when gender is unknown.
+ */
+export function getPetTypeGenderLabel(
+  type: PetType,
+  gender?: string | null,
+): string {
+  return normalizeGenderForType(gender ?? undefined, type) ?? petTypeLabel[type]
+}

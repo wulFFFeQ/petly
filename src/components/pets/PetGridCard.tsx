@@ -2,7 +2,7 @@ import { ArrowUpRight, CalendarClock, MapPin, Scale, Stethoscope } from 'lucide-
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { petTypeLabel } from '../../data/mockData'
+import { getPetTypeGenderLabel } from '../../lib/petTypes'
 import type { CalendarEvent, HealthRecord, LostPetAnnouncement, LostPetReport, Pet } from '../../types'
 import {
   formatNeuteredStatus,
@@ -180,7 +180,7 @@ export function PetGridCard({
           topLeft={
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant="default" size="sm" className="bg-white/90 shadow-xs backdrop-blur-md">
-                {petTypeLabel[pet.type]}
+                {getPetTypeGenderLabel(pet.type, pet.gender)}
               </Badge>
               {hasActiveBreedingProfile(pet) && (
                 <Badge
