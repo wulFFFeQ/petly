@@ -3,7 +3,7 @@ import type { PetType } from './petTypes'
 import { petPlaceholderImages } from './petTypes'
 
 export const DOG_BREED_IMAGES: Record<string, string> = {
-  'Afgánský chrt': 'https://images.dog.ceo/breeds/hound-afghan/n02088094_907.jpg',
+  'Afgánský chrt': 'https://images.dog.ceo/breeds/hound-afghan/n02088094_3629.jpg',
   'Aidi': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Airedale terier': 'https://images.dog.ceo/breeds/airedale/n02096051_3796.jpg',
   'Akita': 'https://images.dog.ceo/breeds/akita/akita_hiking_in_shpella_e_pellumbasit.jpg',
