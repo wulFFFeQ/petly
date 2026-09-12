@@ -1,8 +1,8 @@
 /**
- * LAUNCH 02 — production backend feature gate.
+ * Production backend feature gate — Node API (not Supabase).
  *
- * Missing public Supabase env ⇒ DEMO path.
- * Never invent a fake backend. Never put service_role behind VITE_.
+ * Missing VITE_API_BASE_URL ⇒ DEMO path.
+ * Never invent a fake backend. Never put server secrets behind VITE_.
  */
 
 export const PRODUCTION_CONNECTION_NOT_CONFIGURED =
@@ -23,23 +23,25 @@ function readVite(name: string): string | undefined {
   }
 }
 
-/** Public client keys only — never service_role. */
-export function getSupabasePublicConfig(): {
-  url: string
-  anonKey: string
-} | null {
-  const url = readVite('VITE_SUPABASE_URL')
-  const anonKey = readVite('VITE_SUPABASE_ANON_KEY')
-  if (!url || !anonKey) return null
-  return { url, anonKey }
+/** Public API base URL only — never DATABASE_URL / SESSION_SECRET. */
+export function getApiPublicConfig(): { baseUrl: string } | null {
+  const baseUrl = readVite('VITE_API_BASE_URL')
+  if (!baseUrl) return null
+  return { baseUrl: baseUrl.replace(/\/$/, '') }
+}
+
+/** @deprecated Use getApiPublicConfig — kept name for gradual call-site migration. */
+export function getSupabasePublicConfig(): { url: string; anonKey: string } | null {
+  const api = getApiPublicConfig()
+  if (!api) return null
+  return { url: api.baseUrl, anonKey: '' }
 }
 
 /**
- * True when browser may use Supabase Auth + call Edge Functions with user JWT.
- * Does NOT mean service_role is available (that is server-only).
+ * True when browser may call the Node API with cookie sessions.
  */
 export function isProductionBackendConfigured(): boolean {
-  return getSupabasePublicConfig() !== null
+  return getApiPublicConfig() !== null
 }
 
 export function getBackendEnvironmentStatus(): BackendEnvironmentStatus {
@@ -48,9 +50,8 @@ export function getBackendEnvironmentStatus(): BackendEnvironmentStatus {
     : PRODUCTION_CONNECTION_NOT_CONFIGURED
 }
 
-/** Explicit status string for reports / UI honesty. */
 export function getProductionConnectionStatus(): string {
   return getBackendEnvironmentStatus() === PRODUCTION_CONNECTION_NOT_CONFIGURED
     ? PRODUCTION_CONNECTION_NOT_CONFIGURED
-    : 'CLIENT CONFIGURED — verify server secrets in Edge Function runtime'
+    : 'CLIENT CONFIGURED — verify server DATABASE_URL + SESSION_SECRET'
 }

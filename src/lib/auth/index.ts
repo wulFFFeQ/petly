@@ -1,8 +1,4 @@
 export {
-  getSupabaseBrowserClient,
-  resetSupabaseBrowserClientForTests,
-} from './supabaseClient'
-export {
   getAuthSession,
   getAuthenticatedUserId,
   isRealAuthAvailable,
@@ -11,7 +7,9 @@ export {
   signOutAuth,
   signUpWithEmailPassword,
   type AuthResult,
-} from './supabaseAuth'
+  type AuthSession,
+  type AuthAccount,
+} from './sessionAuth'
 export {
   clearAuthSessionCache,
   getCachedAuthenticatedAccountId,

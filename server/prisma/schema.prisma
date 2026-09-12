@@ -1,0 +1,768 @@
+// LAUNCH-02 domain tables + application auth (no auth.users / Supabase).
+// Domain SSOT remains in src/types — Prisma models are persistence only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id          String   @id @default(uuid()) @db.Uuid
+  kind        String
+  roles       String[] @default([])
+  displayName String?  @map("display_name")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  credential            Credential?
+  sessions              Session[]
+  ownedPets             Pet[]                    @relation("PetOwner")
+  householdGrants       PetHouseholdAccess[]     @relation("HouseholdGrantee")
+  householdGranted      PetHouseholdAccess[]     @relation("HouseholdGranter")
+  householdLogs         PetHouseholdAccessLog[]
+  orgMemberships        OrganizationMembership[]
+  orgPetGranted         OrganizationPetAccess[]  @relation("OrgPetGranter")
+  orgPetRequested       OrganizationPetAccess[]  @relation("OrgPetRequester")
+  professionalProfiles  ProfessionalProfile[]
+  proAccessGranted      PetProfessionalAccess[]  @relation("ProAccessGranter")
+  bookingsOwned         Booking[]                @relation("BookingOwner")
+  messagesSent          Message[]
+  notifications         Notification[]
+  subscriptions         SubscriptionRecord[]
+  payments              Payment[]                @relation("PaymentOwner")
+  reviewsAuthored       ProfessionalReview[]
+  healthRecordsCreated  HealthRecord[]
+  weightsCreated        WeightMeasurement[]
+  encountersCreated     ClinicalEncounter[]
+  documentsCreated      PetDocument[]
+  idempotencyRecords    IdempotencyRecord[]
+
+  @@index([createdAt])
+  @@map("accounts")
+}
+
+model Credential {
+  id           String   @id @default(uuid()) @db.Uuid
+  accountId    String   @unique @map("account_id") @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("credentials")
+}
+
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Pet {
+  id                    String    @id @default(uuid()) @db.Uuid
+  ownerAccountId        String    @map("owner_account_id") @db.Uuid
+  name                  String
+  type                  String
+  breed                 String?
+  image                 String?
+  sex                   String?
+  birthDate             DateTime? @map("birth_date") @db.Date
+  weight                Decimal?  @db.Decimal
+  microchip             String?
+  foundContactToken     String?   @map("found_contact_token")
+  emergencyCard         Json?     @map("emergency_card")
+  breeding              Json?
+  privacy               Json?
+  connectionPreferences Json?     @map("connection_preferences")
+  lostLifecycle         String?   @map("lost_lifecycle")
+  publicSlug            String?   @map("public_slug")
+  payload               Json      @default("{}")
+  withdrawnAt           DateTime? @map("withdrawn_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner              Account                  @relation("PetOwner", fields: [ownerAccountId], references: [id], onDelete: Restrict)
+  householdAccess    PetHouseholdAccess[]
+  householdLogs      PetHouseholdAccessLog[]
+  orgPetAccess       OrganizationPetAccess[]
+  professionalAccess PetProfessionalAccess[]
+  professionalLogs   ProfessionalAccessLog[]
+  bookings           Booking[]
+  conversations      Conversation[]
+  healthRecords      HealthRecord[]
+  weights            WeightMeasurement[]
+  encounters         ClinicalEncounter[]
+  documents          PetDocument[]
+
+  @@index([ownerAccountId])
+  @@index([createdAt])
+  @@index([withdrawnAt])
+  @@map("pets")
+}
+
+model PetHouseholdAccess {
+  id                 String    @id @default(uuid()) @db.Uuid
+  petId              String    @map("pet_id") @db.Uuid
+  accountId          String    @map("account_id") @db.Uuid
+  role               String
+  permissions        String[]  @default([])
+  status             String
+  grantedByAccountId String    @map("granted_by_account_id") @db.Uuid
+  grantedAt          DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz(6)
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz(6)
+  invitedAt          DateTime? @map("invited_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet     Pet     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  account Account @relation("HouseholdGrantee", fields: [accountId], references: [id], onDelete: Cascade)
+  granter Account @relation("HouseholdGranter", fields: [grantedByAccountId], references: [id])
+
+  @@unique([petId, accountId])
+  @@index([accountId])
+  @@index([petId])
+  @@index([status])
+  @@map("pet_household_access")
+}
+
+model PetHouseholdAccessLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  petId     String   @map("pet_id") @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet     Pet     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@map("pet_household_access_logs")
+}
+
+model Organization {
+  id               String   @id @default(uuid()) @db.Uuid
+  displayName      String   @map("display_name")
+  legalName        String?  @map("legal_name")
+  organizationType String   @map("organization_type")
+  status           String
+  publicVisibility String   @map("public_visibility")
+  payload          Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships          OrganizationMembership[]
+  petAccess            OrganizationPetAccess[]
+  professionalProfiles ProfessionalProfile[]
+  encounters           ClinicalEncounter[]
+
+  @@index([status])
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  accountId         String    @map("account_id") @db.Uuid
+  role              String
+  status            String
+  invitedByAccountId String?  @map("invited_by_account_id") @db.Uuid
+  joinedAt          DateTime? @map("joined_at") @db.Timestamptz(6)
+  leftAt            DateTime? @map("left_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, accountId])
+  @@index([accountId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("organization_memberships")
+}
+
+model OrganizationPetAccess {
+  id                   String    @id @default(uuid()) @db.Uuid
+  petId                String    @map("pet_id") @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  permissions          String[]  @default([])
+  status               String
+  visibilityMode       String    @map("visibility_mode")
+  eligibleRoles        String[]  @default([]) @map("eligible_roles")
+  assignedAccountIds   String[]  @default([]) @map("assigned_account_ids") @db.Uuid
+  locationId           String?   @map("location_id")
+  requestedAt          DateTime? @map("requested_at") @db.Timestamptz(6)
+  requestedByAccountId String?   @map("requested_by_account_id") @db.Uuid
+  grantedAt            DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  expiresAt            DateTime? @map("expires_at") @db.Timestamptz(6)
+  revokedAt            DateTime? @map("revoked_at") @db.Timestamptz(6)
+  grantedByAccountId   String    @map("granted_by_account_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet          Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  granter      Account      @relation("OrgPetGranter", fields: [grantedByAccountId], references: [id])
+  requester    Account?     @relation("OrgPetRequester", fields: [requestedByAccountId], references: [id])
+
+  @@unique([petId, organizationId])
+  @@index([petId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("organization_pet_access")
+}
+
+model ProfessionalProfile {
+  id                      String   @id @default(uuid()) @db.Uuid
+  accountId               String   @map("account_id") @db.Uuid
+  type                    String
+  displayName             String   @map("display_name")
+  organizationId          String?  @map("organization_id") @db.Uuid
+  organizationName        String?  @map("organization_name")
+  description             String?
+  phone                   String?
+  email                   String?
+  address                 String?
+  website                 String?
+  city                    String?
+  specializations         String[] @default([])
+  hoursSummary            String?  @map("hours_summary")
+  professionalCredentials Json?    @map("professional_credentials")
+  profilePhotoUrl         String?  @map("profile_photo_url")
+  logoUrl                 String?  @map("logo_url")
+  services                String[] @default([])
+  publicVisibility        String   @default("private") @map("public_visibility")
+  verificationStatus      String   @default("unverified") @map("verification_status")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account               Account                            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organization          Organization?                      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  petAccess             PetProfessionalAccess[]
+  accessLogs            ProfessionalAccessLog[]
+  professionalServices  ProfessionalService[]
+  availability          ProfessionalAvailability[]
+  availabilityExceptions ProfessionalAvailabilityException[]
+  bookingPolicy         ProfessionalBookingPolicy?
+  bookings              Booking[]
+  conversations         Conversation[]
+  payments              Payment[]
+  reviews               ProfessionalReview[]
+  encounters            ClinicalEncounter[]
+
+  @@index([accountId])
+  @@index([organizationId])
+  @@map("professional_profiles")
+}
+
+model PetProfessionalAccess {
+  id                 String    @id @default(uuid()) @db.Uuid
+  petId              String    @map("pet_id") @db.Uuid
+  professionalId     String    @map("professional_id") @db.Uuid
+  permissions        String[]  @default([])
+  status             String
+  requestedAt        DateTime? @map("requested_at") @db.Timestamptz(6)
+  grantedAt          DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz(6)
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz(6)
+  grantedByAccountId String    @map("granted_by_account_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet          Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  granter      Account             @relation("ProAccessGranter", fields: [grantedByAccountId], references: [id])
+
+  @@unique([petId, professionalId])
+  @@index([petId])
+  @@index([professionalId])
+  @@index([status])
+  @@map("pet_professional_access")
+}
+
+model ProfessionalAccessLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  petId          String   @map("pet_id") @db.Uuid
+  professionalId String   @map("professional_id") @db.Uuid
+  action         String
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pet          Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([petId])
+  @@index([professionalId])
+  @@map("professional_access_logs")
+}
+
+model ProfessionalService {
+  id                String   @id @default(uuid()) @db.Uuid
+  professionalId    String   @map("professional_id") @db.Uuid
+  name              String
+  category          String?
+  durationMinutes   Int      @map("duration_minutes")
+  price             Decimal? @db.Decimal
+  currency          String?
+  priceType         String?  @map("price_type")
+  publicVisibility  String   @default("private") @map("public_visibility")
+  locationType      String?  @map("location_type")
+  paymentCollection String?  @map("payment_collection")
+  depositType       String?  @map("deposit_type")
+  depositValue      Decimal? @map("deposit_value") @db.Decimal
+  active            Boolean  @default(true)
+  payload           Json     @default("{}")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+
+  @@index([professionalId])
+  @@map("professional_services")
+}
+
+model ProfessionalAvailability {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @map("professional_id") @db.Uuid
+  weekday        Int      @db.SmallInt
+  startTime      DateTime @map("start_time") @db.Time(6)
+  endTime        DateTime @map("end_time") @db.Time(6)
+  timezone       String?
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@map("professional_availability")
+}
+
+model ProfessionalAvailabilityException {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @map("professional_id") @db.Uuid
+  startsAt       DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt         DateTime @map("ends_at") @db.Timestamptz(6)
+  kind           String   @default("blocked")
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@map("professional_availability_exceptions")
+}
+
+model ProfessionalBookingPolicy {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @unique @map("professional_id") @db.Uuid
+  payload        Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@map("professional_booking_policies")
+}
+
+model Booking {
+  id                     String    @id @default(uuid()) @db.Uuid
+  ownerAccountId         String    @map("owner_account_id") @db.Uuid
+  professionalId         String    @map("professional_id") @db.Uuid
+  serviceId              String    @map("service_id") @db.Uuid
+  petId                  String    @map("pet_id") @db.Uuid
+  startAt                DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt                  DateTime  @map("end_at") @db.Timestamptz(6)
+  status                 String
+  note                   String?
+  serviceNameSnapshot    String?   @map("service_name_snapshot")
+  petName                String?   @map("pet_name")
+  professionalName       String?   @map("professional_name")
+  ownerDisplayName       String?   @map("owner_display_name")
+  priceSnapshot          Decimal?  @map("price_snapshot") @db.Decimal
+  currencySnapshot       String?   @map("currency_snapshot")
+  durationSnapshot       Int?      @map("duration_snapshot")
+  clientRequestId        String?   @map("client_request_id")
+  cancelledAt            DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason     String?   @map("cancellation_reason")
+  cancellationReasonCode String?   @map("cancellation_reason_code")
+  confirmedAt            DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  completedAt            DateTime? @map("completed_at") @db.Timestamptz(6)
+  declinedAt             DateTime? @map("declined_at") @db.Timestamptz(6)
+  originalStartAt        DateTime? @map("original_start_at") @db.Timestamptz(6)
+  originalEndAt          DateTime? @map("original_end_at") @db.Timestamptz(6)
+  rescheduledAt          DateTime? @map("rescheduled_at") @db.Timestamptz(6)
+  noShowAt               DateTime? @map("no_show_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner        Account             @relation("BookingOwner", fields: [ownerAccountId], references: [id], onDelete: Restrict)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  service      ProfessionalService @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  pet          Pet                 @relation(fields: [petId], references: [id], onDelete: Restrict)
+  conversations Conversation[]
+  payments     Payment[]
+  reviews      ProfessionalReview[]
+  encounters   ClinicalEncounter[]
+
+  @@index([ownerAccountId])
+  @@index([professionalId])
+  @@index([petId])
+  @@index([status])
+  @@index([startAt])
+  @@index([createdAt])
+  @@map("bookings")
+}
+
+model Conversation {
+  id                    String   @id @default(uuid()) @db.Uuid
+  contactType           String?  @map("contact_type")
+  participantAccountIds String[] @map("participant_account_ids") @db.Uuid
+  bookingId             String?  @map("booking_id") @db.Uuid
+  professionalId        String?  @map("professional_id") @db.Uuid
+  petId                 String?  @map("pet_id") @db.Uuid
+  subject               String?
+  payload               Json     @default("{}")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking      Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  professional ProfessionalProfile? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  pet          Pet?                 @relation(fields: [petId], references: [id], onDelete: SetNull)
+  messages     Message[]
+
+  @@index([bookingId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderAccountId String  @map("sender_account_id") @db.Uuid
+  text           String?
+  attachment     Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Account      @relation(fields: [senderAccountId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@index([senderAccountId])
+  @@map("messages")
+}
+
+model Notification {
+  id                 String   @id @default(uuid()) @db.Uuid
+  recipientAccountId String   @map("recipient_account_id") @db.Uuid
+  type               String
+  title              String
+  message            String
+  dedupeKey          String?  @map("dedupe_key")
+  relatedIds         Json?    @map("related_ids")
+  priority           String?
+  unread             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipient Account @relation(fields: [recipientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([recipientAccountId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model SubscriptionRecord {
+  id               String    @id @default(uuid()) @db.Uuid
+  accountId        String    @map("account_id") @db.Uuid
+  plan             String
+  status           String
+  provider         String    @default("demo")
+  currentPeriodEnd DateTime? @map("current_period_end") @db.Timestamptz(6)
+  payload          Json      @default("{}")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([status])
+  @@map("subscription_records")
+}
+
+model Payment {
+  id              String   @id @default(uuid()) @db.Uuid
+  bookingId       String?  @map("booking_id") @db.Uuid
+  ownerAccountId  String   @map("owner_account_id") @db.Uuid
+  professionalId  String?  @map("professional_id") @db.Uuid
+  amountMinor     Int      @map("amount_minor")
+  currency        String   @default("CZK")
+  paymentType     String?  @map("payment_type")
+  status          String
+  purpose         String?
+  isDemoPayment   Boolean  @default(true) @map("is_demo_payment")
+  provider        String   @default("demo")
+  payload         Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking      Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  owner        Account              @relation("PaymentOwner", fields: [ownerAccountId], references: [id], onDelete: Restrict)
+  professional ProfessionalProfile? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+
+  @@index([ownerAccountId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model ProfessionalReview {
+  id               String   @id @default(uuid()) @db.Uuid
+  bookingId        String   @unique @map("booking_id") @db.Uuid
+  professionalId   String   @map("professional_id") @db.Uuid
+  authorAccountId  String   @map("author_account_id") @db.Uuid
+  rating           Int      @db.SmallInt
+  body             String?
+  status           String
+  reply            String?
+  isDemo           Boolean  @default(false) @map("is_demo")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking      Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  author       Account             @relation(fields: [authorAccountId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([authorAccountId])
+  @@map("professional_reviews")
+}
+
+model HealthRecord {
+  id                 String    @id @default(uuid()) @db.Uuid
+  petId              String    @map("pet_id") @db.Uuid
+  type               String
+  title              String?
+  date               DateTime? @db.Date
+  notes              String?
+  status             String?
+  version            Int       @default(1)
+  encounterId        String?   @map("encounter_id") @db.Uuid
+  createdByAccountId String?   @map("created_by_account_id") @db.Uuid
+  recordSource       String?   @map("record_source")
+  withdrawnAt        DateTime? @map("withdrawn_at") @db.Timestamptz(6)
+  payload            Json      @default("{}")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet       Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
+  encounter ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdBy Account?           @relation(fields: [createdByAccountId], references: [id])
+  versions  HealthRecordVersion[]
+
+  @@index([petId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("health_records")
+}
+
+model HealthRecordVersion {
+  id        String   @id @default(uuid()) @db.Uuid
+  recordId  String   @map("record_id") @db.Uuid
+  version   Int
+  snapshot  Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  record HealthRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([recordId, version])
+  @@index([recordId])
+  @@map("health_record_versions")
+}
+
+model WeightMeasurement {
+  id                 String   @id @default(uuid()) @db.Uuid
+  petId              String   @map("pet_id") @db.Uuid
+  measuredOn         DateTime @map("measured_on") @db.Date
+  weight             Decimal  @db.Decimal
+  version            Int      @default(1)
+  encounterId        String?  @map("encounter_id") @db.Uuid
+  createdByAccountId String?  @map("created_by_account_id") @db.Uuid
+  payload            Json     @default("{}")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet       Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
+  encounter ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdBy Account?           @relation(fields: [createdByAccountId], references: [id])
+
+  @@index([petId])
+  @@index([createdAt])
+  @@map("weight_measurements")
+}
+
+model ClinicalEncounter {
+  id                 String    @id @default(uuid()) @db.Uuid
+  petId              String    @map("pet_id") @db.Uuid
+  status             String
+  encounterType      String?   @map("encounter_type")
+  startedAt          DateTime? @map("started_at") @db.Timestamptz(6)
+  endedAt            DateTime? @map("ended_at") @db.Timestamptz(6)
+  professionalId     String?   @map("professional_id") @db.Uuid
+  organizationId     String?   @map("organization_id") @db.Uuid
+  bookingId          String?   @map("booking_id") @db.Uuid
+  version            Int       @default(1)
+  createdByAccountId String?   @map("created_by_account_id") @db.Uuid
+  withdrawnAt        DateTime? @map("withdrawn_at") @db.Timestamptz(6)
+  payload            Json      @default("{}")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet          Pet                  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile? @relation(fields: [professionalId], references: [id])
+  organization Organization?        @relation(fields: [organizationId], references: [id])
+  booking      Booking?             @relation(fields: [bookingId], references: [id])
+  createdBy    Account?             @relation(fields: [createdByAccountId], references: [id])
+  versions     ClinicalEncounterVersion[]
+  healthRecords HealthRecord[]
+  weights      WeightMeasurement[]
+  documents    PetDocument[]
+
+  @@index([petId])
+  @@index([professionalId])
+  @@index([bookingId])
+  @@index([status])
+  @@map("clinical_encounters")
+}
+
+model ClinicalEncounterVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  version     Int
+  snapshot    Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  encounter ClinicalEncounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@unique([encounterId, version])
+  @@index([encounterId])
+  @@map("clinical_encounter_versions")
+}
+
+model PetDocument {
+  id                 String    @id @default(uuid()) @db.Uuid
+  petId              String    @map("pet_id") @db.Uuid
+  category           String?
+  documentType       String?   @map("document_type")
+  filename           String
+  mimeType           String    @map("mime_type")
+  sizeBytes          BigInt    @map("size_bytes")
+  storageKey         String    @map("storage_key")
+  isPublic           Boolean   @default(false) @map("is_public")
+  version            Int       @default(1)
+  encounterId        String?   @map("encounter_id") @db.Uuid
+  createdByAccountId String?   @map("created_by_account_id") @db.Uuid
+  withdrawnAt        DateTime? @map("withdrawn_at") @db.Timestamptz(6)
+  payload            Json      @default("{}")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  pet       Pet                @relation(fields: [petId], references: [id], onDelete: Cascade)
+  encounter ClinicalEncounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdBy Account?           @relation(fields: [createdByAccountId], references: [id])
+  versions  PetDocumentVersion[]
+
+  @@index([petId])
+  @@index([storageKey])
+  @@index([createdAt])
+  @@map("pet_documents")
+}
+
+model PetDocumentVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  version    Int
+  snapshot   Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  document PetDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version])
+  @@index([documentId])
+  @@map("pet_document_versions")
+}
+
+model AuditEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  kind            String   @default("authorization_decision")
+  actorAccountId  String?  @map("actor_account_id") @db.Uuid
+  actorType       String?  @map("actor_type")
+  resourceType    String   @map("resource_type")
+  resourceId      String   @map("resource_id")
+  action          String
+  result          String
+  reasonCode      String?  @map("reason_code")
+  denyCode        String?  @map("deny_code")
+  denyClass       String?  @map("deny_class")
+  organizationId  String?  @map("organization_id") @db.Uuid
+  professionalId  String?  @map("professional_id") @db.Uuid
+  membershipId    String?  @map("membership_id") @db.Uuid
+  grantId         String?  @map("grant_id") @db.Uuid
+  permission      String?
+  allowPath       String?  @map("allow_path")
+  correlationId   String?  @map("correlation_id")
+  requestId       String?  @map("request_id")
+  idempotencyRef  String?  @map("idempotency_ref")
+  source          String?
+  authority       String
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([actorAccountId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@map("audit_events")
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  storageKey     String   @unique @map("storage_key")
+  actorAccountId String   @map("actor_account_id") @db.Uuid
+  operation      String
+  resourceRef    String   @map("resource_ref")
+  clientKey      String   @map("client_key")
+  fingerprint    String
+  state          String
+  result         Json?
+  errorCode      String?  @map("error_code")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  actor Account @relation(fields: [actorAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([actorAccountId, operation, resourceRef, clientKey])
+  @@index([actorAccountId])
+  @@index([createdAt])
+  @@map("idempotency_records")
+}

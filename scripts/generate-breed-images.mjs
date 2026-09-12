@@ -68,7 +68,7 @@ const DOG_CURATED_IMAGES = {
   'Bergamský ovčák': '/breeds/bergamsky-ovcak.jpg?v=2',
   'Bernský salašnický pes': '/breeds/bernsky-salasnicky-pes.jpg?v=1',
   'Biewer teriér': '/breeds/biewer-terier.jpg?v=1',
-  Billy: '/breeds/billy.jpg?v=5',
+  Billy: '/breeds/billy.jpg?v=6',
   'Bílý švýcarský ovčák': '/breeds/bily-svycarsky-ovcak.jpg?v=1',
   Bišonek: '/breeds/bisonek.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),

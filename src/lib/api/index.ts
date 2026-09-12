@@ -1,4 +1,4 @@
-export { invokeEdgeFunction, type ApiResult } from './edgeClient'
+export { invokeApi, invokeEdgeFunction, type ApiResult } from './apiClient'
 export * from './petsRemote'
 export * from './accessRemote'
 export * from './messagingRemote'
