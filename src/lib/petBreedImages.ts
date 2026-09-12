@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 20
+export const BREED_IMAGE_SYNC_GENERATION = 22
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -108,9 +108,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Bruselský grifonek': '/breeds/bruselsky-grifonek.jpg?v=1',
   'Bullmastif': '/breeds/bullmastif.jpg?v=1',
   'Bulteriér': '/breeds/bulterier.jpg?v=1',
-  'Burgoský perdiquero': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Búrský buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
-  'Cairn Terier': 'https://images.dog.ceo/breeds/terrier-cairn/n02096177_5147.jpg',
+  'Burgoský perdiquero': '/breeds/burgosky-perdiquero.jpg?v=2',
+  'Búrský buldok': '/breeds/bursky-buldok.jpg?v=1',
+  'Cairn Terier': '/breeds/cairn-terier.jpg?v=1',
   'Cao de Castro Laboreiro': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Cao de Serra de Aires': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Clumber španěl': 'https://images.dog.ceo/breeds/clumber/n02101556_3100.jpg',
@@ -581,6 +581,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/bruselsky-grifonek',
   'breeds/bullmastif',
   'breeds/bulterier',
+  'breeds/burgosky-perdiquero',
+  'breeds/bursky-buldok',
+  'breeds/cairn-terier',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
