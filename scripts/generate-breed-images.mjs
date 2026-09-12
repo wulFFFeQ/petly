@@ -102,7 +102,7 @@ const DOG_CURATED_IMAGES = {
   'Černohorský planinský honič': '/breeds/cernohorsky-planinsky-honic.jpg?v=1',
   'Československý vlčák': '/breeds/ceskoslovensky-vlcak.jpg?v=1',
   'Český fousek': '/breeds/cesky-fousek.jpg?v=1',
-  'Český horský pes': '/breeds/cesky-horsky-pes.jpg?v=1',
+  'Český horský pes': '/breeds/cesky-horsky-pes.jpg?v=2',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
