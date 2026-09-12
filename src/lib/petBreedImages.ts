@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 34
+export const BREED_IMAGE_SYNC_GENERATION = 35
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -129,9 +129,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=2',
   'Dánská doga': '/breeds/danska-doga.jpg?v=1',
   'Dánsko-švédský farmářský pes': '/breeds/dansko-svedsky-farmarsky-pes.jpg?v=1',
-  'Dánský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
-  'Deerhound': 'https://images.dog.ceo/breeds/deerhound-scottish/n02092002_983.jpg',
-  'Deltari Ilir': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
+  'Dánský ohař krátkosrstý': '/breeds/dansky-ohar-kratkosrsty.jpg?v=1',
+  'Deerhound': '/breeds/deerhound.jpg?v=1',
+  'Deltari Ilir': '/breeds/deltari-ilir.jpg?v=1',
   'Dlouhosrstý ohař z Pont-Audemer': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
   'Dlouhosrstý vipet': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Dobrman': 'https://images.unsplash.com/photo-1757781956803-2efc6921abe9?auto=format&fit=crop&w=1200&q=90',
@@ -601,6 +601,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/dandie-dinmont-terier',
   'breeds/danska-doga',
   'breeds/dansko-svedsky-farmarsky-pes',
+  'breeds/dansky-ohar-kratkosrsty',
+  'breeds/deerhound',
+  'breeds/deltari-ilir',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
