@@ -266,7 +266,7 @@ Coverage: A–BD, concurrency CAS, booking/encounter regressions, privacy scrub,
 
 ## 40. K60 Dependency
 
-K60 = Measurements. WeightMeasurement zůstává SSOT. Documents mohou obsahovat measurement-related files, ale nejsou LabMeasurement SSOT.
+K60 = Measurements — **done** (`docs/K60-clinical-measurements.md`). WeightMeasurement zůstává SSOT. Documents mohou obsahovat measurement-related files, ale nejsou LabMeasurement SSOT.
 
 ---
 

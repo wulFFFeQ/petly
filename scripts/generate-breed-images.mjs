@@ -85,6 +85,12 @@ const DOG_CURATED_IMAGES = {
   'Argentinská doga': '/breeds/argentinska-doga.jpg?v=1',
   // Ariégeois — French tricolor hound portrait (not fluffy mix noah01).
   'Ariégois': '/breeds/ariegois.jpg?v=1',
+  // Braque de l'Ariège — white/orange pointer portrait (not German pointer snap).
+  'Ariegský ohař krátkosrstý': '/breeds/ariegsky-ohar-kratkosrsty.jpg?v=1',
+  // Basset artésien normand — editorial basset portrait (not nose crop).
+  'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
+  // Chien d'Artois — tricolor French hound portrait (not basset nose crop).
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

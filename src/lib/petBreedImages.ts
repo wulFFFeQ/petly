@@ -29,9 +29,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Ardenský bouvier': '/breeds/ardensky-bouvier.jpg?v=1',
   'Argentinská doga': '/breeds/argentinska-doga.jpg?v=1',
   'Ariégois': '/breeds/ariegois.jpg?v=1',
-  'Ariegský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
-  'Artésko-normandský basset': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
-  'Artoisský honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
+  'Ariegský ohař krátkosrstý': '/breeds/ariegsky-ohar-kratkosrsty.jpg?v=1',
+  'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=1',
   'Australská kelpie': 'https://images.dog.ceo/breeds/australian-kelpie/resized_20200303_233358_108952253645051.jpg',
   'Australský honácký pes': 'https://images.unsplash.com/photo-1769117086709-7507034281fa?auto=format&fit=crop&w=1200&q=90',
   'Australský honácký pes s krátkým ocasem': 'https://images.unsplash.com/photo-1769117086709-7507034281fa?auto=format&fit=crop&w=1200&q=90',
@@ -486,6 +486,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/ardensky-bouvier',
   'breeds/argentinska-doga',
   'breeds/ariegois',
+  'breeds/ariegsky-ohar-kratkosrsty',
+  'breeds/artesko-normandsky-basset',
+  'breeds/artoissky-honic',
   'akita_hiking_in_shpella',
   'n02089973_2300',
   'n02102318_2971',
@@ -513,6 +516,7 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'mix/noah01',
   'n02106382_4034',
   'n02109047_31830',
+  'n02100236_5146',
 ] as const
 
 const managedUnsplashPhotoIds = new Set(

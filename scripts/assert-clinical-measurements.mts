@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import {
   createDemoClinicalService,
   createInMemoryDemoClinicalAdapter,
+  createServerClinicalPersistenceStub,
   createServerClinicalServiceStub,
   isClinicalError,
   toAuthorizedWeightView,
@@ -629,6 +630,7 @@ check('12) organization access + permission → ALLOW', () => {
 check('13) wrong pet → DENY / NOT_FOUND', () => {
   const { service } = freshService()
   ownerCreateWeight(service, { id: 'wm_wrong_pet' })
+  // Owner of bella cannot read otherPet clinical data
   expectClinicalCode(
     () =>
       service.listWeightMeasurementsForPet({
@@ -648,18 +650,7 @@ check('13) wrong pet → DENY / NOT_FOUND', () => {
       }),
     'NOT_FOUND',
   )
-  // Cross-pet id mismatch: measurement exists on bella, request as bella id on other pet path
-  expectClinicalCode(
-    () =>
-      service.getWeightMeasurement({
-        context: ctxForAccount(SELF_OWNER_ID),
-        pets,
-        petId: bella.id,
-        measurementId: 'wm_wrong_pet',
-      }),
-    // exists — should ALLOW for owner; use forged cross via other pet owner context
-  )
-  // Actor A + pet B (other owner) → DENY
+  // Measurement id on bella requested under other pet → NOT_FOUND (pet+id isolation)
   expectClinicalCode(
     () =>
       service.getWeightMeasurement({
@@ -672,8 +663,6 @@ check('13) wrong pet → DENY / NOT_FOUND', () => {
   )
 })
 
-// Fix test 13 - the middle check incorrectly expected an error for valid get.
-// Re-assert owner can get own measurement (sanity after wrong-pet denies).
 check('13b) owner get own measurement still ALLOW', () => {
   const { service } = freshService()
   ownerCreateWeight(service, { id: 'wm_own_get' })
@@ -733,9 +722,13 @@ check('15) encounterId does not grant access', () => {
   const encounter: ClinicalEncounter = {
     id: 'enc_k60',
     petId: bella.id,
-    type: 'consultation',
+    encounterType: 'other',
     status: 'in_progress',
-    openedAt: '2026-09-12T10:00:00.000Z',
+    startedAt: '2026-09-12T10:00:00.000Z',
+    createdAt: '2026-09-12T10:00:00.000Z',
+    createdByAccountId: SELF_OWNER_ID,
+    updatedAt: '2026-09-12T10:00:00.000Z',
+    updatedByAccountId: SELF_OWNER_ID,
     version: 1,
     lifecycleStatus: 'active',
   }
@@ -882,20 +875,29 @@ check('23) N/A — withdrawn measurement ordinary read (no soft withdraw yet)', 
 check('24) public projection excludes clinical measurement', () => {
   assert.ok((PUBLIC_PAYLOAD_FORBIDDEN_KEYS as readonly string[]).includes('weight'))
   assert.ok((PUBLIC_PAYLOAD_FORBIDDEN_KEYS as readonly string[]).includes('weightMeasurements'))
-  const settings = normalizePrivacySettings({})
-  const discoverable = {
-    id: bella.id,
-    name: bella.name,
-    type: bella.type,
-    breed: bella.breed,
+  const discoverable = makePet({
+    ...bella,
+    publicDiscover: true,
+    image: 'https://example.com/dog.jpg',
+    age: 3,
     weight: 12.5,
-    weightMeasurements: [{ id: 'wm_leak', petId: bella.id, date: 'x', weight: 12.5 }],
-    healthRecords: [],
-  } as unknown as Pet
+  })
+  const settings = normalizePrivacySettings({
+    account: {},
+    pets: {
+      [discoverable.id]: {
+        name: 'public',
+        photos: 'public',
+        speciesBreed: 'public',
+        ageDob: 'public',
+        location: 'public',
+      },
+    },
+  })
   const pub = projectPublicPet(discoverable, { settings }) as Record<string, unknown> | null
   assert.ok(pub)
   assert.equal(pub.weightMeasurements, undefined)
-  assert.equal('weightMeasurements' in pub ? pub.weightMeasurements : undefined, undefined)
+  assert.equal(pub.weight, undefined)
 })
 
 // --- 25 professional projection scrubbed ---
@@ -970,7 +972,8 @@ check('26) organization projection is scrubbed', () => {
 })
 
 check('SERVER_REQUIRED on server stub mutate', () => {
-  const service = createServerClinicalServiceStub({ store })
+  const adapter = createServerClinicalPersistenceStub()
+  const service = createServerClinicalServiceStub(adapter, { store })
   expectClinicalCode(
     () =>
       service.createWeightMeasurement({
