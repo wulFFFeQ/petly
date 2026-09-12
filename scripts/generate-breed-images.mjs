@@ -103,7 +103,7 @@ const DOG_CURATED_IMAGES = {
   'Československý vlčák': '/breeds/ceskoslovensky-vlcak.jpg?v=1',
   'Český fousek': '/breeds/cesky-fousek.jpg?v=1',
   'Český horský pes': '/breeds/cesky-horsky-pes.jpg?v=2',
-  'Český strakatý pes': '/breeds/cesky-strakaty-pes.jpg?v=1',
+  'Český strakatý pes': '/breeds/cesky-strakaty-pes.jpg?v=2',
   'Český teriér': '/breeds/cesky-terier.jpg?v=1',
   'Čínský chocholatý pes': '/breeds/cinsky-chocholaty-pes.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
