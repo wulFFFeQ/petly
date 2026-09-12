@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 32
+export const BREED_IMAGE_SYNC_GENERATION = 33
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -126,9 +126,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Čivava dlouhosrstá': '/breeds/civava-dlouhosrsta.jpg?v=1',
   'Čivava krátkosrstá': '/breeds/civava-kratkosrsta.jpg?v=2',
   'Dalmatin': '/breeds/dalmatin.jpg?v=1',
-  'Dandie Dinmont terier': 'https://images.dog.ceo/breeds/terrier-dandie/n02096437_1678.jpg',
-  'Dánská doga': 'https://images.dog.ceo/breeds/dane-great/n02109047_31830.jpg',
-  'Dánsko-švédský farmářský pes': 'https://images.dog.ceo/breeds/danishswedish-farmdog/ebba_004.jpg',
+  'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=1',
+  'Dánská doga': '/breeds/danska-doga.jpg?v=1',
+  'Dánsko-švédský farmářský pes': '/breeds/dansko-svedsky-farmarsky-pes.jpg?v=1',
   'Dánský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
   'Deerhound': 'https://images.dog.ceo/breeds/deerhound-scottish/n02092002_983.jpg',
   'Deltari Ilir': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
@@ -598,6 +598,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/civava-dlouhosrsta',
   'breeds/civava-kratkosrsta',
   'breeds/dalmatin',
+  'breeds/dandie-dinmont-terier',
+  'breeds/danska-doga',
+  'breeds/dansko-svedsky-farmarsky-pes',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
