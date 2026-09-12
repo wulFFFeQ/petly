@@ -82,13 +82,13 @@ const DOG_CURATED_IMAGES = {
   // English Bulldog — wrinkled classic on dark bokeh (not autumn leaves snap).
   'Anglický buldok': '/breeds/anglicky-buldok.jpg?v=1',
   // English Mastiff — HQ profile portrait (not bed dog.ceo snap).
-  'Anglický mastif': '/breeds/anglicky-mastif.jpg?v=1',
+  'Anglický mastif': '/breeds/anglicky-mastif.jpg?v=2',
   // Anglo-Français de Petite Vénerie — editorial portrait (not basset nose crop).
   'Angl.-franc.honič de Petite Venerie': '/breeds/angl-franc-honic-petite-venerie.jpg?v=2',
   // English Setter — HQ head portrait (not distant beach action snap).
-  'Anglický setr': '/breeds/anglicky-setr.jpg?v=1',
+  'Anglický setr': '/breeds/anglicky-setr.jpg?v=2',
   // English Springer Spaniel — outdoor head portrait (not Santa-hat snap).
-  'Anglický špringr španěl': '/breeds/anglicky-springr-spanel.jpg?v=1',
+  'Anglický špringr španěl': '/breeds/anglicky-springr-spanel.jpg?v=2',
   // English Toy Terrier — editorial black & tan portrait (not Yorkshire mislabel).
   'Anglický toy terier': '/breeds/anglicky-toy-terier.jpg?v=1',
   // Bouvier des Ardennes — editorial rough cattle-dog portrait (not blurry dog.ceo).
