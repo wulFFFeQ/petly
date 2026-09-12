@@ -146,10 +146,6 @@ import {
   isClinicalWithdrawn,
   normalizeHealthRecordProvenance,
   resolveClinicalStampContext,
-  stampClinicalUpdate,
-  stampClinicalWithdraw,
-  stampNewClinicalRecord,
-  stripClinicalClientUpdates,
 } from '../lib/health/clinicalProvenance'
 import {
   createDemoClinicalService,
@@ -159,9 +155,6 @@ import {
   type HealthRecordVersionSnapshot,
   type PetDocumentVersionSnapshot,
 } from '../lib/clinical'
-import {
-  tryAssertPetClinical,
-} from '../lib/security'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
 import type {

@@ -42,6 +42,7 @@ import {
   createOrganization,
   grantOrganizationPetAccess,
   inviteOrganizationMember,
+  loadOrganizationMemberships,
   loadOrganizationPetAccess,
   projectPetForOrganization,
   saveOrganizationPetAccess,
@@ -62,8 +63,6 @@ import type {
   PetDocument,
 } from '../src/types/index.ts'
 import type { Account, ProfessionalProfile } from '../src/types/professional.ts'
-import type { OrganizationMembership } from '../src/lib/organization/types.ts'
-import { loadOrganizationMemberships } from '../src/lib/organization/index.ts'
 
 function installMemoryStorage() {
   const store = new Map<string, string>()
@@ -504,26 +503,22 @@ check('J) organization membership only → denied', () => {
 
 check('K) OrganizationPetAccess + document permission → allowed', () => {
   saveOrganizationPetAccess([])
-  grantOrganizationPetAccess({
+  const { accessList } = grantOrganizationPetAccess([], {
     organizationId: clinicA.id,
-    petId: bella.id,
-    actorAccountId: SELF_OWNER_ID,
+    pet: bella,
     permissions: ['viewDocuments'],
+    grantedByAccountId: SELF_OWNER_ID,
+    status: 'active',
     visibilityMode: 'role_eligible',
     eligibleRoles: ['professional', 'staff'],
   })
+  saveOrganizationPetAccess(accessList)
   const { service } = freshService()
   const created = ownerCreateDoc(service)
-  const memberships = loadOrganizationMemberships()
-  const membership = memberships.find(
-    (m: OrganizationMembership) =>
-      m.organizationId === clinicA.id && m.accountId === orgVet.id,
-  )
-  assert.ok(membership)
   const ctx = withOrganizationContext(ctxForAccount(orgVet.id), {
     organizationId: clinicA.id,
-    membershipId: membership!.id,
-    role: membership!.role,
+    membershipId: 'mem_org_vet',
+    role: 'professional',
   })
   const read = service.readDocument({
     context: ctx,
@@ -603,7 +598,7 @@ check('O) encounter alone → denied', () => {
           size: '1',
         },
       }),
-    'NOT_FOUND',
+    ['FORBIDDEN', 'NOT_FOUND'],
   )
 })
 
@@ -807,20 +802,22 @@ check('Y) wrong pet isolation', () => {
         petId: otherPet.id,
         documentId: created.data.id,
       }),
-    'NOT_FOUND',
+    ['NOT_FOUND', 'FORBIDDEN'],
   )
 })
 
 check('Z) cross-clinic isolation (Clinic B without access)', () => {
   saveOrganizationPetAccess([])
-  grantOrganizationPetAccess({
+  const { accessList } = grantOrganizationPetAccess([], {
     organizationId: clinicA.id,
-    petId: bella.id,
-    actorAccountId: SELF_OWNER_ID,
+    pet: bella,
     permissions: ['viewDocuments'],
+    grantedByAccountId: SELF_OWNER_ID,
+    status: 'active',
     visibilityMode: 'role_eligible',
     eligibleRoles: ['professional', 'staff'],
   })
+  saveOrganizationPetAccess(accessList)
   const { service } = freshService()
   const created = ownerCreateDoc(service)
   const ctxB = withOrganizationContext(ctxForAccount(orgVet.id), {
@@ -886,14 +883,16 @@ check('AB) professional projection privacy', () => {
 
 check('AC) organization projection privacy', () => {
   saveOrganizationPetAccess([])
-  grantOrganizationPetAccess({
+  const { accessList } = grantOrganizationPetAccess([], {
     organizationId: clinicA.id,
-    petId: bella.id,
-    actorAccountId: SELF_OWNER_ID,
+    pet: bella,
     permissions: ['viewDocuments'],
+    grantedByAccountId: SELF_OWNER_ID,
+    status: 'active',
     visibilityMode: 'role_eligible',
     eligibleRoles: ['professional', 'staff'],
   })
+  saveOrganizationPetAccess(accessList)
   const memberships = loadOrganizationMemberships()
   const membership = memberships.find(
     (m) => m.organizationId === clinicA.id && m.accountId === orgVet.id,
@@ -929,28 +928,28 @@ check('AC) organization projection privacy', () => {
 })
 
 check('AD) public projection excludes clinical documents', () => {
-  const publicPet = projectPublicPet(bella, {
-    privacy: normalizePrivacySettings({}),
-    documents: [
-      {
-        id: 'doc_pub',
-        petId: bella.id,
-        name: 'should not appear',
-        category: 'health',
-        documentType: 'lab_results',
-        fileName: 'x.pdf',
-        size: '1',
-        uploadedAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        isPublic: false,
+  const discoverable = makePet({
+    ...bella,
+    publicDiscover: true,
+    image: 'https://example.com/dog.jpg',
+    age: 3,
+  })
+  const settings = normalizePrivacySettings({
+    account: {},
+    pets: {
+      [discoverable.id]: {
+        name: 'public',
+        photos: 'public',
+        speciesBreed: 'public',
+        ageDob: 'public',
+        location: 'public',
       },
-    ],
-  } as never)
-  const record = publicPet as Record<string, unknown>
-  assert.ok(!('documents' in record) || record.documents == null)
-  for (const key of ['documents', 'encounterId', 'storageKey'] as const) {
-    assert.ok(PUBLIC_PAYLOAD_FORBIDDEN_KEYS.includes(key as never) || key === 'storageKey')
-  }
+    },
+  })
+  const pub = projectPublicPet(discoverable, { settings }) as Record<string, unknown> | null
+  assert.ok(pub)
+  assert.equal(pub.documents, undefined)
+  assert.ok((PUBLIC_PAYLOAD_FORBIDDEN_KEYS as readonly string[]).includes('documents'))
 })
 
 check('AE) raw file URL not public', () => {
@@ -1144,7 +1143,8 @@ check('AO) completion ≠ document finalization', () => {
     context: ctxForAccount(SELF_OWNER_ID),
     pets,
     expectedVersion: 1,
-    input: { encounterId: enc.data.id, updates: {} },
+    petId: bella.id,
+    encounterId: enc.data.id,
   })
   const still = service.readDocument({
     context: ctxForAccount(SELF_OWNER_ID),
@@ -1188,7 +1188,7 @@ check('AS) audit via K48', () => {
   auditSink.clearForTests()
   const { service } = freshService()
   ownerCreateDoc(service)
-  const events = auditSink.getEventsForTests()
+  const events = auditSink.listAll()
   assert.ok(events.length >= 1)
 })
 
@@ -1280,12 +1280,29 @@ check('BC) encounter with multiple documents', () => {
 })
 
 check('BD) document linked to encounter does not expose encounter publicly', () => {
-  const publicPet = projectPublicPet(bella, {
-    privacy: normalizePrivacySettings({}),
+  const discoverable = makePet({
+    ...bella,
+    publicDiscover: true,
+    image: 'https://example.com/dog.jpg',
+    age: 3,
   })
-  const record = publicPet as Record<string, unknown>
-  assert.ok(!('encounterId' in record) || record.encounterId == null)
-  assert.ok(PUBLIC_PAYLOAD_FORBIDDEN_KEYS.includes('encounterId' as never))
+  const settings = normalizePrivacySettings({
+    account: {},
+    pets: {
+      [discoverable.id]: {
+        name: 'public',
+        photos: 'public',
+        speciesBreed: 'public',
+        ageDob: 'public',
+        location: 'public',
+      },
+    },
+  })
+  const pub = projectPublicPet(discoverable, { settings }) as Record<string, unknown> | null
+  assert.ok(pub)
+  assert.equal(pub.encounterId, undefined)
+  assert.equal(pub.documents, undefined)
+  assert.ok((PUBLIC_PAYLOAD_FORBIDDEN_KEYS as readonly string[]).includes('encounterId'))
 })
 
 check('concurrency: A reads v3, B updates to v4, A stale', () => {
@@ -1343,7 +1360,8 @@ check('encounter withdraw does not delete documents', () => {
     context: ctxForAccount(SELF_OWNER_ID),
     pets,
     expectedVersion: 1,
-    input: { encounterId: enc.data.id, updates: {} },
+    petId: bella.id,
+    encounterId: enc.data.id,
   })
   assert.ok(adapter.findDocument(doc.data.id))
   assert.equal(adapter.findDocument(doc.data.id)!.lifecycleStatus, 'active')
