@@ -39,6 +39,8 @@ const DOG_CURATED_IMAGES = {
   'Sibiřský husky': UNSPLASH('photo-1605568427561-40dd23c2acea'),
   'Aljašský malamut': UNSPLASH('photo-1605568427561-40dd23c2acea'),
   'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
+  'Australský honácký pes': UNSPLASH('photo-1769117086709-7507034281fa'),
+  'Australský honácký pes s krátkým ocasem': UNSPLASH('photo-1769117086709-7507034281fa'),
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
