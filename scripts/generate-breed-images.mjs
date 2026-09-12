@@ -125,7 +125,7 @@ const DOG_CURATED_IMAGES = {
   'Estrelský pastevecký pes': '/breeds/estrelsky-pastevecky-pes.jpg?v=1',
   'Eurasier': '/breeds/eurasier.jpg?v=1',
   'Faraónský pes': '/breeds/faraonsky-pes.jpg?v=1',
-  'Field španěl': '/breeds/field-spanel.jpg?v=1',
+  'Field španěl': '/breeds/field-spanel.jpg?v=2',
   'Finský honič': '/breeds/finsky-honic.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
