@@ -118,7 +118,6 @@ Na této stránce naleznete seznam všech plemen - standardů. Časem bude u ka�
 | 905 | Český strakatý pes | Český strakatý pes |
 | 246 | Český teriér | Czech Terrier |
 | 288 | Čínský chocholatý pes | Chinese Crested Dog |
-| 218 | Čivava | Chihuahua |
 | 218 | Čivava dlouhosrstá | Chihuahua - Pelo Largo |
 | 218 | Čivava krátkosrstá | Chihuahua - Pelo Corto |
 | 153 | Dalmatin | Dalmatinski pas |

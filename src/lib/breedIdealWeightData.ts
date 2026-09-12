@@ -96,7 +96,6 @@ export const DOG_IDEAL_WEIGHTS: Record<string, BreedIdealWeight> = {
   "Český strakatý pes": { female: { min: 12, max: 22 }, male: { min: 15, max: 28 } },
   "Český teriér": { female: { min: 14, max: 25 }, male: { min: 18, max: 32 } },
   "Čínský chocholatý pes": { female: { min: 1.8, max: 3.5 }, male: { min: 2.2, max: 4.5 } },
-  "Čivava": { female: { min: 1.8, max: 3.5 }, male: { min: 2.2, max: 4.5 } },
   "Čivava dlouhosrstá": { female: { min: 1.8, max: 3.5 }, male: { min: 2.2, max: 4.5 } },
   "Čivava krátkosrstá": { female: { min: 1.8, max: 3.5 }, male: { min: 2.2, max: 4.5 } },
   "Dalmatin": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },

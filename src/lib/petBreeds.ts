@@ -94,7 +94,6 @@ export const DOG_BREEDS = [
   'Český strakatý pes',
   'Český teriér',
   'Čínský chocholatý pes',
-  'Čivava',
   'Čivava dlouhosrstá',
   'Čivava krátkosrstá',
   'Dalmatin',

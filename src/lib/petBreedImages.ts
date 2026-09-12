@@ -123,7 +123,6 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Český strakatý pes': '/breeds/cesky-strakaty-pes.jpg?v=2',
   'Český teriér': '/breeds/cesky-terier.jpg?v=1',
   'Čínský chocholatý pes': '/breeds/cinsky-chocholaty-pes.jpg?v=1',
-  'Čivava': '/breeds/civava-kratkosrsta.jpg?v=2',
   'Čivava dlouhosrstá': '/breeds/civava-dlouhosrsta.jpg?v=1',
   'Čivava krátkosrstá': '/breeds/civava-kratkosrsta.jpg?v=2',
   'Dalmatin': '/breeds/dalmatin.jpg?v=1',
