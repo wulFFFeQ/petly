@@ -41,6 +41,10 @@ const HELP_TOPICS: {
         a: 'Na Nápovědě jsou karty Právní texty, nebo přímo /privacy a /terms. Jde o návrh (NÁVRH) s placeholdery firmy — není to schválená právní rada.',
       },
       {
+        q: 'Jaká je placená inzerce pro profesionály?',
+        a: 'Na startu je jediná inzerční cesta: měsíční Pro listing v katalogu. Lifetime Pro listing a další boosty až později. Consumer členství (Premium…) není totéž co Pro listing. Živé stržení až se Stripe.',
+      },
+      {
         q: 'Jak přidám nového mazlíčka?',
         a: 'V sekci Moji mazlíčci klikněte na „Přidat mazlíčka“, vyplňte základní údaje a uložte profil. Poté můžete doplnit fotografie, dokumenty a zdravotní záznamy.',
       },

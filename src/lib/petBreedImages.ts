@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 14
+export const BREED_IMAGE_SYNC_GENERATION = 15
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -96,9 +96,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Border terier': '/breeds/border-terier.jpg?v=1',
   'Bosensko - hercegovinský - chorvatský ovčák': '/breeds/bosensko-hercegovinsky-chorvatsky-ovcak.jpg?v=3',
   'Bosenský hrubosrstý honič': '/breeds/bosensky-hrubosrsty-honic.jpg?v=2',
-  'Bostonský terier': 'https://images.dog.ceo/breeds/bulldog-boston/n02096585_772.jpg',
-  'Bourbonský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
-  'Brabantík': 'https://images.dog.ceo/breeds/brabancon/n02112706_1688.jpg',
+  'Bostonský terier': '/breeds/bostonsky-terier.jpg?v=1',
+  'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=1',
+  'Brabantík': '/breeds/brabantik.jpg?v=1',
   'Brazilská fila': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Brazilský buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
   'Brazilský terier': 'https://images.dog.ceo/breeds/terrier-yorkshire/n02094433_10184.jpg',
@@ -569,6 +569,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/border-terier',
   'breeds/bosensko-hercegovinsky-chorvatsky-ovcak',
   'breeds/bosensky-hrubosrsty-honic',
+  'breeds/bostonsky-terier',
+  'breeds/bourbonsky-ohar-kratkosrsty',
+  'breeds/brabantik',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',

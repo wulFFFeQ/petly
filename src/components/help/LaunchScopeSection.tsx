@@ -11,8 +11,9 @@ const CAN_DO = [
   'Zprávy a sdílení zdravotního výřezu',
   'Lost & Found a nouzová karta',
   'Katalog profesionálů (včetně typu klinika / útulek jako označení profilu)',
+  'Jediná inzerční cesta: měsíční Pro listing (živé stržení až se Stripe)',
   'DEMO checkout rezervace (neúčtuje, neoznačí „zaplaceno“)',
-  'DEMO přepínač členství (není reálná platba)',
+  'DEMO přepínač členství (není reálná platba; ≠ Pro listing)',
 ] as const
 
 const CANNOT_DO = [
@@ -29,6 +30,11 @@ const CANNOT_DO = [
     title: 'Platby mezi lidmi',
     detail:
       'Ne převody majitel↔majitel. Jen DEMO platba rezervace majitel→pro, bez živého stržení.',
+  },
+  {
+    title: 'Lifetime a jiné inzerční SKU',
+    detail:
+      'Na startu jen měsíční Pro listing. Lifetime nákup a boost balíčky až později.',
   },
 ] as const
 
@@ -89,8 +95,9 @@ export function LaunchScopeSection() {
         <p className="text-xs text-[#5A6660] leading-relaxed flex gap-2">
           <Clock3 size={14} className="text-[#234B54] shrink-0 mt-0.5" />
           <span>
-            Později: živé Stripe / membership, push a e-mail, EMR klinik a provoz útulků. Dnešní build je
-            DEMO v prohlížeči — reálná multi-user data až po autentizaci, API a databázi.
+            Později: živé Stripe / membership, lifetime Pro listing, push a e-mail, EMR klinik a provoz
+            útulků. Dnešní build je DEMO v prohlížeči — reálná multi-user data až po autentizaci, API a
+            databázi.
           </span>
         </p>
       </Card>

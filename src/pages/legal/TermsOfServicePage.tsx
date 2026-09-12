@@ -49,7 +49,9 @@ export function TermsOfServicePage() {
           <p>
             Rezervace u profesionála je smluvní vztah mezi vámi a profesionálem; platforma zprostředkuje
             workflow. Živé stržení peněz a výplaty (Stripe) nejsou na startu. Platby mezi lidmi (P2P) produkt
-            neposkytuje.
+            neposkytuje. Jediná plánovaná placená inzerce na startu je měsíční Pro listing v katalogu;
+            lifetime Pro listing až později. Consumer členství (Premium apod.) je oddělené a v DEMO
+            neúčtuje.
           </p>
         </section>
         <section className="space-y-2">

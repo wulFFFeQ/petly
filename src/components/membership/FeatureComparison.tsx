@@ -37,8 +37,12 @@ export function FeatureComparison() {
             </tr>
           </thead>
           <tbody>
-            {sections.map((section) => (
-              <ComparisonCategoryBlock key={section.category.id} section={section} />
+            {sections.map((section, index) => (
+              <ComparisonCategoryBlock
+                key={section.category.id}
+                section={section}
+                isFirst={index === 0}
+              />
             ))}
           </tbody>
         </table>
@@ -47,39 +51,58 @@ export function FeatureComparison() {
   )
 }
 
-function ComparisonCategoryBlock({ section }: { section: ComparisonSection }) {
+function ComparisonCategoryBlock({
+  section,
+  isFirst,
+}: {
+  section: ComparisonSection
+  isFirst: boolean
+}) {
+  const colSpan = 1 + PLAN_IDS.length
+
   return (
     <>
+      {!isFirst && (
+        <tr aria-hidden="true">
+          <td colSpan={colSpan} className="h-4 p-0 border-0" />
+        </tr>
+      )}
       <tr>
         <td
-          colSpan={1 + PLAN_IDS.length}
-          className="pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-[#B8934A]"
+          colSpan={colSpan}
+          className="border-y border-[#E8E4DC] bg-[#F3EEE4]/90 px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[#B8934A]"
         >
           {section.category.label}
         </td>
       </tr>
-      {section.rows.map((row) => (
-        <tr key={row.featureId} className="border-b border-[#E8E4DC]/70">
-          <td className="py-2 pr-3 text-xs text-[#4A564F]">{row.label}</td>
-          {PLAN_IDS.map((plan: PlanId) => (
-            <td key={plan} className="py-2 px-1 text-center">
-              {row.byPlan[plan] ? (
-                <Check
-                  size={14}
-                  className="inline text-[#5A8F6B]"
-                  aria-label="dostupné"
-                />
-              ) : (
-                <Minus
-                  size={14}
-                  className="inline text-[#C5CCC7]"
-                  aria-label="nedostupné"
-                />
-              )}
-            </td>
-          ))}
-        </tr>
-      ))}
+      {section.rows.map((row, rowIndex) => {
+        const isLast = rowIndex === section.rows.length - 1
+        return (
+          <tr
+            key={row.featureId}
+            className={isLast ? undefined : 'border-b border-[#E8E4DC]/70'}
+          >
+            <td className="py-2.5 pr-3 text-xs text-[#4A564F]">{row.label}</td>
+            {PLAN_IDS.map((plan: PlanId) => (
+              <td key={plan} className="py-2.5 px-1 text-center">
+                {row.byPlan[plan] ? (
+                  <Check
+                    size={14}
+                    className="inline text-[#5A8F6B]"
+                    aria-label="dostupné"
+                  />
+                ) : (
+                  <Minus
+                    size={14}
+                    className="inline text-[#C5CCC7]"
+                    aria-label="nedostupné"
+                  />
+                )}
+              </td>
+            ))}
+          </tr>
+        )
+      })}
     </>
   )
 }
