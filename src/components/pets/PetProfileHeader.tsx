@@ -426,7 +426,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 -mt-16 sm:-mt-20 mb-6">
             <div className="flex items-end gap-4">
               <div className="relative h-24 w-24 sm:h-32 sm:w-32 rounded-3xl overflow-hidden border-4 border-white shadow-lg bg-stone-200 shrink-0 group">
-                <img src={pet.image} alt={pet.name} className="h-full w-full object-cover object-top" />
+                <img src={pet.image} alt={pet.name} className="h-full w-full object-cover object-center" />
                 <button
                   type="button"
                   onClick={() => photoInputRef.current?.click()}

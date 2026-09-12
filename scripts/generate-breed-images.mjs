@@ -13,13 +13,8 @@ function extractBreeds(constName) {
 const DOG_BREEDS = extractBreeds('DOG_BREEDS')
 const CAT_BREEDS = extractBreeds('CAT_BREEDS')
 
-/**
- * Editorial stock URL helper.
- * Style bar (match Afgánský chrt): sharp subject, head fully visible, soft light / bokeh,
- * breed-accurate, no phone-snap clutter. Prefer this over dog.ceo.
- */
 const UNSPLASH = (id) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&h=900&q=90&crop=entropy`
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=90`
 
 const DOG_TYPE_FALLBACK = UNSPLASH('photo-1543466835-00a7907e9de1')
 const CAT_TYPE_FALLBACK = UNSPLASH('photo-1514888286974-6c03e2ca1dba')
@@ -32,8 +27,8 @@ const CAT_DEFAULT_COVER = UNSPLASH('photo-1518791841217-8f162f1e1131')
  * @type {Record<string, string>}
  */
 const DOG_CURATED_IMAGES = {
-  // Reference style: local editorial portrait (head visible under object-top cards).
-  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=2',
+  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=3',
+  // Reference style: local editorial portrait (4:3, head in frame for object-center cards).
   'Border kolie': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Beagle: UNSPLASH('photo-1543466835-00a7907e9de1'),
   'Beagle Harrier': UNSPLASH('photo-1543466835-00a7907e9de1'),

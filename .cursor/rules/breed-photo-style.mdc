@@ -11,7 +11,7 @@ Referenční standard = Afgánský chrt (`public/breeds/afgansky-chrt.jpg`): pro
 ## Povinné
 
 1. **Plemeno musí sedět** — fotka musí vizuálně odpovídat českému názvu plemene (ověřit očima před zápisem do kurátorované mapy).
-2. **Hlava vždy vidět** — žádné ořezy jen na trup/hřívu. Karty používají `object-top` (`PetPhotoCard`).
+2. **Hlava vždy vidět** — žádné ořezy jen na trup/hřívu. Karty používají `object-center` (`PetPhotoCard`). Nevnucuj Unsplash `h=`/`crop=entropy` — ořezává uši a temeno.
 3. **HQ před dog.ceo** — preferuj Unsplash / lokální `public/breeds/*`. `images.dog.ceo` jen jako nouzový fallback (často amatérské snapy).
 4. **Kurátoruj jen ověřené** — do `DOG_CURATED_IMAGES` / `CAT_BREED_IMAGES` nepiš tipy „asi sedí“. Po změně aktualizuj i `src/lib/petBreedImages.ts` (nebo spusť `npm run generate:breed-images`).
 5. **Stejná kvalita jako Afgán** — ostrý subjekt, dostatek místa nad hlavou ve zdroji, bez clutteru, bez datových razítek, bez rukou v záběru.
@@ -20,7 +20,8 @@ Referenční standard = Afgánský chrt (`public/breeds/afgansky-chrt.jpg`): pro
 
 - Dog.ceo `img_*` snapy a těsné ořezy čumáku jako „finální“ kurátorovaná fotka
 - Špatné plemeno (Sphynx ≠ chlupatá kočka, Maine Coon ≠ pes, Border kolie ≠ mops, …)
-- Center-crop na kartách u výchozích fotek (používej `object-top`)
+- Unsplash URL s vynuceným `h=900&crop=entropy` (ničí framing portrétů)
+- `object-top` na kartách jako globální default (u close-up portrétů uřízne temeno)
 
 ## Kde měnit
 
