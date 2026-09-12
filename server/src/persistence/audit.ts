@@ -1,4 +1,5 @@
 import { prisma } from '../prisma.js'
+import { Prisma } from '@prisma/client'
 
 export async function recordAuditEvent(event: {
   actorAccountId?: string
@@ -36,7 +37,7 @@ export async function recordAuditEvent(event: {
         idempotencyRef: event.idempotencyRef ?? null,
         source: 'node_api',
         authority: 'server',
-        metadata: event.metadata ?? undefined,
+        metadata: (event.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
       },
     })
   } catch {

@@ -1,9 +1,9 @@
 /**
- * Production clinical remote API — Edge Function calls.
+ * Production clinical remote API — Node `/api/clinical` + `/api/documents`.
  * Used when production backend is configured; DEMO path stays local.
  */
 
-import { invokeEdgeFunction } from '../api/edgeClient'
+import { invokeEdgeFunction } from '../api/apiClient'
 import { isProductionBackendConfigured } from '../backend/config'
 
 export function canUseServerClinicalRemote(): boolean {

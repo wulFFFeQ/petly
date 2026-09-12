@@ -1,6 +1,6 @@
 /**
  * Port of Edge `_shared/authorize.ts` for Node assert scripts / isomorphic tests.
- * Keep behavior aligned with supabase/functions/_shared/authorize.ts.
+ * Keep behavior aligned with server/src/authorize/petAuthorize.ts.
  */
 
 export type ServerSecurityAction =

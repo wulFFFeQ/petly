@@ -1,9 +1,9 @@
 /**
  * K63 — Production idempotency store.
  *
- * Unwired (no Supabase / forceWired false): get/set → SERVER_REQUIRED.
+ * Unwired (no API / forceWired false): get/set → SERVER_REQUIRED.
  * Wired: atomic in-process map (ClinicalService sync path).
- * Edge Functions own the Postgres `idempotency_records` table as network authority.
+ * Node API owns the Postgres `idempotency_records` table as network authority.
  * Never wraps DEMO localStorage and pretends to be production.
  */
 

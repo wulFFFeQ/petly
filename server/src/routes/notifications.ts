@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { Prisma } from '@prisma/client'
+import { forgedDeny } from '../authorize/forged.js'
 import { rejectForgedActorClaim } from '../authorize/petAuthorize.js'
 import { requireActor } from '../auth/session.js'
 import type { ServerEnv } from '../env.js'
@@ -28,7 +29,9 @@ export function registerNotificationsRoutes(app: FastifyInstance, env: ServerEnv
     const body = (request.body ?? {}) as Body
     if (!body.op) return sendErr(reply, 'invalid', 'op required')
 
-    const forged = rejectForgedActorClaim(actor.accountId, body.claimedActorAccountId)
+    const forged = forgedDeny(
+      rejectForgedActorClaim(actor.accountId, body.claimedActorAccountId),
+    )
     if (forged) return sendErr(reply, forged.code, forged.reason, 403)
 
     if (body.op === 'listMine') {

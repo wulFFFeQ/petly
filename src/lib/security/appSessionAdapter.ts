@@ -1,6 +1,6 @@
 /**
  * Select DEMO vs production SecurityContext factory.
- * Production path requires configured Supabase + authenticated UUID.
+ * Production path requires configured API + authenticated UUID.
  */
 
 import { isProductionBackendConfigured } from '../backend/config'

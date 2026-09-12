@@ -384,7 +384,7 @@ export type ServerClinicalPersistenceOptions = {
 
 /**
  * Production clinical persistence.
- * - Unwired (default without Supabase env): every call → SERVER_REQUIRED (honest).
+ * - Unwired (default without API env): every call → SERVER_REQUIRED (honest).
  * - Wired: in-memory SSOT mirror for ClinicalService; Edge `clinical` is network authority.
  * Never wraps localStorage and pretends to be a server.
  */

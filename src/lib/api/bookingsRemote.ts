@@ -1,4 +1,4 @@
-import { invokeEdgeFunction, type ApiResult } from './edgeClient'
+import { invokeEdgeFunction, type ApiResult } from './apiClient'
 
 export async function remoteCreateBooking(input: {
   professionalId: string

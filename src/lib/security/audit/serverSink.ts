@@ -2,7 +2,7 @@
  * ServerAuditSink — production K48 sink.
  * Unwired: no-op (never fake persistence).
  * Wired: in-process buffer for client authorize() decisions.
- * Edge Functions write `audit_events` for server mutations (authoritative).
+ * Node API writes `audit_events` for server mutations (authoritative).
  * Audit failure must never flip authorization ALLOW.
  */
 

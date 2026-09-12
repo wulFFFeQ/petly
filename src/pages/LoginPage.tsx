@@ -18,7 +18,7 @@ import {
 import { BRAND_NAME, BRAND_TAGLINE } from '../lib/brand'
 
 /**
- * Login — production email/password when Supabase is configured;
+ * Login — production email/password when Node API is configured;
  * otherwise DEMO one-click owner_self (explicitly labeled; never in production builds).
  */
 export function LoginPage() {

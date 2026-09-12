@@ -1,5 +1,5 @@
 /**
- * LAUNCH 03 — offline cutover asserts (no live credentials required).
+ * Node + Prisma cutover asserts (offline — no live DATABASE_URL required).
  */
 
 import assert from 'node:assert/strict'
@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import {
   PRODUCTION_CONNECTION_NOT_CONFIGURED,
   getProductionConnectionStatus,
+  getApiPublicConfig,
   isDemoBackendMode,
   isDemoLoginAllowed,
   isProductionBackendConfigured,
@@ -51,10 +52,11 @@ function ok(name: string) {
   console.log(`  ✓ ${name}`)
 }
 
-console.log('LAUNCH 03 — cutover asserts')
+console.log('Node/Prisma — cutover asserts')
 
 {
   assert.equal(isProductionBackendConfigured(), false)
+  assert.equal(getApiPublicConfig(), null)
   assert.equal(isDemoBackendMode(), true)
   assert.equal(isRealBackendMode(), false)
   assert.equal(shouldPersistSensitiveLocalStorage(), true)
@@ -64,7 +66,7 @@ console.log('LAUNCH 03 — cutover asserts')
 
 {
   assert.equal(MALWARE_SCAN_CONFIGURED, false)
-  assert.equal(isDocumentUploadEnabled(), true) // DEMO allows local docs
+  assert.equal(isDocumentUploadEnabled(), true)
   ok('malware scanner not configured (honest gap)')
 }
 
@@ -77,31 +79,25 @@ console.log('LAUNCH 03 — cutover asserts')
 }
 
 {
-  // Production Vite build forbids DEMO login even without env
-  // (isDemoLoginAllowed checks import.meta.env.PROD — in Node assert this is not PROD)
   assert.equal(typeof isDemoLoginAllowed(), 'boolean')
   ok('isDemoLoginAllowed is defined')
 }
 
 {
   const docsFn = readFileSync(
-    join(process.cwd(), 'supabase/functions/documents/index.ts'),
+    join(process.cwd(), 'server/src/routes/documents.ts'),
     'utf8',
   )
   assert.match(docsFn, /upload_disabled/)
-  assert.match(docsFn, /malware scanning/i)
-  ok('documents Edge rejects upload when scanner absent')
+  assert.match(docsFn, /malwareScanStatus/)
+  ok('documents route rejects upload when scanner absent')
 }
 
 {
-  const http = readFileSync(
-    join(process.cwd(), 'supabase/functions/_shared/http.ts'),
-    'utf8',
-  )
-  assert.match(http, /ALLOWED_ORIGINS/)
-  assert.ok(!http.includes("Access-Control-Allow-Origin': '*'"))
-  assert.ok(!http.includes('Access-Control-Allow-Origin: *'))
-  ok('CORS allowlist (no wildcard *)')
+  const index = readFileSync(join(process.cwd(), 'server/src/index.ts'), 'utf8')
+  assert.match(index, /allowedOrigins/)
+  assert.match(index, /credentials:\s*true/)
+  ok('CORS credentials + origin allowlist')
 }
 
 {
@@ -109,6 +105,23 @@ console.log('LAUNCH 03 — cutover asserts')
   assert.match(mode, /shouldPersistSensitiveLocalStorage/)
   assert.match(mode, /isDemoLoginAllowed/)
   ok('dual-mode helpers present')
+}
+
+{
+  const schema = readFileSync(join(process.cwd(), 'server/prisma/schema.prisma'), 'utf8')
+  assert.match(schema, /model Credential/)
+  assert.match(schema, /model Session/)
+  assert.doesNotMatch(schema, /REFERENCES\s+auth\.users/i)
+  ok('Prisma auth tables without auth.users')
+}
+
+{
+  assert.ok(existsSync(join(process.cwd(), 'src/lib/api/apiClient.ts')))
+  assert.ok(existsSync(join(process.cwd(), 'src/lib/auth/sessionAuth.ts')))
+  assert.ok(!existsSync(join(process.cwd(), 'src/lib/auth/supabaseClient.ts')))
+  assert.ok(!existsSync(join(process.cwd(), 'src/lib/auth/supabaseAuth.ts')))
+  assert.ok(!existsSync(join(process.cwd(), 'supabase')))
+  ok('Supabase client/tree removed; cookie apiClient present')
 }
 
 {
@@ -121,6 +134,7 @@ console.log('LAUNCH 03 — cutover asserts')
         const body = readFileSync(join(assets, f), 'utf8')
         assert.doesNotMatch(body, /SERVICE_ROLE_KEY\s*=\s*['"]eyJ/)
         assert.doesNotMatch(body, /supabase_service_role/i)
+        assert.doesNotMatch(body, /SESSION_SECRET\s*=\s*['"]/)
       }
       ok(`Vite bundle scrub (${files.length} js assets)`)
     } else {
@@ -132,9 +146,8 @@ console.log('LAUNCH 03 — cutover asserts')
 }
 
 {
-  assert.ok(existsSync(join(process.cwd(), 'docs/LAUNCH-03-SUPABASE-SETUP.md')))
-  assert.ok(existsSync(join(process.cwd(), 'docs/LAUNCH-03-SECURITY.md')))
-  ok('LAUNCH 03 docs present')
+  assert.ok(existsSync(join(process.cwd(), 'docs/NODE-PRISMA-BACKEND.md')))
+  ok('Node/Prisma backend docs present')
 }
 
-console.log(`\nLAUNCH 03 cutover: ${passed} passed`)
+console.log(`\nNode/Prisma cutover: ${passed} passed`)

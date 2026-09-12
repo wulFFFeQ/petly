@@ -1,5 +1,6 @@
 export {
   PRODUCTION_CONNECTION_NOT_CONFIGURED,
+  getApiPublicConfig,
   getBackendEnvironmentStatus,
   getProductionConnectionStatus,
   getSupabasePublicConfig,

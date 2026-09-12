@@ -1,4 +1,4 @@
-import { invokeEdgeFunction, type ApiResult } from './edgeClient'
+import { invokeEdgeFunction, type ApiResult } from './apiClient'
 import type { Pet } from '../../types'
 
 function petFromRow(row: Record<string, unknown>): Pet {

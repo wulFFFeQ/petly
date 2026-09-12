@@ -94,7 +94,7 @@ export function resetOnboardingDemo(): void {
 
 /**
  * Session activity.
- * REAL: authenticated Supabase user id from session cache.
+ * REAL: authenticated account id from session cache.
  * DEMO: localStorage flag (missing key = active for legacy/e2e).
  */
 export function isSessionActive(): boolean {
@@ -125,7 +125,7 @@ export function loginSelfSession(): Account {
 
 /**
  * Deactivate session and clear session-scoped UI workspace only.
- * When production auth is configured, also signs out Supabase.
+ * When production auth is configured, also signs out the Node API session.
  */
 export function logoutSelfSession(): void {
   writeSessionActive(false)

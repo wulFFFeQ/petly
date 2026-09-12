@@ -5,7 +5,7 @@
 
 import { isProductionBackendConfigured } from './config'
 
-/** Explicit DEMO path — only when public Supabase env is unset. */
+/** Explicit DEMO path — only when public API base URL is unset. */
 export function isDemoBackendMode(): boolean {
   return !isProductionBackendConfigured()
 }
@@ -17,7 +17,7 @@ export function isRealBackendMode(): boolean {
 
 /**
  * DEMO one-click / owner_self allowed only when production backend is NOT configured.
- * Explicit DEMO label in UI. Never available alongside real Supabase Auth.
+ * Explicit DEMO label in UI. Never available alongside real cookie-session auth.
  * GitHub Pages / preview builds may be Vite PROD without credentials — DEMO remains explicit.
  */
 export function isDemoLoginAllowed(): boolean {

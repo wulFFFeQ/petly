@@ -1,5 +1,5 @@
 /**
- * Keeps sync auth cache aligned with Supabase session (REAL mode only).
+ * Keeps sync auth cache aligned with Node API cookie session (REAL mode only).
  */
 
 import { useEffect, useState, type ReactNode } from 'react'

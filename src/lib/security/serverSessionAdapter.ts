@@ -1,6 +1,6 @@
 /**
- * Production SecurityContext from Supabase Auth session.
- * Actor = auth.users.id (= accounts.id). Never owner_self. Never client-forged ids.
+ * Production SecurityContext from authenticated cookie session.
+ * Actor = accounts.id from server session. Never owner_self. Never client-forged ids.
  */
 
 import { createSecurityContext } from './context'
@@ -32,7 +32,7 @@ export type ServerSessionAdapterResult =
 
 /**
  * Build SecurityContext with authority: 'server'.
- * Does not load org/pro facets here — Edge Functions attach validated facets after DB lookup.
+ * Does not load org/pro facets here — Node API attaches validated facets after DB lookup.
  */
 export function createServerSecurityContextFromSession(
   input: ServerSessionAdapterInput,
@@ -79,7 +79,7 @@ export function createServerSecurityContextFromSession(
     channel: input.channel ?? 'web',
     authentication: {
       kind: 'session',
-      sessionId: input.sessionId ?? 'supabase_session',
+      sessionId: input.sessionId ?? 'cookie_session',
       authenticatedAt: input.authenticatedAt ?? new Date().toISOString(),
     },
     actor: {

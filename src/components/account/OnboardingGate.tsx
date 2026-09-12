@@ -11,7 +11,7 @@ import { isDemoBackendMode } from '../../lib/backend'
 /**
  * Requires an active session, then redirects unfinished users to /onboarding.
  * Public found/lost/emergency/login routes live outside this layout.
- * REAL: Supabase session. DEMO: localStorage session flag.
+ * REAL: cookie session. DEMO: localStorage session flag.
  */
 export function OnboardingGate() {
   const navigate = useNavigate()

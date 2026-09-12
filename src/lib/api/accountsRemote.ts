@@ -3,7 +3,7 @@
  * Client only reads/updates display fields; never invents accountId.
  */
 
-import { invokeEdgeFunction, type ApiResult } from './edgeClient'
+import { invokeEdgeFunction, type ApiResult } from './apiClient'
 
 export async function remoteGetMyAccount(): Promise<
   ApiResult<{ account: Record<string, unknown> | null }>

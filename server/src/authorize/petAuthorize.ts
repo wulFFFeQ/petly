@@ -174,9 +174,6 @@ export function authorizePetAction(input: {
   }
 
   if (pet.owner_account_id === actorAccountId) {
-    if (action === 'clinical.sign') {
-      return deny('owner_cannot_sign', 'Owner cannot clinical.sign', 'capability')
-    }
     return { allowed: true, reason: 'pet_owner', path: 'owner' }
   }
 

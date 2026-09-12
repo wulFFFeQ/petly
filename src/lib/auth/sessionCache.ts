@@ -1,5 +1,5 @@
 /**
- * Sync cache of authenticated Supabase user id for SecurityContext / gates.
+ * Sync cache of authenticated account id for SecurityContext / gates.
  * Updated only by AuthSessionBridge from onAuthStateChange — never from client forms.
  */
 

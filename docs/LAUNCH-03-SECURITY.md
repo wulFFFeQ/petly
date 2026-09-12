@@ -1,30 +1,24 @@
-# LAUNCH 03 — Hosting security & rate-limit gaps
+# Production security notes (Node API)
 
 ## CORS
-Edge Functions use `ALLOWED_ORIGINS` (comma-separated). Default: `http://localhost:5173`.
-**No wildcard** `Access-Control-Allow-Origin: *` for authenticated APIs.
 
-## Headers (hosting checklist — apply on reverse proxy / CDN)
-- HTTPS only (HSTS)
-- `Content-Security-Policy` — restrict script/connect to app + Supabase origins
-- `X-Frame-Options: DENY` / CSP `frame-ancestors 'none'`
-- `Referrer-Policy: strict-origin-when-cross-origin`
-- `X-Content-Type-Options: nosniff`
-
-GitHub Pages remains DEMO/marketing only — not production app hosting.
+Server uses `ALLOWED_ORIGINS` (comma-separated). Default: `http://localhost:5173`.
+Credentials (cookies) are enabled; never use `Access-Control-Allow-Origin: *` with credentials.
 
 ## CSRF
-SPA uses Bearer JWT in `Authorization` (not cookie session for API). Classic cookie CSRF is lower risk.
-If cookie-based auth is added later, require CSRF tokens / SameSite.
 
-## Rate limiting — PRODUCTION GAP
-Supabase Edge Functions do **not** provide production-grade per-IP rate limits out of the box.
-Sensitive surfaces: auth abuse, public token lookup, message/booking create, document upload, emergency/public.
+Cookie sessions use `SameSite=Lax`. Origin allowlist is required for cross-site POSTs.
 
-**Not faked.** Requires external gateway (Cloudflare / API gateway / Upstash) — deferred.
-Documented as remaining blocker for public production traffic.
+## Rate limiting
+
+**Production gap** — not faked. Add reverse-proxy / WAF limits before public launch.
 
 ## Secrets
-- Client: only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-- Server: `SUPABASE_SERVICE_ROLE_KEY` only in Edge runtime
-- Bundle assert: `scripts/assert-launch03-cutover.mts` checks built assets for service_role leakage patterns
+
+- Client: only `VITE_API_BASE_URL`
+- Server: `DATABASE_URL`, `SESSION_SECRET`, optional `S3_*` — never `VITE_`
+- Bundle assert checks built assets for accidental secret patterns
+
+## Document upload
+
+Disabled until `MALWARE_SCAN_PROVIDER` is configured (`upload_disabled` / `not_configured`).

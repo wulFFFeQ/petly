@@ -2463,7 +2463,7 @@ export function createServerClinicalServiceStub(
 
 /**
  * Production ClinicalService when adapter is wired (LAUNCH 02).
- * Uses ServerIdempotencyStore (memory mirror; Edge Functions own Postgres store).
+ * Uses ServerIdempotencyStore (memory mirror; Node API owns Postgres store).
  */
 export function createServerClinicalService(
   adapter: ClinicalPersistenceAdapter,

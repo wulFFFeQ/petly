@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import { forgedDeny } from '../authorize/forged.js'
 import { loadPetAuthzBundle } from '../authorize/loadPetAuthz.js'
 import {
   authorizePetAction,
@@ -30,7 +31,9 @@ export function registerDocumentsRoutes(app: FastifyInstance, env: ServerEnv) {
     if (!body.op) return sendErr(reply, 'invalid', 'op required')
     if (!body.petId) return sendErr(reply, 'invalid', 'petId required')
 
-    const forged = rejectForgedActorClaim(actor.accountId, body.claimedActorAccountId)
+    const forged = forgedDeny(
+      rejectForgedActorClaim(actor.accountId, body.claimedActorAccountId),
+    )
     if (forged) return sendErr(reply, forged.code, forged.reason, 403)
 
     if (body.op === 'prepareUpload' || body.op === 'completeUpload') {

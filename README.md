@@ -2,39 +2,30 @@
 
 Digitální péče o mazlíčky — React + TypeScript + Vite SPA.
 
-**Status:** high-fidelity **DEMO** by default (browser localStorage / IndexedDB). LAUNCH 02 Supabase foundation is in-repo; live connection requires credentials. See [docs/LAUNCH-READINESS-AUDIT.md](docs/LAUNCH-READINESS-AUDIT.md), [docs/LAUNCH-02-BACKEND-MIGRATION.md](docs/LAUNCH-02-BACKEND-MIGRATION.md), [docs/LAUNCH-02-STATUS.md](docs/LAUNCH-02-STATUS.md).
+**Status:** high-fidelity **DEMO** by default (browser localStorage / IndexedDB). Production backend target is **Node.js + PostgreSQL + Prisma** (`server/`). See [docs/NODE-PRISMA-BACKEND.md](docs/NODE-PRISMA-BACKEND.md).
 
 ## Scripts
 
 ```bash
 npm install
-npm run dev          # Vite dev server
-npm run build        # tsc -b && vite build
-npm run lint         # oxlint
-npm run preview      # preview production build
-npm run test:assert  # domain assert scripts (scripts/assert-*.mts)
-npm run test:e2e     # Playwright e2e (requires running app + BASE_URL)
-```
-
-### Assert tests
-
-```bash
+npm run dev          # Vite SPA
+npm run build
+npm run lint
+npm run preview
 npm run test:assert
-# or one file:
-npx tsx scripts/assert-security-context.mts
-npx tsx scripts/assert-launch02-backend.mts
+npm run test:e2e
+
+# API (separate package)
+cd server && npm install && npm run dev
 ```
-
-### E2E prerequisites
-
-1. `npx playwright install` (first time)
-2. Start the app: `npm run dev`
-3. Run: `npm run test:e2e` (default `BASE_URL=http://localhost:5173`)
 
 ## Environment
 
-See [`.env.example`](.env.example). Public: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Server-only (never `VITE_`): `SUPABASE_SERVICE_ROLE_KEY`. Missing client env ⇒ DEMO + `PRODUCTION CONNECTION NOT CONFIGURED`.
+See [`.env.example`](.env.example) and [`server/.env.example`](server/.env.example).
+
+- Client: `VITE_API_BASE_URL` (cookie sessions). Missing ⇒ DEMO + `PRODUCTION CONNECTION NOT CONFIGURED`.
+- Server: `DATABASE_URL`, `SESSION_SECRET`, `ALLOWED_ORIGINS` — never `VITE_`.
 
 ## Hosting note
 
-GitHub Pages is suitable for a labeled DEMO / marketing SPA only. Do not run production multi-user data on Pages. Production requires Supabase + Edge Functions (LAUNCH 02+) on real hosting.
+GitHub Pages is suitable for a labeled DEMO / marketing SPA only. Production requires the Node API + PostgreSQL (+ private object storage) on real hosting.

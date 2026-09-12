@@ -1,4 +1,4 @@
-// LAUNCH-02 domain tables + application auth (no auth.users / Supabase).
+// LAUNCH-02 domain tables + application auth (no legacy auth provider user FK).
 // Domain SSOT remains in src/types — Prisma models are persistence only.
 
 generator client {

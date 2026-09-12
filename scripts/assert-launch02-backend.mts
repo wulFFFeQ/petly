@@ -1,9 +1,11 @@
 /**
- * LAUNCH 02 — backend/security assert matrix (offline-capable).
- * Does not require live Supabase credentials.
+ * Backend/security assert matrix (offline-capable).
+ * Does not require live DATABASE_URL / VITE_API_BASE_URL.
  */
 
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   createServerSecurityContextFromSession,
   createAppSecurityContext,
@@ -41,7 +43,7 @@ function ok(name: string) {
   console.log(`  ✓ ${name}`)
 }
 
-console.log('LAUNCH 02 — backend security asserts')
+console.log('Backend security asserts (Node/Prisma path)')
 
 // --- ENV / feature gate ---
 {
@@ -332,4 +334,16 @@ console.log('LAUNCH 02 — backend security asserts')
   ok('createServerClinicalService with wired adapter')
 }
 
-console.log(`\nLAUNCH 02 asserts passed: ${passed}`)
+// --- Node + Prisma foundation present ---
+{
+  assert.ok(existsSync(join(process.cwd(), 'server/prisma/schema.prisma')))
+  assert.ok(existsSync(join(process.cwd(), 'server/src/authorize/petAuthorize.ts')))
+  assert.ok(existsSync(join(process.cwd(), 'src/lib/api/apiClient.ts')))
+  const schema = readFileSync(join(process.cwd(), 'server/prisma/schema.prisma'), 'utf8')
+  assert.match(schema, /model Session/)
+  assert.doesNotMatch(schema, /REFERENCES\s+auth\.users/i)
+  assert.ok(!existsSync(join(process.cwd(), 'supabase')))
+  ok('Node/Prisma server present; supabase/ removed')
+}
+
+console.log(`\nBackend asserts passed: ${passed}`)

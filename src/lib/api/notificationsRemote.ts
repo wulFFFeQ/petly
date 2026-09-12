@@ -1,4 +1,4 @@
-import { invokeEdgeFunction, type ApiResult } from './edgeClient'
+import { invokeEdgeFunction, type ApiResult } from './apiClient'
 
 export async function remoteListMyNotifications(): Promise<ApiResult<unknown>> {
   return invokeEdgeFunction('notifications', { op: 'listMine' })
