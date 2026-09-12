@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 26
+export const BREED_IMAGE_SYNC_GENERATION = 27
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -117,9 +117,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Coton de Tuléar': '/breeds/coton-de-tulear.jpg?v=1',
   'Curly Coated Retriever': '/breeds/curly-coated-retriever.jpg?v=1',
   'Černohorský planinský honič': '/breeds/cernohorsky-planinsky-honic.jpg?v=1',
-  'Československý vlčák': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Český fousek': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Český horský pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
+  'Československý vlčák': '/breeds/ceskoslovensky-vlcak.jpg?v=1',
+  'Český fousek': '/breeds/cesky-fousek.jpg?v=1',
+  'Český horský pes': '/breeds/cesky-horsky-pes.jpg?v=1',
   'Český strakatý pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Český teriér': 'https://images.dog.ceo/breeds/terrier-yorkshire/n02094433_10184.jpg',
   'Čínský chocholatý pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
@@ -590,6 +590,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/coton-de-tulear',
   'breeds/curly-coated-retriever',
   'breeds/cernohorsky-planinsky-honic',
+  'breeds/ceskoslovensky-vlcak',
+  'breeds/cesky-fousek',
+  'breeds/cesky-horsky-pes',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
