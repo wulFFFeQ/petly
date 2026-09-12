@@ -26,9 +26,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Anglický špringr španěl': '/breeds/anglicky-springr-spanel.jpg?v=1',
   'Anglický toy terier': '/breeds/anglicky-toy-terier.jpg?v=1',
   'Appenzellský salašnický pes': 'https://images.dog.ceo/breeds/appenzeller/n02107908_2090.jpg',
-  'Ardenský bouvier': 'https://images.dog.ceo/breeds/bouvier/n02106382_4034.jpg',
-  'Argentinská doga': 'https://images.dog.ceo/breeds/dane-great/n02109047_31830.jpg',
-  'Ariégois': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
+  'Ardenský bouvier': '/breeds/ardensky-bouvier.jpg?v=1',
+  'Argentinská doga': '/breeds/argentinska-doga.jpg?v=1',
+  'Ariégois': '/breeds/ariegois.jpg?v=1',
   'Ariegský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
   'Artésko-normandský basset': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
   'Artoisský honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
@@ -483,6 +483,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/anglicky-setr',
   'breeds/anglicky-springr-spanel',
   'breeds/anglicky-toy-terier',
+  'breeds/ardensky-bouvier',
+  'breeds/argentinska-doga',
+  'breeds/ariegois',
   'akita_hiking_in_shpella',
   'n02089973_2300',
   'n02102318_2971',
@@ -508,6 +511,8 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'photo-1503256207526-0d5d80fa2f47',
   'photo-1552053831-71594a27632d',
   'mix/noah01',
+  'n02106382_4034',
+  'n02109047_31830',
 ] as const
 
 const managedUnsplashPhotoIds = new Set(

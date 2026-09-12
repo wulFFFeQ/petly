@@ -79,6 +79,12 @@ const DOG_CURATED_IMAGES = {
   'Anglický špringr španěl': '/breeds/anglicky-springr-spanel.jpg?v=1',
   // English Toy Terrier — editorial black & tan portrait (not Yorkshire mislabel).
   'Anglický toy terier': '/breeds/anglicky-toy-terier.jpg?v=1',
+  // Bouvier des Ardennes — editorial rough cattle-dog portrait (not blurry dog.ceo).
+  'Ardenský bouvier': '/breeds/ardensky-bouvier.jpg?v=1',
+  // Dogo Argentino — white molosser portrait (not Great Dane sidewalk snap).
+  'Argentinská doga': '/breeds/argentinska-doga.jpg?v=1',
+  // Ariégeois — French tricolor hound portrait (not fluffy mix noah01).
+  'Ariégois': '/breeds/ariegois.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

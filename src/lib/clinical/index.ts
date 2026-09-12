@@ -1,5 +1,5 @@
 /**
- * K56/K57/K58/K59 — Server clinical vertical (service / authority boundary).
+ * K56/K57/K58/K59/K60 — Server clinical vertical (service / authority boundary).
  *
  * Not a parallel Health / Access / Permission / Audit system.
  * HealthRecord / PetDocument / WeightMeasurement remain SSOT.
@@ -8,6 +8,7 @@
  * K57: integer version + immutable HealthRecord version snapshots.
  * K58: Encounter lifecycle + separate immutable encounter history.
  * K59: PetDocument clinical boundary + separate immutable document history.
+ * K60: WeightMeasurement clinical boundary (health.read/write; no parallel ACL).
  */
 
 export type {
@@ -42,6 +43,9 @@ export type {
 
 export { toAuthorizedDocumentView, toAuthorizedDocumentViews } from './documentProjection'
 export type { AuthorizedDocumentViewMode } from './documentProjection'
+
+export { toAuthorizedWeightView, toAuthorizedWeightViews } from './measurementProjection'
+export type { AuthorizedWeightViewMode } from './measurementProjection'
 
 export type {
   ClinicalEncounter,

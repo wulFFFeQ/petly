@@ -1,5 +1,5 @@
 /**
- * K56/K57/K58/K59 — ClinicalService authority boundary.
+ * K56/K57/K58/K59/K60 — ClinicalService authority boundary.
  *
  * request → trusted SecurityContext → actor → pet → authorize()
  *   → expectedVersion CAS → immutable history → mutate → provenance
@@ -8,6 +8,7 @@
  * Uses existing HealthRecord / PetDocument / WeightMeasurement SSOT.
  * Uses existing authorize() + clinicalGate helpers — no parallel ACL.
  * K59: PetDocument mutations use documents.read / documents.write.
+ * K60: WeightMeasurement list/get + hardened create via health.read/write.
  *
  * DEMO authority simulates versioning; DEMO ≠ production concurrency.
  */
@@ -23,6 +24,7 @@ import type {
 import {
   clinicalCurrentVersion,
   isClinicalWithdrawn,
+  normalizeWeightMeasurementVersion,
   resolveRecordSource,
   stampClinicalUpdate,
   stampClinicalWithdraw,
@@ -174,6 +176,26 @@ function requireExpectedVersion(
   if (expected !== currentVersion) {
     throw staleVersion(
       `Expected version ${expected} but current is ${currentVersion}`,
+    )
+  }
+}
+
+/** K60 — WeightMeasurement domain integrity (positive kg; no NaN/Infinity). */
+function assertValidWeightCreateInput(input: ClinicalCreateWeightInput): void {
+  if (!input.id?.trim() || !input.petId?.trim()) {
+    throw new ClinicalError('INVALID_RESOURCE', 'Invalid weight measurement input')
+  }
+  if (!input.date?.trim()) {
+    throw new ClinicalError('INVALID_RESOURCE', 'Weight measurement date is required')
+  }
+  if (
+    typeof input.weight !== 'number' ||
+    !Number.isFinite(input.weight) ||
+    input.weight <= 0
+  ) {
+    throw new ClinicalError(
+      'INVALID_RESOURCE',
+      'Weight must be a finite positive number',
     )
   }
 }
@@ -844,6 +866,74 @@ export class ClinicalService {
     }
   }
 
+  listWeightMeasurementsForPet(
+    req: ClinicalRequestBase & { petId: string; pets?: Pet[] },
+  ): ClinicalMutationResult<WeightMeasurement[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('listWeightMeasurementsForPet')
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const entries = this.adapter
+      .getWeightMeasurements()
+      .filter((w) => w.petId === req.petId)
+      .map((w) => normalizeWeightMeasurementVersion({ ...w }))
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: entries,
+      authorizationAction: 'health.read',
+    }
+  }
+
+  getWeightMeasurement(
+    req: ClinicalRequestBase & {
+      petId: string
+      measurementId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<WeightMeasurement> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getWeightMeasurement')
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const entry = this.adapter
+      .getWeightMeasurements()
+      .find((w) => w.id === req.measurementId && w.petId === req.petId)
+    if (!entry) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: normalizeWeightMeasurementVersion({ ...entry }),
+      authorizationAction: 'health.read',
+    }
+  }
+
   createWeightMeasurement(
     req: ClinicalRequestBase & {
       input: ClinicalCreateWeightInput
@@ -853,6 +943,8 @@ export class ClinicalService {
     denyShortcuts(req)
     assertTrustedActor(req.context, req.claimedActorAccountId)
     this.requireDemoForMutate('createWeightMeasurement')
+
+    assertValidWeightCreateInput(req.input)
 
     const deps = this.deps(req.pets)
     const pet = resolvePet(req.input.petId, deps)
@@ -865,10 +957,12 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
 
+    // Provenance / version / recordSource come only from stampWeightCreate (trusted actor).
+    // Never accept client-supplied createdBy* / recordSource / version.
     const entry = stampWeightCreate(req.context, pet, {
-      id: req.input.id,
-      petId: req.input.petId,
-      date: req.input.date,
+      id: req.input.id.trim(),
+      petId: req.input.petId.trim(),
+      date: req.input.date.trim(),
       weight: req.input.weight,
       note: req.input.note,
     })
