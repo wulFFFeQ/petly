@@ -3,7 +3,7 @@
 **Produkt:** LOVED & KNOWN  
 **Účel:** Jedna stránka produktových hranic (ne technický audit).  
 **V aplikaci:** Nápověda → `/help` (sekce nahoře)  
-**Ops / právo:** [LAUNCH-04-OPS-LEGAL.md](./LAUNCH-04-OPS-LEGAL.md) · `/privacy` · `/terms`  
+**Ops / právo:** [LAUNCH-04-OPS-LEGAL.md](./LAUNCH-04-OPS-LEGAL.md) · [docs/legal/](./legal/) · `/privacy` · `/terms`  
 **Inzerce:** [LAUNCH-05-PRO-LISTING.md](./LAUNCH-05-PRO-LISTING.md) — měsíční Pro listing (lifetime později)  
 **Zdroj:** [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md)
 

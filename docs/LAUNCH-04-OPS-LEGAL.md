@@ -4,6 +4,7 @@
 **Účel:** Ops / business checklist před produkcí (ne technický audit).  
 **Hosting rozhodnutí:** Railway  
 **V aplikaci (draft):** [`/privacy`](/privacy), [`/terms`](/terms) — Nápověda → odkazy  
+**Šablony pro counsel:** [`docs/legal/`](./legal/) (brief + Privacy + Terms CZ)  
 **Související:** [LAUNCH-01-SCOPE.md](./LAUNCH-01-SCOPE.md) · [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md) · [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md)
 
 ---
@@ -68,13 +69,14 @@ Vyplň před Stripe Account / Connect onboarding. Agent **nevymýšlí** IČO.
 
 | Dokument | Stav | Kde |
 |----------|------|-----|
-| Zásady ochrany osobních údajů (Privacy) | Draft NÁVRH v app | `/privacy` |
-| Obchodní podmínky (Terms) | Draft NÁVRH v app | `/terms` |
+| Brief pro counsel | Šablona | [`docs/legal/LAWYER-BRIEF-CZ.md`](./legal/LAWYER-BRIEF-CZ.md) |
+| Zásady ochrany osobních údajů (Privacy) | Šablona + draft v app — **čeká counsel** | [`docs/legal/PRIVACY-POLICY-CZ.md`](./legal/PRIVACY-POLICY-CZ.md) · `/privacy` |
+| Obchodní podmínky (Terms) | Šablona + draft v app — **čeká counsel** | [`docs/legal/TERMS-OF-SERVICE-CZ.md`](./legal/TERMS-OF-SERVICE-CZ.md) · `/terms` |
 | Cookies | Minimálně zmínka v Privacy; samostatný banner = později | — |
-| GDPR kontakt / DPO | `[TODO: e-mail]` | Privacy draft |
+| GDPR kontakt / DPO | `[TODO: e-mail]` | Privacy šablona |
 | Právní review counsel | `[TODO: nehotovo]` | — |
 
-**Pravidlo:** text v app je **NÁVRH — není právní rada**. Ostrý provoz až po schválení právníkem a doplnění firemních údajů výše.
+**Pravidlo:** text v app i v `docs/legal/` je **NÁVRH — není právní rada**. Ostrý provoz až po schválení právníkem a doplnění firemních údajů výše. Badge NÁVRH v `/privacy` a `/terms` neodstraňovat před counsel.
 
 ---
 
@@ -82,5 +84,5 @@ Vyplň před Stripe Account / Connect onboarding. Agent **nevymýšlí** IČO.
 
 1. Vyplnit doménu + firmu (tabulky výše).  
 2. Railway: Postgres + API + web + secrets.  
-3. Schválit Privacy/Terms (nahradit placeholdery).  
+3. Schválit Privacy/Terms (šablony v `docs/legal/` → nahradit placeholdery, counsel sign-off, pak sundat NÁVRH v app).  
 4. Až potom: Stripe live + webhooks (ne dřív).

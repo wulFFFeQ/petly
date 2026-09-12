@@ -80,7 +80,7 @@ const DOG_CURATED_IMAGES = {
   'Bosensko - hercegovinský - chorvatský ovčák': '/breeds/bosensko-hercegovinsky-chorvatsky-ovcak.jpg?v=3',
   'Bosenský hrubosrstý honič': '/breeds/bosensky-hrubosrsty-honic.jpg?v=2',
   'Bostonský terier': '/breeds/bostonsky-terier.jpg?v=1',
-  'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=1',
+  'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=2',
   'Brabantík': '/breeds/brabantik.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),

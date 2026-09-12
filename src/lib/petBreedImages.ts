@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 15
+export const BREED_IMAGE_SYNC_GENERATION = 16
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -97,7 +97,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Bosensko - hercegovinský - chorvatský ovčák': '/breeds/bosensko-hercegovinsky-chorvatsky-ovcak.jpg?v=3',
   'Bosenský hrubosrstý honič': '/breeds/bosensky-hrubosrsty-honic.jpg?v=2',
   'Bostonský terier': '/breeds/bostonsky-terier.jpg?v=1',
-  'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=1',
+  'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=2',
   'Brabantík': '/breeds/brabantik.jpg?v=1',
   'Brazilská fila': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Brazilský buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
