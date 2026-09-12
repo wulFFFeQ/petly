@@ -194,7 +194,7 @@ export function PetGridCard({
             </div>
           }
           topRight={
-            <div className="flex items-start gap-1.5">
+            <div className="flex items-center gap-1.5">
               {isLost ? (
                 <Badge
                   variant="danger"
