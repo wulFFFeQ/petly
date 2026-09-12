@@ -107,3 +107,9 @@ export {
   serverSignedDocumentDownload,
   serverUpsertHealthRecord,
 } from './serverRemote'
+
+export {
+  buildAppClinicalAdapter,
+  createAppClinicalService,
+  resolveAppClinicalStampContext,
+} from './runtime'

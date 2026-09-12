@@ -6,7 +6,7 @@
 import { rejectForgedActorClaim } from '../_shared/authorize.ts'
 import { recordAuditEvent } from '../_shared/db.ts'
 import {
-  corsHeaders,
+  bindRequestCors,
   errorResponse,
   getServiceClient,
   jsonResponse,
@@ -40,8 +40,9 @@ type Body = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: bindRequestCors(req) })
   }
+  bindRequestCors(req)
 
   const actor = await requireActorAccountId(req)
   if (!actor.ok) return actor.response

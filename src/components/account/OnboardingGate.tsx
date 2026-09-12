@@ -6,10 +6,12 @@ import {
   isOnboardingCompleted,
   isSessionActive,
 } from '../../lib/account'
+import { isDemoBackendMode } from '../../lib/backend'
 
 /**
- * Requires an active DEMO session, then redirects unfinished users to /onboarding.
+ * Requires an active session, then redirects unfinished users to /onboarding.
  * Public found/lost/emergency/login routes live outside this layout.
+ * REAL: Supabase session. DEMO: localStorage session flag.
  */
 export function OnboardingGate() {
   const navigate = useNavigate()
@@ -21,7 +23,9 @@ export function OnboardingGate() {
       return
     }
 
-    ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
+    if (isDemoBackendMode()) {
+      ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
+    }
 
     if (location.pathname.startsWith('/onboarding')) {
       if (isOnboardingCompleted()) {

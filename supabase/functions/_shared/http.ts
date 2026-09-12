@@ -5,16 +5,41 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-correlation-id, x-idempotency-key',
+/** Restrictive CORS — never wildcard for authenticated API. */
+export function corsHeaders(req?: Request): Record<string, string> {
+  const allowed = (Deno.env.get('ALLOWED_ORIGINS') ?? 'http://localhost:5173')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const origin = req?.headers.get('Origin')?.trim() ?? ''
+  const allowOrigin =
+    origin && allowed.includes(origin) ? origin : allowed[0] ?? 'http://localhost:5173'
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-correlation-id, x-idempotency-key',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  }
+}
+
+let boundCors: Record<string, string> | null = null
+
+/** Bind per-request CORS at the start of each Edge handler. */
+export function bindRequestCors(req: Request): Record<string, string> {
+  boundCors = corsHeaders(req)
+  return boundCors
+}
+
+function activeCors(): Record<string, string> {
+  return boundCors ?? corsHeaders()
 }
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...activeCors(), 'Content-Type': 'application/json' },
   })
 }
 

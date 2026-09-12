@@ -148,13 +148,22 @@ import {
   resolveClinicalStampContext,
 } from '../lib/health/clinicalProvenance'
 import {
-  createDemoClinicalService,
-  DemoClinicalPersistenceAdapter,
+  createAppClinicalService,
+  buildAppClinicalAdapter,
   isClinicalError,
   type ClinicalEncounterVersionSnapshot,
   type HealthRecordVersionSnapshot,
   type PetDocumentVersionSnapshot,
 } from '../lib/clinical'
+import { isRealBackendMode, shouldPersistSensitiveLocalStorage } from '../lib/backend'
+import { getCachedAuthenticatedAccountId } from '../lib/auth'
+import {
+  remoteCreatePet,
+  remoteListMyPets,
+  remoteWithdrawPet,
+} from '../lib/api'
+import { serverListHealthRecords, serverUpsertHealthRecord } from '../lib/clinical/serverRemote'
+import { isDocumentUploadEnabled } from '../lib/documents/uploadPolicy'
 import { tryAssertPetClinical } from '../lib/security'
 import type { EmergencyCardSettings } from '../types/emergencyCard'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
@@ -222,6 +231,9 @@ function normalizeLifestyleField(value: unknown): string[] | undefined {
 }
 
 function loadPets(): Pet[] {
+  if (isRealBackendMode()) {
+    return []
+  }
   if (typeof window === 'undefined') {
     return initialPets.map((p) => ensurePetOwnerAccountId(sanitizePetBreedingProfile(p)))
   }
@@ -353,6 +365,7 @@ function normalizeStoredHealthRecord(record: HealthRecord): HealthRecord {
 }
 
 function loadHealthRecords(): HealthRecord[] {
+  if (isRealBackendMode()) return []
   if (typeof window === 'undefined') return initialHealthRecords
   try {
     const raw = window.localStorage.getItem(HEALTH_STORAGE_KEY)
@@ -366,6 +379,7 @@ function loadHealthRecords(): HealthRecord[] {
 }
 
 function loadHealthRecordVersions(): HealthRecordVersionSnapshot[] {
+  if (isRealBackendMode()) return []
   if (typeof window === 'undefined') return []
   try {
     const raw = window.localStorage.getItem(HEALTH_VERSIONS_STORAGE_KEY)
@@ -379,6 +393,7 @@ function loadHealthRecordVersions(): HealthRecordVersionSnapshot[] {
 }
 
 function loadClinicalEncounters(): ClinicalEncounter[] {
+  if (isRealBackendMode()) return []
   if (typeof window === 'undefined') return []
   try {
     const raw = window.localStorage.getItem(CLINICAL_ENCOUNTERS_STORAGE_KEY)
@@ -743,11 +758,14 @@ function loadInitialNotifications(): AppNotification[] {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Bootstrap account before pets persist so fresh installs can show onboarding.
-  if (typeof window !== 'undefined') {
+  // Bootstrap DEMO account before pets persist so fresh installs can show onboarding.
+  // REAL: identity comes from Auth — never seed owner_self.
+  if (typeof window !== 'undefined' && !isRealBackendMode()) {
     ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
   }
   const [pets, setPets] = useState<Pet[]>(loadPets)
+  const [backendError, setBackendError] = useState<string | null>(null)
+  const [, setBackendLoading] = useState(isRealBackendMode())
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
   const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
@@ -976,8 +994,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!shouldPersistSensitiveLocalStorage()) return
     window.localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(pets))
   }, [pets])
+
+  useEffect(() => {
+    if (!isRealBackendMode()) {
+      setBackendLoading(false)
+      return
+    }
+    const accountId = getCachedAuthenticatedAccountId()
+    if (!accountId) {
+      setBackendLoading(false)
+      return
+    }
+    let cancelled = false
+    setBackendLoading(true)
+    setBackendError(null)
+    void (async () => {
+      const listed = await remoteListMyPets()
+      if (cancelled) return
+      if (!listed.ok) {
+        setBackendError(listed.message)
+        setBackendLoading(false)
+        // Fail closed — never fall back to localStorage seed.
+        setPets([])
+        return
+      }
+      setPets(listed.data.pets)
+      const healthBatches = await Promise.all(
+        listed.data.pets.map((p) => serverListHealthRecords(p.id)),
+      )
+      if (cancelled) return
+      const records: HealthRecord[] = []
+      for (const batch of healthBatches) {
+        if (!batch.ok) {
+          setBackendError(batch.message)
+          setBackendLoading(false)
+          return
+        }
+        for (const row of batch.data.records ?? []) {
+          records.push(row as HealthRecord)
+        }
+      }
+      setHealthRecords(records.map(normalizeStoredHealthRecord))
+      setBackendLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (backendError) {
+      showToast('Server nedostupný', backendError, 'info')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- surface once per error string
+  }, [backendError])
 
   useEffect(() => {
     window.localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(importantContacts))
@@ -1229,6 +1302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [photos])
 
   useEffect(() => {
+    if (!shouldPersistSensitiveLocalStorage()) return
     try {
       window.localStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(healthRecords))
     } catch {
@@ -1237,6 +1311,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [healthRecords])
 
   useEffect(() => {
+    if (!shouldPersistSensitiveLocalStorage()) return
     try {
       window.localStorage.setItem(
         HEALTH_VERSIONS_STORAGE_KEY,
@@ -1248,6 +1323,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [healthRecordVersions])
 
   useEffect(() => {
+    if (!shouldPersistSensitiveLocalStorage()) return
     try {
       window.localStorage.setItem(
         CLINICAL_ENCOUNTERS_STORAGE_KEY,
@@ -1259,6 +1335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [clinicalEncounters])
 
   useEffect(() => {
+    if (!shouldPersistSensitiveLocalStorage()) return
     try {
       window.localStorage.setItem(
         CLINICAL_ENCOUNTER_VERSIONS_STORAGE_KEY,
@@ -1380,14 +1457,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '') || 'pet'
 
+    const ownerId =
+      getCachedAuthenticatedAccountId() ??
+      getSelfAccount()?.id ??
+      (isRealBackendMode() ? null : SELF_OWNER_ID)
+    if (!ownerId) {
+      showToast('Nepřihlášen', 'Pro přidání mazlíčka se přihlaste.', 'info')
+      return
+    }
+
     const newPet: Pet = ensurePetEmergencyCard({
-      id: `${slug}-${Date.now()}`,
+      id: isRealBackendMode() ? crypto.randomUUID() : `${slug}-${Date.now()}`,
       name: form.name,
       type: form.type,
       breed: form.breed,
       image: getDefaultBreedImage(form.type, form.breed),
       coverColor: pickRandomCoverColor(),
-      ownerAccountId: getSelfAccount()?.id ?? SELF_OWNER_ID,
+      ownerAccountId: ownerId,
       foundContactToken: createFoundContactToken(),
       qrContactEnabled: true,
       profileUpdatedAt: new Date().toISOString(),
@@ -1397,6 +1483,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         : {}),
       ...(form.weight != null && form.weight > 0 ? { weight: form.weight } : {}),
     })
+
+    if (isRealBackendMode()) {
+      void (async () => {
+        const result = await remoteCreatePet(newPet)
+        if (!result.ok) {
+          setBackendError(result.message)
+          showToast('Uložení selhalo', result.message, 'info')
+          return
+        }
+        setPets((prev) => [...prev, result.data.pet])
+        setActiveModal(null)
+        showToast(
+          `${result.data.pet.name} přidán mezi vaše mazlíčky`,
+          'Doplňte profil podle potřeby — ostatní údaje zůstávají prázdné.',
+          'gold',
+        )
+      })()
+      return
+    }
+
     setPets((prev) => [...prev, newPet])
     setActiveModal(null)
     showToast(
@@ -1410,43 +1516,62 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pet = pets.find((item) => item.id === petId)
     if (!pet) return
 
-    const petDocIds = documents.filter((doc) => doc.petId === petId).map((doc) => doc.id)
-    petDocIds.forEach((id) => {
-      void deleteDocumentBlob(id).catch(() => undefined)
-    })
+    const finishDelete = () => {
+      const petDocIds = documents.filter((doc) => doc.petId === petId).map((doc) => doc.id)
+      petDocIds.forEach((id) => {
+        void deleteDocumentBlob(id).catch(() => undefined)
+      })
 
-    setPets((prev) => prev.filter((item) => item.id !== petId))
-    setPhotos((prev) => prev.filter((photo) => photo.petId !== petId))
-    setDocuments((prev) => prev.filter((doc) => doc.petId !== petId))
-    setHealthRecords((prev) => prev.filter((record) => record.petId !== petId))
-    setCalendarEvents((prev) =>
-      prev.filter(
-        (event) =>
-          event.petName !== pet.name &&
-          event.petId !== petId &&
-          !petDocIds.includes(event.sourceDocumentId ?? ''),
-      ),
-    )
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.petId === petId ? { ...post, petId: undefined } : post,
-      ),
-    )
-    setEarnedBadges((prev) => prev.filter((badge) => badge.petId !== petId))
+      setPets((prev) => prev.filter((item) => item.id !== petId))
+      setPhotos((prev) => prev.filter((photo) => photo.petId !== petId))
+      setDocuments((prev) => prev.filter((doc) => doc.petId !== petId))
+      setHealthRecords((prev) => prev.filter((record) => record.petId !== petId))
+      setCalendarEvents((prev) =>
+        prev.filter(
+          (event) =>
+            event.petName !== pet.name &&
+            event.petId !== petId &&
+            !petDocIds.includes(event.sourceDocumentId ?? ''),
+        ),
+      )
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.petId === petId ? { ...post, petId: undefined } : post,
+        ),
+      )
+      setEarnedBadges((prev) => prev.filter((badge) => badge.petId !== petId))
 
-    if (modalPetId === petId) {
-      setModalPetId(null)
-      setActiveModalState(null)
+      if (modalPetId === petId) {
+        setModalPetId(null)
+        setActiveModalState(null)
+      }
+
+      showToast(
+        `Profil ${pet.name} smazán`,
+        'Mazlíček a související údaje byly odstraněny.',
+        'info',
+      )
     }
 
-    showToast(
-      `Profil ${pet.name} smazán`,
-      'Mazlíček a související údaje byly odstraněny.',
-      'info',
-    )
+    if (isRealBackendMode()) {
+      void (async () => {
+        const result = await remoteWithdrawPet(petId)
+        if (!result.ok) {
+          showToast('Smazání selhalo', result.message, 'info')
+          return
+        }
+        finishDelete()
+      })()
+      return
+    }
+
+    finishDelete()
   }
 
-  const resolveActorAccountId = () => getSelfAccount()?.id ?? SELF_OWNER_ID
+  const resolveActorAccountId = () =>
+    getCachedAuthenticatedAccountId() ??
+    getSelfAccount()?.id ??
+    (isRealBackendMode() ? '' : SELF_OWNER_ID)
 
   const updatePet = (petId: string, updates: Partial<Pet>) => {
     // Object capture: TS control-flow ignores assignments inside setState updaters.
@@ -1465,7 +1590,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return
       }
       const adapter = buildHealthClinicalAdapter()
-      const service = createDemoClinicalService(adapter, { store: { pets } })
+      const service = createAppClinicalService(adapter, { store: { pets } })
       try {
         const result = service.emergencyWrite({
           context: resolveClinicalStampContext(),
@@ -1785,6 +1910,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reminderOffsetsDays?: number[]
     encounterId?: string
   }): Promise<PetDocument | null> => {
+    if (!isDocumentUploadEnabled()) {
+      showToast(
+        'Upload dokumentů nedostupný',
+        'Nahrávání dokumentů bude dostupné po aktivaci secure malware scanning.',
+        'info',
+      )
+      return null
+    }
     const pet = pets.find((item) => item.id === input.petId)
     const stamp = Date.now()
     const id = `doc_${stamp}_${Math.random().toString(36).slice(2, 8)}`
@@ -1808,7 +1941,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     let doc: PetDocument
     try {
       // Authorize + metadata BEFORE any blob write (no orphan blobs on deny).
@@ -1893,7 +2026,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!existing) return
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       const result = service.updateDocument({
         context: resolveClinicalStampContext(),
@@ -1955,7 +2088,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       service.replaceDocumentContent({
         context: resolveClinicalStampContext(),
@@ -1995,7 +2128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!existing) return
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       service.withdrawDocument({
         context: resolveClinicalStampContext(),
@@ -2033,7 +2166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const buildHealthClinicalAdapter = () =>
-    new DemoClinicalPersistenceAdapter({
+    buildAppClinicalAdapter({
       getHealthRecords: () => healthRecords,
       setHealthRecords: (next) => setHealthRecords(next),
       getHealthRecordVersions: () => healthRecordVersions,
@@ -2110,7 +2243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const isPastOrToday = recordDate.getTime() <= today.getTime() + 12 * 60 * 60 * 1000
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.createRecord({
@@ -2136,6 +2269,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       })
       const record = result.data
+      if (isRealBackendMode()) {
+        void serverUpsertHealthRecord({
+          petId: record.petId,
+          record: record as unknown as Record<string, unknown>,
+          expectedVersion: record.version,
+        }).then((remote) => {
+          if (!remote.ok) {
+            showToast('Server zápis selhal', remote.message, 'info')
+            setBackendError(remote.message)
+          }
+        })
+      }
       if (record.type === 'medication' && record.reminderEnabled) {
         enableMedicationReminder(record)
       }
@@ -2162,7 +2307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reason?: string
   }): ClinicalEncounter | null => {
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       const result = service.createEncounter({
         context: resolveClinicalStampContext(),
@@ -2191,7 +2336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const existing = clinicalEncounters.find((e) => e.id === encounterId)
     if (!existing) return null
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       const result = service.updateEncounter({
         context: resolveClinicalStampContext(),
@@ -2219,7 +2364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const existing = clinicalEncounters.find((e) => e.id === encounterId)
     if (!existing) return null
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       // Completion requires in_progress — auto-advance scheduled → in_progress first.
       let expected = existing.version
@@ -2256,7 +2401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const existing = clinicalEncounters.find((e) => e.id === encounterId)
     if (!existing) return null
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     try {
       const result = service.cancelEncounter({
         context: resolveClinicalStampContext(),
@@ -2280,7 +2425,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!record) return
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.updateRecord({
@@ -2309,7 +2454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!record) return
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.withdrawRecord({
@@ -2339,7 +2484,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const nextEnabled = !record.reminderEnabled
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.updateRecord({
@@ -2390,7 +2535,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const normalized = /^\d{1,2}:\d{2}$/.test(time.trim()) ? time.trim() : '09:00'
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.updateRecord({
@@ -2420,7 +2565,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.updateRecord({
@@ -3606,7 +3751,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (expired.length === 0) return
 
     const adapter = buildHealthClinicalAdapter()
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
     const completedIds = new Set<string>()
 
     for (const record of expired) {

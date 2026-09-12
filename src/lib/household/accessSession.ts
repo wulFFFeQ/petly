@@ -17,6 +17,8 @@ import type { PetHouseholdAccess, PetHouseholdAccessLog, HouseholdPetPermission 
 import type { Pet } from '../../types'
 import type { Account } from '../../types/professional'
 import { loadAccounts } from '../professional/storage'
+import { isRealBackendMode, shouldPersistSensitiveLocalStorage } from '../backend'
+import { remoteGrantHousehold, remoteRevokeHousehold } from '../api/accessRemote'
 
 export type HouseholdAccessSessionResult = {
   access: PetHouseholdAccess | null
@@ -25,6 +27,8 @@ export type HouseholdAccessSessionResult = {
 }
 
 function persist(accessList: PetHouseholdAccess[], logs: PetHouseholdAccessLog[]) {
+  // REAL mode: server is authority — do not write sensitive grants to localStorage.
+  if (!shouldPersistSensitiveLocalStorage()) return
   savePetHouseholdAccess(accessList)
   savePetHouseholdAccessLogs(logs)
 }
@@ -49,6 +53,14 @@ export function grantOwnerHouseholdAccess(
     status: input.status ?? 'active',
   })
   persist(result.accessList, result.logs)
+  if (isRealBackendMode()) {
+    void remoteGrantHousehold({
+      petId: input.pet.id,
+      accountId: input.accountId,
+      role: input.role,
+      permissions: result.access.permissions,
+    })
+  }
   return result
 }
 
@@ -57,8 +69,15 @@ export function revokePetHouseholdAccess(
   opts: { pet: Pet; actorAccountId: string },
 ): HouseholdAccessSessionResult {
   const { accessList, logs } = loadHouseholdAccessState()
+  const existing = accessList.find((a) => a.id === accessId)
   const result = revokeHouseholdAccess(accessList, logs, accessId, opts)
   if (result.access) persist(result.accessList, result.logs)
+  if (isRealBackendMode() && existing) {
+    void remoteRevokeHousehold({
+      petId: opts.pet.id,
+      accountId: existing.accountId,
+    })
+  }
   return result
 }
 

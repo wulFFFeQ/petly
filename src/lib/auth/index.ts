@@ -12,3 +12,10 @@ export {
   signUpWithEmailPassword,
   type AuthResult,
 } from './supabaseAuth'
+export {
+  clearAuthSessionCache,
+  getCachedAuthenticatedAccountId,
+  isAuthSessionReady,
+  setAuthSessionReady,
+  setCachedAuthenticatedAccountId,
+} from './sessionCache'

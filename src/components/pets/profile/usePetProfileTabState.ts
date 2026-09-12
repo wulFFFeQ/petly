@@ -17,8 +17,8 @@ import {
   resolveClinicalStampContext,
 } from '../../../lib/health/clinicalProvenance'
 import {
-  createDemoClinicalService,
-  DemoClinicalPersistenceAdapter,
+  buildAppClinicalAdapter,
+  createAppClinicalService,
   isClinicalError,
 } from '../../../lib/clinical'
 import { APP_TODAY } from '../../../lib/dashboardDates'
@@ -371,12 +371,12 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     if (!Number.isFinite(value) || value <= 0) return
     const weight = Math.round(value * 10) / 10
 
-    const adapter = new DemoClinicalPersistenceAdapter({
+    const adapter = buildAppClinicalAdapter({
       getHealthRecords: () => [],
       setHealthRecords: () => undefined,
       persistWeightMeasurement,
     })
-    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const service = createAppClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.createWeightMeasurement({

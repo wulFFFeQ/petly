@@ -6,3 +6,9 @@ export {
   isProductionBackendConfigured,
   type BackendEnvironmentStatus,
 } from './config'
+export {
+  isDemoBackendMode,
+  isDemoLoginAllowed,
+  isRealBackendMode,
+  shouldPersistSensitiveLocalStorage,
+} from './mode'

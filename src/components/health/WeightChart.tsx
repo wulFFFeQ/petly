@@ -13,8 +13,8 @@ import {
   resolveClinicalStampContext,
 } from '../../lib/health/clinicalProvenance'
 import {
-  createDemoClinicalService,
-  DemoClinicalPersistenceAdapter,
+  buildAppClinicalAdapter,
+  createAppClinicalService,
   isClinicalError,
 } from '../../lib/clinical'
 import {
@@ -159,12 +159,12 @@ export function WeightChart({
     const value = Number(normalized)
     if (!Number.isFinite(value) || value <= 0) return
 
-    const adapter = new DemoClinicalPersistenceAdapter({
+    const adapter = buildAppClinicalAdapter({
       getHealthRecords: () => [],
       setHealthRecords: () => undefined,
       persistWeightMeasurement,
     })
-    const service = createDemoClinicalService(adapter, { store: { pets: allPets } })
+    const service = createAppClinicalService(adapter, { store: { pets: allPets } })
 
     try {
       service.createWeightMeasurement({

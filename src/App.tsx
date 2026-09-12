@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { AuthSessionBridge } from './components/account/AuthSessionBridge'
 import { OnboardingGate } from './components/account/OnboardingGate'
 import { ProfessionalGate } from './components/account/ProfessionalGate'
 import { AppLayout } from './components/layout/AppLayout'
@@ -13,6 +14,7 @@ import {
   isSessionActive,
   loginSelfSession,
 } from './lib/account'
+import { isDemoLoginAllowed, isRealBackendMode } from './lib/backend'
 import { CalendarPage } from './pages/CalendarPage'
 import { CommunityPage } from './pages/CommunityPage'
 import { ConciergePage } from './pages/ConciergePage'
@@ -108,7 +110,9 @@ function OnboardingLayout() {
       navigate('/', { replace: true })
       return
     }
-    loginSelfSession()
+    if (isDemoLoginAllowed()) {
+      loginSelfSession()
+    }
   }, [navigate])
 
   if (!isSessionActive()) return null
@@ -128,8 +132,9 @@ function App() {
   return (
     <BrowserRouter basename={basename}>
       <ScrollToTop />
-      <AppProvider>
-        <Routes>
+      <AuthSessionBridge>
+        <AppProvider>
+          <Routes>
           <Route path="found/:token" element={<FoundPetLayout />} />
           <Route path="lost/:token" element={<LostPetLayout />} />
           <Route path="pet/:slug/emergency" element={<EmergencyPetLayout />} />
@@ -194,9 +199,14 @@ function App() {
               <Route path="help" element={<HelpPage />} />
             </Route>
           </Route>
+          <Route
+            path="*"
+            element={<Navigate to={isRealBackendMode() ? '/login' : '/'} replace />}
+          />
         </Routes>
       </AppProvider>
-    </BrowserRouter>
+    </AuthSessionBridge>
+  </BrowserRouter>
   )
 }
 

@@ -6,7 +6,7 @@
 import { rejectForgedActorClaim } from '../_shared/authorize.ts'
 import { recordAuditEvent } from '../_shared/db.ts'
 import {
-  corsHeaders,
+  bindRequestCors,
   errorResponse,
   getServiceClient,
   jsonResponse,
@@ -15,7 +15,14 @@ import {
 } from '../_shared/http.ts'
 
 type Body = {
-  op: 'grantHousehold' | 'revokeHousehold' | 'grantProfessional' | 'revokeProfessional' | 'grantOrgPet' | 'revokeOrgPet'
+  op:
+    | 'grantHousehold'
+    | 'revokeHousehold'
+    | 'grantProfessional'
+    | 'revokeProfessional'
+    | 'grantOrgPet'
+    | 'revokeOrgPet'
+    | 'listForPet'
   claimedActorAccountId?: string
   petId: string
   accountId?: string
@@ -32,8 +39,9 @@ type Body = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: bindRequestCors(req) })
   }
+  bindRequestCors(req)
 
   const actor = await requireActorAccountId(req)
   if (!actor.ok) return actor.response
@@ -49,6 +57,29 @@ Deno.serve(async (req) => {
     db = getServiceClient()
   } catch {
     return errorResponse('not_configured', 'PRODUCTION CONNECTION NOT CONFIGURED', 503)
+  }
+
+  if (body.op === 'listForPet') {
+    const { data: pet } = await db
+      .from('pets')
+      .select('id, owner_account_id')
+      .eq('id', body.petId)
+      .maybeSingle()
+    if (!pet) return errorResponse('not_found', 'Pet not found', 404)
+    if (pet.owner_account_id !== actor.accountId) {
+      return errorResponse('not_owner', 'Only pet owner may list grants', 403)
+    }
+    const [household, professional, organization] = await Promise.all([
+      db.from('pet_household_access').select('*').eq('pet_id', body.petId),
+      db.from('pet_professional_access').select('*').eq('pet_id', body.petId),
+      db.from('organization_pet_access').select('*').eq('pet_id', body.petId),
+    ])
+    return jsonResponse({
+      ok: true,
+      household: household.data ?? [],
+      professional: professional.data ?? [],
+      organization: organization.data ?? [],
+    })
   }
 
   const { data: pet } = await db

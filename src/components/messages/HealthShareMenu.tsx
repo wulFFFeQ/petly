@@ -15,11 +15,11 @@ import type {
   WeightMeasurement,
 } from '../../types'
 import {
-  createDemoClinicalService,
-  DemoClinicalPersistenceAdapter,
+  buildAppClinicalAdapter,
+  createAppClinicalService,
   type ClinicalService,
 } from '../../lib/clinical'
-import { createDemoSecurityContext } from '../../lib/security'
+import { resolveClinicalStampContext } from '../../lib/health/clinicalProvenance'
 import { sendClinicalShareRequest } from '../../lib/messaging'
 import { useApp } from '../../context/AppContext'
 import { getWeightMeasurementsForPet } from '../../lib/badges/badgeData'
@@ -44,7 +44,7 @@ function buildService(
   clinicalEncounters: ClinicalEncounter[],
   weights: WeightMeasurement[],
 ): ClinicalService {
-  const adapter = new DemoClinicalPersistenceAdapter({
+  const adapter = buildAppClinicalAdapter({
     getHealthRecords: () => healthRecords,
     setHealthRecords: () => undefined,
     getDocuments: () => documents,
@@ -54,7 +54,7 @@ function buildService(
     getWeightMeasurements: () => weights,
     persistWeightMeasurement: () => undefined,
   })
-  return createDemoClinicalService(adapter, { store: { pets } })
+  return createAppClinicalService(adapter, { store: { pets } })
 }
 
 export function HealthShareMenu({ conversation, onClose, onShared }: HealthShareMenuProps) {
@@ -83,7 +83,7 @@ export function HealthShareMenu({ conversation, onClose, onShared }: HealthShare
       setItems([])
       return
     }
-    const session = createDemoSecurityContext({ channel: 'web', activeMode: 'personal' })
+    const session = { ok: true as const, context: resolveClinicalStampContext() }
     if (!session.ok) {
       setError('Nejste přihlášeni')
       setItems([])
@@ -142,7 +142,7 @@ export function HealthShareMenu({ conversation, onClose, onShared }: HealthShare
 
   const shareItem = (item: SharePickItem) => {
     if (!petId || busy) return
-    const session = createDemoSecurityContext({ channel: 'web', activeMode: 'personal' })
+    const session = { ok: true as const, context: resolveClinicalStampContext() }
     if (!session.ok) {
       showToast('Sdílení selhalo', 'Nejste přihlášeni', 'error')
       return

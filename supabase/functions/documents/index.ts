@@ -6,7 +6,7 @@
 import { authorizePetAction, rejectForgedActorClaim } from '../_shared/authorize.ts'
 import { loadPetAuthzBundle, recordAuditEvent } from '../_shared/db.ts'
 import {
-  corsHeaders,
+  bindRequestCors,
   errorResponse,
   getServiceClient,
   jsonResponse,
@@ -57,8 +57,9 @@ type Body = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: bindRequestCors(req) })
   }
+  bindRequestCors(req)
 
   const actor = await requireActorAccountId(req)
   if (!actor.ok) return actor.response
@@ -110,54 +111,14 @@ Deno.serve(async (req) => {
   }
 
   if (body.op === 'prepareUpload' || body.op === 'completeUpload') {
-    const validation = validateUpload(body)
-    if (!validation.ok) return errorResponse(validation.code, validation.message)
-
-    // Hook for future malware scanning provider — not implemented (honest gap).
-    const malwareScanStatus = 'not_configured'
-
-    if (body.op === 'prepareUpload') {
-      const documentId = crypto.randomUUID()
-      const safeName = sanitizeFilename(body.filename!)
-      const storageKey = `${body.petId}/${documentId}/${safeName}`
-      const { data: signed, error } = await db.storage
-        .from('pet-documents')
-        .createSignedUploadUrl(storageKey)
-      if (error) return errorResponse('storage_error', error.message, 500)
-      return jsonResponse({
-        ok: true,
-        documentId,
-        storageKey,
-        signedUpload: signed,
-        malwareScanStatus,
-      })
-    }
-
-    // completeUpload — metadata transaction after authorized upload
-    const documentId = body.documentId ?? crypto.randomUUID()
-    const storageKey = body.storageKey!
-    const row = {
-      id: documentId,
-      pet_id: body.petId,
-      category: body.category ?? null,
-      document_type: body.documentType ?? null,
-      filename: sanitizeFilename(body.filename!),
-      mime_type: body.mimeType!,
-      size_bytes: body.sizeBytes!,
-      storage_key: storageKey,
-      is_public: false,
-      version: 1,
-      created_by_account_id: actor.accountId,
-      payload: { malwareScanStatus },
-    }
-    const { data, error } = await db.from('pet_documents').insert(row).select('*').single()
-    if (error) return errorResponse('db_error', error.message, 500)
-    await db.from('pet_document_versions').insert({
-      document_id: data.id,
-      version: 1,
-      snapshot: data,
-    })
-    return jsonResponse({ ok: true, document: data, malwareScanStatus })
+    // Malware scanning provider not configured — production uploads MUST stay disabled.
+    // Do not invent a fake scanner. Authorized download of existing objects remains allowed.
+    return errorResponse(
+      'upload_disabled',
+      'Document upload is disabled until secure malware scanning is activated.',
+      503,
+      { malwareScanStatus: 'not_configured' },
+    )
   }
 
   // signedDownload
@@ -185,23 +146,8 @@ Deno.serve(async (req) => {
   })
 })
 
-function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 180)
-}
+// Upload validation helpers remain documented in LAUNCH-02; re-enable with malware scanner.
+void ALLOWED_MIME
+void BLOCKED_EXT
+void MAX_BYTES
 
-function validateUpload(body: Body): { ok: true } | { ok: false; code: string; message: string } {
-  if (!body.filename || !body.mimeType || typeof body.sizeBytes !== 'number') {
-    return { ok: false, code: 'invalid', message: 'filename, mimeType, sizeBytes required' }
-  }
-  if (body.sizeBytes <= 0 || body.sizeBytes > MAX_BYTES) {
-    return { ok: false, code: 'invalid_size', message: 'File size out of bounds' }
-  }
-  if (!ALLOWED_MIME.has(body.mimeType)) {
-    return { ok: false, code: 'invalid_mime', message: 'MIME type not allowed' }
-  }
-  const ext = body.filename.split('.').pop()?.toLowerCase() ?? ''
-  if (BLOCKED_EXT.has(ext)) {
-    return { ok: false, code: 'executable_rejected', message: 'Executable content rejected' }
-  }
-  return { ok: true }
-}

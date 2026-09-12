@@ -11,16 +11,20 @@ import {
   signInWithEmailPassword,
   signUpWithEmailPassword,
 } from '../lib/auth'
-import { getProductionConnectionStatus } from '../lib/backend'
+import {
+  getProductionConnectionStatus,
+  isDemoLoginAllowed,
+} from '../lib/backend'
 import { BRAND_NAME, BRAND_TAGLINE } from '../lib/brand'
 
 /**
  * Login — production email/password when Supabase is configured;
- * otherwise DEMO one-click owner_self (explicitly labeled).
+ * otherwise DEMO one-click owner_self (explicitly labeled; never in production builds).
  */
 export function LoginPage() {
   const navigate = useNavigate()
   const realAuth = isRealAuthAvailable()
+  const demoLoginAllowed = isDemoLoginAllowed()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -28,12 +32,12 @@ export function LoginPage() {
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (realAuth) return
     if (!isSessionActive()) return
     navigate(accountNeedsOnboarding() ? '/onboarding' : '/', { replace: true })
-  }, [navigate, realAuth])
+  }, [navigate])
 
   const handleDemoLogin = () => {
+    if (!demoLoginAllowed) return
     loginSelfSession()
     navigate(accountNeedsOnboarding() ? '/onboarding' : '/', { replace: true })
   }
@@ -51,7 +55,7 @@ export function LoginPage() {
       setError(result.message)
       return
     }
-    navigate('/', { replace: true })
+    navigate(accountNeedsOnboarding() ? '/onboarding' : '/', { replace: true })
   }
 
   return (
@@ -130,7 +134,7 @@ export function LoginPage() {
               {mode === 'signin' ? 'Nemáte účet? Registrace' : 'Už máte účet? Přihlášení'}
             </button>
           </>
-        ) : (
+        ) : demoLoginAllowed ? (
           <>
             <p className="mt-6 text-sm leading-relaxed text-[#5A6660]">
               DEMO přihlášení — obnoví lokální relaci{' '}
@@ -153,6 +157,19 @@ export function LoginPage() {
             >
               Přihlásit se (DEMO)
             </Button>
+          </>
+        ) : (
+          <>
+            <p className="mt-6 text-sm leading-relaxed text-[#5A6660]">
+              Production connection není nakonfigurované. DEMO login v production
+              buildu není dostupný.
+            </p>
+            <p
+              className="mt-2 text-xs text-[#8A9690]"
+              data-testid="production-connection-status"
+            >
+              {getProductionConnectionStatus()}
+            </p>
           </>
         )}
       </div>

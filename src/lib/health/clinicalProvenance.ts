@@ -18,7 +18,7 @@ import { findHouseholdAccess } from '../household/access'
 import { loadPetHouseholdAccess } from '../household/storage'
 import { isPetOwner } from '../pets/ownership'
 import { actorAccountId } from '../security/context'
-import { createDemoSecurityContext } from '../security/demoSessionAdapter'
+import { resolveAppClinicalStampContext } from '../clinical/runtime'
 import type { SecurityContext } from '../security/types'
 
 export type ClinicalCreateStamp = {
@@ -102,9 +102,9 @@ const PROVENANCE_STRIP_KEYS = new Set([
   'isPublic',
 ])
 
-/** Current DEMO SecurityContext for stamping after clinicalGate ALLOW. */
+/** Current SecurityContext for stamping after clinicalGate ALLOW (DEMO or REAL). */
 export function resolveClinicalStampContext(): SecurityContext {
-  return createDemoSecurityContext().context
+  return resolveAppClinicalStampContext()
 }
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import {
-  corsHeaders,
+  bindRequestCors,
   errorResponse,
   getServiceClient,
   jsonResponse,
@@ -36,8 +36,9 @@ type Body = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: bindRequestCors(req) })
   }
+  bindRequestCors(req)
 
   let db
   try {

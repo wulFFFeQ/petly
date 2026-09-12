@@ -28,7 +28,13 @@ import type {
   ProfessionalType,
 } from '../professional/types'
 import { clearUiWorkspace } from './workspace'
-import { isRealAuthAvailable, signOutAuth } from '../auth/supabaseAuth'
+import {
+  getCachedAuthenticatedAccountId,
+  isRealAuthAvailable,
+  signOutAuth,
+} from '../auth'
+import { isDemoLoginAllowed, isRealBackendMode } from '../backend'
+import { remoteUpdateMyAccount } from '../api/accountsRemote'
 
 export const ONBOARDING_COMPLETED_KEY = 'lovedandknown.onboardingCompleted'
 
@@ -39,22 +45,45 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
-function readOnboardingFlag(): boolean {
+function onboardingKeyForAccount(accountId: string): string {
+  return `${ONBOARDING_COMPLETED_KEY}.${accountId}`
+}
+
+function readOnboardingFlag(accountId?: string): boolean {
   if (typeof localStorage === 'undefined') return true
+  if (accountId && isRealBackendMode()) {
+    return localStorage.getItem(onboardingKeyForAccount(accountId)) === 'true'
+  }
   return localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true'
 }
 
-function writeOnboardingFlag(value: boolean): void {
+function writeOnboardingFlag(value: boolean, accountId?: string): void {
   if (typeof localStorage === 'undefined') return
+  if (accountId && isRealBackendMode()) {
+    const key = onboardingKeyForAccount(accountId)
+    if (value) localStorage.setItem(key, 'true')
+    else localStorage.removeItem(key)
+    return
+  }
   if (value) localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true')
   else localStorage.removeItem(ONBOARDING_COMPLETED_KEY)
 }
 
 export function isOnboardingCompleted(): boolean {
+  if (isRealBackendMode()) {
+    const id = getCachedAuthenticatedAccountId()
+    if (!id) return true
+    return readOnboardingFlag(id)
+  }
   return readOnboardingFlag()
 }
 
 export function markOnboardingCompleted(): void {
+  if (isRealBackendMode()) {
+    const id = getCachedAuthenticatedAccountId()
+    if (id) writeOnboardingFlag(true, id)
+    return
+  }
   writeOnboardingFlag(true)
 }
 
@@ -64,11 +93,14 @@ export function resetOnboardingDemo(): void {
 }
 
 /**
- * DEMO session activity.
- * Missing key = active (legacy installs / e2e that only seed onboarding).
- * Explicit logout writes 'false'.
+ * Session activity.
+ * REAL: authenticated Supabase user id from session cache.
+ * DEMO: localStorage flag (missing key = active for legacy/e2e).
  */
 export function isSessionActive(): boolean {
+  if (isRealBackendMode()) {
+    return Boolean(getCachedAuthenticatedAccountId())
+  }
   if (typeof localStorage === 'undefined') return true
   return localStorage.getItem(SESSION_ACTIVE_KEY) !== 'false'
 }
@@ -81,17 +113,19 @@ function writeSessionActive(active: boolean): void {
 
 /**
  * Activate DEMO session for the existing self account.
- * Does not wipe pets or other domain data.
+ * Throws if REAL backend is configured (DEMO login forbidden).
  */
 export function loginSelfSession(): Account {
+  if (!isDemoLoginAllowed()) {
+    throw new Error('DEMO login is not available in production mode')
+  }
   writeSessionActive(true)
   return ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
 }
 
 /**
- * Deactivate DEMO session and clear session-scoped UI workspace only.
- * Does not delete pets, bookings, messages, health, membership, profiles, or onboarding flag.
- * When production auth is configured, also signs out Supabase (fire-and-forget).
+ * Deactivate session and clear session-scoped UI workspace only.
+ * When production auth is configured, also signs out Supabase.
  */
 export function logoutSelfSession(): void {
   writeSessionActive(false)
@@ -111,6 +145,21 @@ export function getMyProfilePath(account?: Account | null): string {
 }
 
 export function getSelfAccount(): Account | null {
+  if (isRealBackendMode()) {
+    const id = getCachedAuthenticatedAccountId()
+    if (!id) return null
+    const accounts = loadAccounts()
+    const found = accounts.find((a) => a.id === id)
+    if (found) return found
+    return {
+      id,
+      kind: 'consumer',
+      roles: ['owner'],
+      displayName: getUserDisplayName(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    }
+  }
   const accounts = loadAccounts()
   return accounts.find((a) => a.id === SELF_OWNER_ID) ?? null
 }
@@ -119,6 +168,9 @@ export function saveSelfAccount(account: Account): Account {
   const normalized = normalizeAccount(account)
   if (!normalized) {
     throw new Error('Invalid account')
+  }
+  if (isRealBackendMode() && normalized.id === SELF_OWNER_ID) {
+    throw new Error('owner_self is not a production account id')
   }
   const others = loadAccounts().filter((a) => a.id !== normalized.id)
   saveAccounts([...others, normalized])
@@ -139,13 +191,18 @@ function hasPriorAppData(): boolean {
 }
 
 /**
- * Safe default for existing users: consumer + owner.
- * Fresh installs (no prior data) leave onboarding incomplete so the wizard can run.
- * Existing installs get the default account and onboarding marked complete.
+ * Safe default for existing DEMO users: consumer + owner.
+ * REAL mode: never creates owner_self — identity comes from Auth.
  */
 export function ensureDefaultSelfAccount(options?: {
   preferOnboardingWhenEmpty?: boolean
 }): Account {
+  if (isRealBackendMode()) {
+    const existing = getSelfAccount()
+    if (existing) return existing
+    throw new Error('Unauthenticated — no application account')
+  }
+
   const existing = getSelfAccount()
   if (existing) return existing
 
@@ -174,6 +231,9 @@ export function ensureDefaultSelfAccount(options?: {
  * Whether the self user should see the onboarding wizard.
  */
 export function accountNeedsOnboarding(): boolean {
+  if (isRealBackendMode()) {
+    return Boolean(getCachedAuthenticatedAccountId()) && !isOnboardingCompleted()
+  }
   ensureDefaultSelfAccount({ preferOnboardingWhenEmpty: true })
   return !isOnboardingCompleted()
 }
@@ -341,6 +401,7 @@ export type CompleteOnboardingInput = {
 
 /**
  * Persist onboarding selection. Role alone never verifies or grants pet access.
+ * REAL: account id from Auth session; server updateMyAccount for roles/displayName.
  */
 export function completeOnboarding(input: CompleteOnboardingInput): {
   account: Account
@@ -353,8 +414,15 @@ export function completeOnboarding(input: CompleteOnboardingInput): {
     isProfessionalType(roles[0]) &&
     isOrganizationProfessionalType(roles[0])
 
+  const accountId = isRealBackendMode()
+    ? getCachedAuthenticatedAccountId()
+    : SELF_OWNER_ID
+  if (!accountId) {
+    throw new Error('Unauthenticated onboarding')
+  }
+
   let account: Account = {
-    id: SELF_OWNER_ID,
+    id: accountId,
     kind: orgOnly ? 'professional' : 'consumer',
     roles: [],
     displayName: input.displayName?.trim() || getUserDisplayName(),
@@ -366,6 +434,14 @@ export function completeOnboarding(input: CompleteOnboardingInput): {
     account = addAccountRole(account, role)
   }
   account = saveSelfAccount(account)
+
+  if (isRealBackendMode()) {
+    void remoteUpdateMyAccount({
+      displayName: account.displayName,
+      roles: account.roles,
+      kind: account.kind,
+    })
+  }
 
   for (const role of roles) {
     const proType = professionalTypeFromRole(role)
