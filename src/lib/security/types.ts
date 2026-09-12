@@ -163,21 +163,27 @@ export type AuthorizationRequest = {
   claimedActorAccountId?: string
 }
 
-/** Fields for future K48 audit ingest — no storage in K47. */
+/**
+ * Trusted fields emitted after every authorize() decision (K48 ingest).
+ * Must be built from SecurityContext + decision — never from client claims.
+ */
 export type AuthorizationAuditPayload = {
   actorAccountId?: string
   actorKind: ActorKind
   resourceType: ResourceType | string
   resourceId: string
   organizationId?: string
+  professionalId?: string
   membershipId?: string
   grantId?: string
   grantType?: string
   action: string
   authorizationResult: 'allow' | 'deny'
   permission?: string
+  allowPath?: AuthorizationAllowReason
   correlationId: string
   channel: SecurityChannel
+  authority: SecurityAuthority
   denyCode?: AuthorizationDenyCode
   denyClass?: AuthorizationDenyClass
 }

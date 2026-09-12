@@ -36,7 +36,7 @@
 | 18 | Public access | anonymous + `public.pet.project` + existing `projectPublicPet` |
 | 19 | Deny-by-default | unknown action/resource/permission → DENY |
 | 20 | Error contract | `unauthenticated` / `unauthorized` / `not_found` + `AuthorizationError` |
-| 21 | Audit extension point | `auditHook.ts` — observer only, no storage |
+| 21 | Audit extension point | `auditHook.ts` — observer; K48 wires `AuditSink` via `configureAuthorizationAudit` |
 | 22 | System actors | `createSystemActorContext` / `createProviderActorContext` — typed; not DEMO-client-forgeable |
 | 23 | LocalStorage separation | `authority: 'demo'` explicit; UX workspace ≠ security |
 | 24 | Integration strategy | barrel export; no plošná migrace call sites |
@@ -65,7 +65,7 @@
 | Owner PII | deny-by-default | owner only | SafeContact odděleně | HIGH |
 | Projections | after authorize | allowlist | client | MEDIUM |
 | Booking / Payment / Messaging | izolované adapters | vlastní ACL | client | MEDIUM–HIGH |
-| Audit | hook only | — | no storage (K48) | — |
+| Audit | K48 AuditSink | demo sink / server stub | localStorage ≠ prod audit | CRITICAL pokud považováno za prod |
 | System/provider | typed contract | server reserved | not implemented | HIGH if forged |
 
 ---
@@ -75,7 +75,7 @@
 - žádný nový auth/login systém
 - žádný nový PetAccess / unified access model
 - žádný nový permission katalog
-- žádný nový audit storage / event systém
+- žádný nový audit storage / event systém *(K47: pouze hook; storage = K48)*
 - žádný nový notification systém
 - žádný nový projection systém
 - žádná změna PetProfessionalAccess / PetHouseholdAccess / OrganizationPetAccess / OrganizationMembership modelů
@@ -83,6 +83,8 @@
 - žádný microchip leak přes authorize result (non-owner DENY)
 - žádný owner PII leak přes authorize result (non-owner DENY)
 - localStorage **není** označen jako production authority (`authority: 'demo'`)
+
+**K48 navazuje:** [K48-security-audit-trail-runtime.md](K48-security-audit-trail-runtime.md) — `AuditEvent` + `AuditSink` na `emitAuthorizationAudit`.
 
 ---
 
@@ -95,7 +97,7 @@ request → DEMO/session adapter → SecurityContext
   → resolve resource
   → single path: owner | household | professional | organization | booking | payment | messaging | public
   → Decision ALLOW | DENY
-  → audit observer (no-op / K48)
+  → audit observer → K48 AuditSink (configureAuthorizationAudit)
   → (optional) existing project* after ALLOW
 ```
 

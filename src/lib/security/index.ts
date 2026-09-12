@@ -1,7 +1,8 @@
 /**
  * K47 — Security Context + Central Authorization Runtime
+ * K48 — Audit trail runtime (AuditSink) wired to authorize() decisions
  *
- * One SecurityContext + one authorize() entry point.
+ * One SecurityContext + one authorize() + one AuditSink ingest path.
  * Wraps existing HH / Pro / OrgPet / ownership / booking / payment / messaging boundaries.
  * Does NOT rewrite access models or invent a unified PetAccess.
  */
@@ -100,3 +101,39 @@ export {
 export { projectAfterAuthorize } from './adapters/project'
 export { projectAuthorizedPublicPet } from './adapters/public'
 export { actorHasOrgMembershipOnly } from './adapters/organizationPet'
+
+export type {
+  AuditActorType,
+  AuditEvent,
+  AuditQueryFilter,
+  AuditReasonCode,
+  AuditResourceType,
+  AuditResult,
+  AuditRetentionPolicy,
+  AuditSink,
+  DemoAuditSinkOptions,
+  DemoAuditQueryOptions,
+  ConfigureAuthorizationAuditOptions,
+  MapAuditEventOptions,
+} from './audit'
+
+export {
+  auditReasonFromDenyClass,
+  scrubAuditMetadata,
+  auditEventContainsForbiddenContent,
+  mapAuthorizationPayloadToAuditEvent,
+  mapActorKindToAuditActorType,
+  normalizeAuditResourceType,
+  DemoAuditSink,
+  createDemoAuditSink,
+  DEMO_AUDIT_STORAGE_KEY,
+  ServerAuditSinkStub,
+  createServerAuditSinkStub,
+  filterAuditEvents,
+  queryDemoAuditEvents,
+  assertOrganizationAuditIsolation,
+  planRetention,
+  DEFAULT_AUTHORIZATION_RETENTION,
+  configureAuthorizationAudit,
+  getActiveAuditSink,
+} from './audit'

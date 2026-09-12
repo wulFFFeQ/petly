@@ -1,5 +1,7 @@
 /**
- * Audit extension point for K48 — no storage, no event model, no UI.
+ * Authorization audit emit hook.
+ * K48 wires AuditSink via configureAuthorizationAudit() — default remains no-op.
+ * Audit must never break authorization.
  */
 
 import type { AuthorizationAuditPayload } from './types'
@@ -8,7 +10,7 @@ export type AuthorizationAuditObserver = (payload: AuthorizationAuditPayload) =>
 
 let observer: AuthorizationAuditObserver | null = null
 
-/** Register a future audit ingest observer (K48). Default is no-op. */
+/** Register audit ingest observer (DemoAuditSink / ServerAuditSink). Default is no-op. */
 export function setAuthorizationAuditObserver(
   next: AuthorizationAuditObserver | null,
 ): void {
