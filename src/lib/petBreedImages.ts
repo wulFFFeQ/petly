@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 39
+export const BREED_IMAGE_SYNC_GENERATION = 40
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -138,9 +138,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Drentsche Patrisijshond': '/breeds/drentsche-patrijshond.jpg?v=1',
   'Drever': '/breeds/drever.jpg?v=2',
   'Dunker': '/breeds/dunker.jpg?v=2',
-  'Entlebuchský salašnický pes': 'https://images.dog.ceo/breeds/entlebucher/n02108000_1690.jpg',
-  'Estrelský pastevecký pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Eurasier': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
+  'Entlebuchský salašnický pes': '/breeds/entlebuchsky-salasnicky-pes.jpg?v=1',
+  'Estrelský pastevecký pes': '/breeds/estrelsky-pastevecky-pes.jpg?v=1',
+  'Eurasier': '/breeds/eurasier.jpg?v=1',
   'Faraónský pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Field španěl': 'https://images.dog.ceo/breeds/spaniel-welsh/n02102177_1874.jpg',
   'Finský honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
@@ -610,6 +610,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/drentsche-patrijshond',
   'breeds/drever',
   'breeds/dunker',
+  'breeds/entlebuchsky-salasnicky-pes',
+  'breeds/estrelsky-pastevecky-pes',
+  'breeds/eurasier',
   'photo-1757781956803-2efc6921abe9',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
