@@ -11,8 +11,12 @@ import { ChevronRight, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   resolveClinicalStampContext,
-  stampWeightCreate,
 } from '../../lib/health/clinicalProvenance'
+import {
+  createDemoClinicalService,
+  DemoClinicalPersistenceAdapter,
+  isClinicalError,
+} from '../../lib/clinical'
 import {
   getWeightMeasurementsForPet,
   persistWeightMeasurement,
@@ -22,7 +26,6 @@ import {
   formatWeightKg,
 } from '../../lib/healthDashboard'
 import { parseCzechDate, todayIsoDate, formatIsoDateToCzech } from '../../lib/petProfileUtils'
-import { tryAssertPetClinical } from '../../lib/security'
 import { useAuthorizedHealthScope } from '../../lib/security/useAuthorizedHealthScope'
 import { useApp } from '../../context/AppContext'
 import type { Pet, WeightMeasurement } from '../../types'
@@ -156,26 +159,37 @@ export function WeightChart({
     const value = Number(normalized)
     if (!Number.isFinite(value) || value <= 0) return
 
-    const gate = tryAssertPetClinical('health.write', petId, { pets: allPets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
-      return
-    }
-
-    const petForStamp = allPets.find((p) => p.id === petId) ?? { id: petId }
-    const entry = stampWeightCreate(resolveClinicalStampContext(), petForStamp, {
-      id: `wm_${petId}_${Date.now()}`,
-      petId,
-      date: formatIsoDateToCzech(todayIsoDate()),
-      weight: Math.round(value * 10) / 10,
-      note: newWeightNote.trim() || undefined,
+    const adapter = new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => [],
+      setHealthRecords: () => undefined,
+      persistWeightMeasurement,
     })
-    persistWeightMeasurement(entry)
-    refreshBadges()
-    setNewWeight('')
-    setNewWeightNote('')
-    setShowAddForm(false)
-    reload()
+    const service = createDemoClinicalService(adapter, { store: { pets: allPets } })
+
+    try {
+      service.createWeightMeasurement({
+        context: resolveClinicalStampContext(),
+        pets: allPets,
+        input: {
+          id: `wm_${petId}_${Date.now()}`,
+          petId,
+          date: formatIsoDateToCzech(todayIsoDate()),
+          weight: Math.round(value * 10) / 10,
+          note: newWeightNote.trim() || undefined,
+        },
+      })
+      refreshBadges()
+      setNewWeight('')
+      setNewWeightNote('')
+      setShowAddForm(false)
+      reload()
+    } catch (err) {
+      if (isClinicalError(err)) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
+        return
+      }
+      throw err
+    }
   }
 
   const addForm = (

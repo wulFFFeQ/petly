@@ -96,6 +96,13 @@ export type SecurityAction =
   | 'ownerContacts.read'
   | 'pet.profile.read'
   | 'pet.profile.write'
+  /** K55/K56 — clinician responsibility; never owner/co-owner. */
+  | 'clinical.finalize'
+  | 'clinical.sign'
+  | 'clinical.withdraw'
+  | 'clinical.admin'
+  | 'clinical.export'
+  | 'clinical.emergency.write'
   | 'booking.read'
   | 'booking.confirm'
   | 'booking.cancel'

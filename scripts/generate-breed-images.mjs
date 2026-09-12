@@ -55,6 +55,12 @@ const DOG_CURATED_IMAGES = {
   Akita: '/breeds/akita.jpg?v=1',
   // American Akita — full-body landscape stack, head fully in frame (not hiking snap).
   'Americká akita': '/breeds/americka-akita.jpg?v=1',
+  // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).
+  'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
+  // American Foxhound — landscape stack, head fully in frame (not clipped dog.ceo close-up).
+  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=1',
+  // American Hairless Terrier — HQ portrait, full head (not Yorkshire mislabel).
+  'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

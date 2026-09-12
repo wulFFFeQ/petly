@@ -22,6 +22,12 @@ export const KNOWN_SECURITY_ACTIONS: SecurityAction[] = [
   'ownerContacts.read',
   'pet.profile.read',
   'pet.profile.write',
+  'clinical.finalize',
+  'clinical.sign',
+  'clinical.withdraw',
+  'clinical.admin',
+  'clinical.export',
+  'clinical.emergency.write',
   'booking.read',
   'booking.confirm',
   'booking.cancel',
@@ -46,11 +52,22 @@ export function isPetDataAction(action: SecurityAction): boolean {
     action.startsWith('documents.') ||
     action.startsWith('labs.') ||
     action.startsWith('vaccination.') ||
+    action.startsWith('clinical.') ||
     action.startsWith('pet.profile.') ||
     action === 'microchip.read' ||
     action === 'ownerContacts.read' ||
     action === 'organization.pet.access'
   )
+}
+
+/** Clinician-only — owner/co-owner must never spoof. */
+export function isClinicianOnlyClinicalAction(action: SecurityAction): boolean {
+  return action === 'clinical.sign'
+}
+
+/** Emergency clinical write — never folds into permanent health.write. */
+export function isClinicalEmergencyWrite(action: SecurityAction): boolean {
+  return action === 'clinical.emergency.write'
 }
 
 export function isBookingAction(action: SecurityAction): boolean {
@@ -82,11 +99,15 @@ export function householdPermissionForAction(
     case 'medication.read':
     case 'labs.read':
     case 'vaccination.read':
+    case 'clinical.export':
       return 'health_read'
     case 'health.write':
     case 'medication.write':
     case 'labs.write':
     case 'vaccination.write':
+    case 'clinical.withdraw':
+    case 'clinical.finalize':
+    case 'clinical.admin':
       return 'health_write'
     case 'documents.read':
       return 'documents_read'
@@ -96,6 +117,7 @@ export function householdPermissionForAction(
       return 'pet_profile_read'
     case 'pet.profile.write':
       return 'pet_profile_write'
+    // clinical.sign / clinical.emergency.write — no HH fold (deny-by-default)
     default:
       return null
   }
@@ -135,10 +157,15 @@ export function professionalPermissionForAction(
       return { permission: 'addVaccination' }
     case 'labs.write':
       return { permission: 'addHealthRecord' }
+    case 'clinical.withdraw':
+      // Soft withdraw still uses add* write capability until K57 splits authority.
+      return { permission: 'addHealthRecord' }
     case 'pet.profile.read':
       return { permission: 'viewHealth' }
     case 'organization.pet.access':
       return { permission: 'viewHealth' }
+    // clinical.sign / finalize / admin / export / emergency — no Pro auto-map
+    // (server-required; do not pretend addHealthRecord = clinician sign).
     default:
       return null
   }

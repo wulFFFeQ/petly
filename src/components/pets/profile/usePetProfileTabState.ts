@@ -15,10 +15,13 @@ import {
 import { persistWeightMeasurement, getWeightMeasurementsForPet } from '../../../lib/badges/badgeData'
 import {
   resolveClinicalStampContext,
-  stampWeightCreate,
 } from '../../../lib/health/clinicalProvenance'
+import {
+  createDemoClinicalService,
+  DemoClinicalPersistenceAdapter,
+  isClinicalError,
+} from '../../../lib/clinical'
 import { APP_TODAY } from '../../../lib/dashboardDates'
-import { tryAssertPetClinical } from '../../../lib/security'
 import { usePetClinicalFlags } from '../../../lib/security/useAuthorizedHealthScope'
 import type {
   HealthRecord,
@@ -365,27 +368,37 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     const weight = parseFloat(newWeight.replace(',', '.'))
     if (!weight || Number.isNaN(weight)) return
 
-    const gate = tryAssertPetClinical('health.write', pet.id, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
-      return
-    }
-
-    const today = new Date()
-    const dateStr = `${today.getDate()}. ${today.getMonth() + 1}. ${today.getFullYear()}`
-    const entry = stampWeightCreate(resolveClinicalStampContext(), pet, {
-      id: `wm_${Date.now()}`,
-      petId: pet.id,
-      date: dateStr,
-      weight,
-      note: newWeightNote || undefined,
+    const adapter = new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => [],
+      setHealthRecords: () => undefined,
+      persistWeightMeasurement,
     })
-    setWeightData((prev) => [...prev, entry])
-    persistWeightMeasurement(entry)
-    refreshBadges()
-    setNewWeight('')
-    setNewWeightNote('')
-    showToast('Měření přidáno', `${pet.name}: ${weight} kg`, 'gold')
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+
+    try {
+      const result = service.createWeightMeasurement({
+        context: resolveClinicalStampContext(),
+        pets,
+        input: {
+          id: `wm_${Date.now()}`,
+          petId: pet.id,
+          date: `${new Date().getDate()}. ${new Date().getMonth() + 1}. ${new Date().getFullYear()}`,
+          weight,
+          note: newWeightNote || undefined,
+        },
+      })
+      setWeightData((prev) => [...prev, result.data])
+      refreshBadges()
+      setNewWeight('')
+      setNewWeightNote('')
+      showToast('Měření přidáno', `${pet.name}: ${weight} kg`, 'gold')
+    } catch (err) {
+      if (isClinicalError(err)) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
+        return
+      }
+      throw err
+    }
   }
 
   const handleAddTimelineEvent = () => {

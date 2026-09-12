@@ -33,6 +33,8 @@ export {
   KNOWN_SECURITY_ACTIONS,
   householdPermissionForAction,
   isBookingAction,
+  isClinicalEmergencyWrite,
+  isClinicianOnlyClinicalAction,
   isKnownSecurityAction,
   isMessagingAction,
   isPaymentAction,

@@ -151,8 +151,12 @@ import {
   stripClinicalClientUpdates,
 } from '../lib/health/clinicalProvenance'
 import {
+  createDemoClinicalService,
+  DemoClinicalPersistenceAdapter,
+  isClinicalError,
+} from '../lib/clinical'
+import {
   tryAssertPetClinical,
-  writeActionForHealthRecordType,
 } from '../lib/security'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
@@ -1880,139 +1884,131 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pet = pets.find((item) => item.id === input.petId)
     if (!pet || !input.title.trim() || !input.date) return
 
-    const writeAction = writeActionForHealthRecordType(input.type)
-    const gate = tryAssertPetClinical(writeAction, input.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění přidávat zdravotní záznamy.', 'info')
-      return
-    }
-
     const czechDate = formatIsoDateToCzech(input.date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const recordDate = new Date(`${input.date}T12:00:00`)
     const isPastOrToday = recordDate.getTime() <= today.getTime() + 12 * 60 * 60 * 1000
 
-    const typeTitle: Record<HealthRecordType, string> = {
-      vaccination: 'Očkování',
-      vet: 'Návštěva veterináře',
-      medication: 'Léky',
-      examination: 'Vyšetření',
-      assessment: 'Zdravotní přehled',
-    }
+    const adapter = new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => healthRecords,
+      setHealthRecords: (next) => setHealthRecords(next),
+    })
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    const ctx = resolveClinicalStampContext()
-    const provenance = stampNewClinicalRecord(ctx, pet)
-
-    const record: HealthRecord = {
-      id: `hr_${Date.now()}`,
-      petId: input.petId,
-      type: input.type,
-      title: typeTitle[input.type],
-      subtitle: input.title.trim(),
-      date: czechDate,
-      doctor: input.doctor?.trim() || undefined,
-      status:
-        input.type === 'medication'
-          ? 'active'
-          : isPastOrToday
-            ? 'completed'
-            : 'scheduled',
-      vaccineName: input.type === 'vaccination' ? input.title.trim() : undefined,
-      reminderEnabled: input.type === 'medication' ? true : undefined,
-      scheduleTime: input.type === 'medication' ? '09:00' : undefined,
-      reminderDays: input.type === 'medication' ? 7 : undefined,
-      ...provenance,
+    try {
+      const result = service.createRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        input: {
+          petId: input.petId,
+          type: input.type,
+          title: input.title.trim(),
+          subtitle: input.title.trim(),
+          date: czechDate,
+          doctor: input.doctor?.trim() || undefined,
+          status:
+            input.type === 'medication'
+              ? 'active'
+              : isPastOrToday
+                ? 'completed'
+                : 'scheduled',
+          vaccineName: input.type === 'vaccination' ? input.title.trim() : undefined,
+          reminderEnabled: input.type === 'medication' ? true : undefined,
+          scheduleTime: input.type === 'medication' ? '09:00' : undefined,
+          reminderDays: input.type === 'medication' ? 7 : undefined,
+        },
+      })
+      const record = result.data
+      if (record.type === 'medication' && record.reminderEnabled) {
+        enableMedicationReminder(record)
+      }
+      setActiveModal(null)
+      showToast(
+        'Zdravotní záznam uložen',
+        record.type === 'medication' && record.reminderEnabled
+          ? `${record.subtitle} přidán pro ${pet.name} · připomínka v kalendáři a ve zvonku`
+          : `${record.subtitle} přidán pro ${pet.name}`,
+        'gold',
+      )
+    } catch (err) {
+      if (isClinicalError(err) && (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND')) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění přidávat zdravotní záznamy.', 'info')
+        return
+      }
+      throw err
     }
-
-    setHealthRecords((prev) => [record, ...prev])
-    if (record.type === 'medication' && record.reminderEnabled) {
-      enableMedicationReminder(record)
-    }
-    setActiveModal(null)
-    showToast(
-      'Zdravotní záznam uložen',
-      record.type === 'medication' && record.reminderEnabled
-        ? `${record.subtitle} přidán pro ${pet.name} · připomínka v kalendáři a ve zvonku`
-        : `${record.subtitle} přidán pro ${pet.name}`,
-      'gold',
-    )
   }
 
   const updateHealthRecord = (recordId: string, updates: Partial<HealthRecord>) => {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
-    const writeAction = writeActionForHealthRecordType(updates.type ?? record.type)
-    const gate = tryAssertPetClinical(writeAction, record.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění upravovat zdravotní záznamy.', 'info')
-      return
-    }
+    const adapter = new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => healthRecords,
+      setHealthRecords: (next) => setHealthRecords(next),
+    })
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    if (isClinicalWithdrawn(record)) {
-      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
-      return
+    try {
+      const result = service.updateRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        input: { recordId, updates },
+      })
+      const updated = result.data
+      if (updated.type === 'medication' && updated.reminderEnabled) {
+        enableMedicationReminder(updated)
+      } else if (record.type === 'medication' || updated.type === 'medication') {
+        disableMedicationReminder(recordId)
+      }
+      showToast('Záznam upraven', updated.subtitle || updated.title, 'gold')
+    } catch (err) {
+      if (isClinicalError(err)) {
+        if (err.code === 'FORBIDDEN' && err.message.includes('Withdrawn')) {
+          showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+          return
+        }
+        if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
+          showToast('Bez oprávnění', 'Nemáte oprávnění upravovat zdravotní záznamy.', 'info')
+          return
+        }
+      }
+      throw err
     }
-
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(record, ctx)
-    const safe = stripClinicalClientUpdates(updates as Record<string, unknown>)
-    const updated: HealthRecord = {
-      ...record,
-      ...(safe as Partial<HealthRecord>),
-      id: record.id,
-      petId: record.petId,
-      createdAt: record.createdAt ?? stamp.createdAt,
-      createdByAccountId: record.createdByAccountId,
-      recordSource: record.recordSource,
-      lifecycleStatus: record.lifecycleStatus ?? 'active',
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-    }
-    setHealthRecords((prev) =>
-      prev.map((item) => (item.id === recordId ? updated : item)),
-    )
-
-    if (updated.type === 'medication' && updated.reminderEnabled) {
-      enableMedicationReminder(updated)
-    } else if (record.type === 'medication' || updated.type === 'medication') {
-      disableMedicationReminder(recordId)
-    }
-
-    showToast('Záznam upraven', updated.subtitle || updated.title, 'gold')
   }
 
   const deleteHealthRecord = (recordId: string) => {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
-    const writeAction = writeActionForHealthRecordType(record.type)
-    const gate = tryAssertPetClinical(writeAction, record.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění stahovat zdravotní záznamy.', 'info')
-      return
-    }
+    const adapter = new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => healthRecords,
+      setHealthRecords: (next) => setHealthRecords(next),
+    })
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    if (isClinicalWithdrawn(record)) {
-      showToast('Záznam stažen', 'Záznam je již stažen.', 'info')
-      return
+    try {
+      const result = service.withdrawRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        input: { recordId },
+      })
+      disableMedicationReminder(recordId)
+      showToast('Záznam stažen', result.data.subtitle || result.data.title, 'info')
+    } catch (err) {
+      if (isClinicalError(err)) {
+        if (err.code === 'FORBIDDEN' && err.message.includes('already withdrawn')) {
+          showToast('Záznam stažen', 'Záznam je již stažen.', 'info')
+          return
+        }
+        if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
+          showToast('Bez oprávnění', 'Nemáte oprávnění stahovat zdravotní záznamy.', 'info')
+          return
+        }
+      }
+      throw err
     }
-
-    const ctx = resolveClinicalStampContext()
-    const withdraw = stampClinicalWithdraw(record, ctx)
-    const updated: HealthRecord = {
-      ...record,
-      ...withdraw,
-      createdAt: record.createdAt ?? withdraw.createdAt,
-      createdByAccountId: record.createdByAccountId,
-    }
-
-    disableMedicationReminder(recordId)
-    setHealthRecords((prev) =>
-      prev.map((item) => (item.id === recordId ? updated : item)),
-    )
-    showToast('Záznam stažen', record.subtitle || record.title, 'info')
   }
 
   const toggleMedicationReminder = (recordId: string) => {
