@@ -19,6 +19,7 @@ export type ClinicalErrorCode =
   | 'IMMUTABLE_VERSION'
   | 'INVALID_VERSION'
   | 'INVALID_RESOURCE'
+  | 'INVALID_DOCUMENT'
   | 'INVALID_ENCOUNTER_TRANSITION'
   | 'SERVER_REQUIRED'
   | 'NOT_IMPLEMENTED'
@@ -55,6 +56,10 @@ export function invalidEncounterTransition(
   message = 'Invalid encounter status transition',
 ): ClinicalError {
   return new ClinicalError('INVALID_ENCOUNTER_TRANSITION', message)
+}
+
+export function invalidDocument(message = 'Invalid document'): ClinicalError {
+  return new ClinicalError('INVALID_DOCUMENT', message)
 }
 
 /** Map K47 AuthorizationError → ClinicalError (no data leak expansion). */

@@ -87,6 +87,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     setMedicationReminderDays,
     calendarEvents,
     updatePet,
+    clinicalEncounters,
   } = useApp()
 
   const clinical = usePetClinicalFlags(pet.id)
@@ -815,6 +816,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       documentDeleteTarget,
       setDocumentDeleteTarget,
       pets,
+      clinicalEncounters,
       replaceDocumentInputRef,
       handleDocumentUploadSubmit,
       handleReplaceDocumentUpload,

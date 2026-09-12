@@ -69,8 +69,10 @@ const DOG_CURATED_IMAGES = {
   'Anglický kokršpaněl': '/breeds/anglicky-kokrspanel.jpg?v=1',
   // English Greyhound — editorial head portrait (not sleeping whippet puppy).
   'Anglický chrt (Greyhound)': '/breeds/anglicky-chrt.jpg?v=1',
-  // Anglo-Français de Petite Vénerie — outdoor head portrait (not basset nose crop).
-  'Angl.-franc.honič de Petite Venerie': '/breeds/angl-franc-honic-petite-venerie.jpg?v=1',
+  // English Mastiff — HQ profile portrait (not bed dog.ceo snap).
+  'Anglický mastif': '/breeds/anglicky-mastif.jpg?v=1',
+  // Anglo-Français de Petite Vénerie — editorial portrait (not basset nose crop).
+  'Angl.-franc.honič de Petite Venerie': '/breeds/angl-franc-honic-petite-venerie.jpg?v=2',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

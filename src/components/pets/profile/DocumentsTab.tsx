@@ -65,6 +65,7 @@ export function DocumentsTab({
   documentDeleteTarget,
   setDocumentDeleteTarget,
   pets,
+  clinicalEncounters = [],
   replaceDocumentInputRef,
   handleDocumentUploadSubmit,
   handleReplaceDocumentUpload,
@@ -244,7 +245,17 @@ export function DocumentsTab({
                         </p>
                         <p className="text-[10px] text-[#7D8B82] mt-0.5">
                           {doc.size} · Aktualizováno {formatDocumentUpdatedAt(doc.updatedAt)}
+                          {typeof doc.version === 'number' ? ` · v${doc.version}` : ''}
                         </p>
+                        {doc.encounterId && (
+                          <p className="text-[10px] text-[#5A6660] mt-0.5">
+                            Klinická epizoda:{' '}
+                            {clinicalEncounters.find((e) => e.id === doc.encounterId)?.reason ||
+                              clinicalEncounters.find((e) => e.id === doc.encounterId)
+                                ?.encounterType ||
+                              'propojená'}
+                          </p>
+                        )}
                         <p
                           className={cn(
                             'text-[10px] font-semibold mt-0.5',
@@ -277,30 +288,34 @@ export function DocumentsTab({
                         <Download size={12} />
                         Stáhnout
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleReplaceDocumentPick(doc.id)}
-                        className="text-[11px] font-semibold text-[#7D8B82] hover:text-[#234B54] flex items-center gap-1 cursor-pointer"
-                      >
-                        <RefreshCw size={12} />
-                        Nahradit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDocumentEditTarget(doc)}
-                        className="text-[11px] font-semibold text-[#7D8B82] hover:text-[#234B54] flex items-center gap-1 cursor-pointer"
-                      >
-                        <Pencil size={12} />
-                        Upravit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDocumentDeleteTarget(doc)}
-                        className="text-[11px] font-semibold text-[#7D8B82] hover:text-red-700 flex items-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 size={12} />
-                        Smazat
-                      </button>
+                      {canWriteDocuments && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleReplaceDocumentPick(doc.id)}
+                            className="text-[11px] font-semibold text-[#7D8B82] hover:text-[#234B54] flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={12} />
+                            Nahradit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocumentEditTarget(doc)}
+                            className="text-[11px] font-semibold text-[#7D8B82] hover:text-[#234B54] flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil size={12} />
+                            Upravit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocumentDeleteTarget(doc)}
+                            className="text-[11px] font-semibold text-[#7D8B82] hover:text-red-700 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            Stáhnout záznam
+                          </button>
+                        </>
+                      )}
                       {reminderId && (
                         <button
                           type="button"

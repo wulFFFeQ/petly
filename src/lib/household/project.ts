@@ -1,4 +1,5 @@
 import type { HealthRecord, Pet, PetDocument, PetPhoto } from '../../types'
+import { toAuthorizedDocumentViews } from '../clinical/documentProjection'
 import { isPetOwner } from '../pets/ownership'
 import {
   hasHouseholdPermission,
@@ -93,8 +94,11 @@ export function projectPetForHousehold(
     view.healthRecords = (options.healthRecords ?? []).filter(
       (r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn',
     )
-    view.documents = (options.documents ?? []).filter(
-      (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+    view.documents = toAuthorizedDocumentViews(
+      (options.documents ?? []).filter(
+        (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+      ),
+      'household',
     )
     view.photos = (options.photos ?? []).filter((p) => p.petId === pet.id)
     if (pet.emergencyCard) view.emergencyCard = pet.emergencyCard
@@ -137,8 +141,11 @@ export function projectPetForHousehold(
   }
 
   if (hasHouseholdPermission(access, 'documents_read', now)) {
-    view.documents = (options.documents ?? []).filter(
-      (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+    view.documents = toAuthorizedDocumentViews(
+      (options.documents ?? []).filter(
+        (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+      ),
+      'household',
     )
   }
 

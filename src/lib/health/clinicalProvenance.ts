@@ -61,6 +61,8 @@ export const DOCUMENT_IMMUTABLE_KEYS = [
   'withdrawnAt',
   'withdrawnByAccountId',
   'version',
+  /** K59 — encounter link immutable after create (reference only, not authz). */
+  'encounterId',
 ] as const
 
 /** K58 — Encounter identity / provenance never client-authoritative. */
@@ -95,6 +97,9 @@ const PROVENANCE_STRIP_KEYS = new Set([
   'mutationKind',
   'correctionOfVersion',
   'correctionReason',
+  /** K59 — encounter link not client-mutable after create. */
+  'encounterId',
+  'isPublic',
 ])
 
 /** Current DEMO SecurityContext for stamping after clinicalGate ALLOW. */

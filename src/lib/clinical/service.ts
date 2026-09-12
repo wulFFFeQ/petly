@@ -1,5 +1,5 @@
 /**
- * K56/K57 — ClinicalService authority boundary.
+ * K56/K57/K58/K59 — ClinicalService authority boundary.
  *
  * request → trusted SecurityContext → actor → pet → authorize()
  *   → expectedVersion CAS → immutable history → mutate → provenance
@@ -7,6 +7,7 @@
  *
  * Uses existing HealthRecord / PetDocument / WeightMeasurement SSOT.
  * Uses existing authorize() + clinicalGate helpers — no parallel ACL.
+ * K59: PetDocument mutations use documents.read / documents.write.
  *
  * DEMO authority simulates versioning; DEMO ≠ production concurrency.
  */
@@ -16,6 +17,7 @@ import type {
   ClinicalEncounterStatus,
   HealthRecord,
   Pet,
+  PetDocument,
   WeightMeasurement,
 } from '../../types'
 import {
@@ -46,6 +48,7 @@ import {
 } from './adapter'
 import {
   ClinicalError,
+  invalidDocument,
   invalidEncounterTransition,
   invalidVersion,
   notImplemented,
@@ -55,7 +58,9 @@ import {
 } from './errors'
 import type {
   ClinicalAuthority,
+  ClinicalCorrectDocumentInput,
   ClinicalCorrectRecordInput,
+  ClinicalCreateDocumentInput,
   ClinicalCreateEncounterInput,
   ClinicalCreateRecordInput,
   ClinicalCreateWeightInput,
@@ -63,12 +68,16 @@ import type {
   ClinicalMutationKind,
   ClinicalMutationResult,
   ClinicalReadRequest,
+  ClinicalReplaceDocumentContentInput,
   ClinicalRequestBase,
   ClinicalServiceOptions,
+  ClinicalUpdateDocumentInput,
   ClinicalUpdateEncounterInput,
   ClinicalUpdateRecordInput,
+  ClinicalWithdrawDocumentInput,
   ClinicalWithdrawRecordInput,
   HealthRecordVersionSnapshot,
+  PetDocumentVersionSnapshot,
 } from './types'
 
 function denyShortcuts(req: ClinicalRequestBase): void {
@@ -312,6 +321,27 @@ function freezeEncounterSnapshot(
     frozenAt: new Date().toISOString(),
     mutationKind,
     encounter: { ...encounter, version },
+  }
+}
+
+function freezeDocumentSnapshot(
+  document: PetDocument,
+  mutationKind: ClinicalMutationKind,
+  extras?: {
+    correctionOfVersion?: number
+    correctionReason?: string
+  },
+): PetDocumentVersionSnapshot {
+  const version = clinicalCurrentVersion(document)
+  return {
+    documentId: document.id,
+    petId: document.petId,
+    version,
+    frozenAt: new Date().toISOString(),
+    mutationKind,
+    correctionOfVersion: extras?.correctionOfVersion,
+    correctionReason: extras?.correctionReason,
+    document: { ...document, version, isPublic: false },
   }
 }
 
@@ -1544,6 +1574,587 @@ export class ClinicalService {
       authority: this.authority,
       data: { healthRecords, documents, measurements },
       authorizationAction: 'health.read',
+    }
+  }
+
+  // ─── K59 PetDocument (Document SSOT) ─────────────────────────────────────
+
+  private ensureDocumentSnapshot(
+    current: PetDocument,
+    mutationKind: ClinicalMutationKind = 'create',
+  ): void {
+    const version = clinicalCurrentVersion(current)
+    if (!this.adapter.getDocumentVersion(current.id, version)) {
+      this.adapter.appendDocumentVersion(
+        freezeDocumentSnapshot({ ...current, version }, mutationKind),
+      )
+    }
+  }
+
+  private resolveDocumentForPet(documentId: string, petId: string): PetDocument {
+    const doc = this.adapter.findDocument(documentId)
+    if (!doc || doc.petId !== petId) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+    return doc
+  }
+
+  listDocumentsForPet(
+    req: ClinicalRequestBase & { petId: string; pets?: Pet[] },
+  ): ClinicalMutationResult<PetDocument[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('listDocumentsForPet')
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const docs = this.adapter
+      .getDocuments()
+      .filter(
+        (d) => d.petId === req.petId && d.lifecycleStatus !== 'withdrawn',
+      )
+      .map((d) => ({ ...d, version: clinicalCurrentVersion(d) }))
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: docs,
+      authorizationAction: 'documents.read',
+    }
+  }
+
+  readDocument(
+    req: ClinicalRequestBase & {
+      petId: string
+      documentId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('readDocument')
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const doc = this.resolveDocumentForPet(req.documentId, req.petId)
+    if (isClinicalWithdrawn(doc)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: { ...doc, version: clinicalCurrentVersion(doc) },
+      authorizationAction: 'documents.read',
+    }
+  }
+
+  getCurrentDocument(
+    req: ClinicalRequestBase & {
+      petId: string
+      documentId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    return this.readDocument(req)
+  }
+
+  getDocumentHistory(
+    req: ClinicalRequestBase & {
+      petId: string
+      documentId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocumentVersionSnapshot[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getDocumentHistory')
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const current = this.resolveDocumentForPet(req.documentId, req.petId)
+    this.ensureDocumentSnapshot(current)
+    const history = this.adapter.listDocumentVersions(req.documentId)
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: history,
+      authorizationAction: 'documents.read',
+    }
+  }
+
+  getDocumentVersion(
+    req: ClinicalRequestBase & {
+      petId: string
+      documentId: string
+      version: number
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocumentVersionSnapshot> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getDocumentVersion')
+
+    if (!Number.isInteger(req.version) || req.version < 1) {
+      throw invalidVersion('version must be a positive integer')
+    }
+
+    const deps = this.deps(req.pets)
+    resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const current = this.resolveDocumentForPet(req.documentId, req.petId)
+    this.ensureDocumentSnapshot(current)
+    const snap = this.adapter.getDocumentVersion(req.documentId, req.version)
+    if (!snap) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: snap,
+      authorizationAction: 'documents.read',
+    }
+  }
+
+  createDocument(
+    req: ClinicalRequestBase & {
+      input: ClinicalCreateDocumentInput
+      pets?: Pet[]
+      documentId?: string
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('createDocument')
+
+    const { input } = req
+    if (
+      !input.petId?.trim() ||
+      !input.name?.trim() ||
+      !input.fileName?.trim() ||
+      !input.category ||
+      !input.documentType
+    ) {
+      throw invalidDocument('Invalid document input')
+    }
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(input.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.write',
+      input.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    let encounterId: string | undefined
+    if (input.encounterId?.trim()) {
+      const enc = this.adapter.findEncounter(input.encounterId.trim())
+      if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
+        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+      }
+      encounterId = enc.id
+    }
+
+    const provenance = stampNewClinicalRecord(req.context, pet)
+    const id =
+      req.documentId ?? `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+    const document: PetDocument = {
+      id,
+      petId: input.petId,
+      name: input.name.trim(),
+      category: input.category,
+      documentType: input.documentType,
+      fileName: input.fileName.trim(),
+      fileSizeBytes: input.fileSizeBytes,
+      size: input.size,
+      mimeType: input.mimeType,
+      uploadedAt: provenance.createdAt,
+      updatedAt: provenance.updatedAt,
+      uploadedByAccountId: provenance.createdByAccountId,
+      updatedByAccountId: provenance.updatedByAccountId,
+      recordSource: provenance.recordSource,
+      lifecycleStatus: 'active',
+      version: 1,
+      encounterId,
+      issuedAt: input.issuedAt || undefined,
+      expiresAt: input.expiresAt || undefined,
+      notes: input.notes?.trim() || undefined,
+      storageKey: input.storageKey,
+      url: input.storageKey ? undefined : input.url,
+      isPublic: false,
+      reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
+      reminderOffsetsDays:
+        input.reminderEnabled && input.expiresAt
+          ? input.reminderOffsetsDays?.filter((d) => d > 0)
+          : undefined,
+    }
+
+    this.adapter.setDocuments([document, ...this.adapter.getDocuments()])
+    this.adapter.appendDocumentVersion(freezeDocumentSnapshot(document, 'create'))
+    emitVersionTransitionAudit(
+      req.context,
+      'documents.write',
+      input.petId,
+      0,
+      1,
+      'document',
+      document.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: document,
+      authorizationAction: 'documents.write',
+      previousVersion: 0,
+      newVersion: 1,
+    }
+  }
+
+  updateDocument(
+    req: ClinicalRequestBase & {
+      input: ClinicalUpdateDocumentInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    return this.mutateDocumentVersioned(req, 'update', {
+      documentId: req.input.documentId,
+      updates: req.input.updates,
+    })
+  }
+
+  correctDocument(
+    req: ClinicalRequestBase & {
+      input: ClinicalCorrectDocumentInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    return this.mutateDocumentVersioned(req, 'correct', {
+      documentId: req.input.documentId,
+      updates: req.input.updates,
+      correctionReason: req.input.correctionReason,
+      correctionOfVersion: req.input.correctionOfVersion,
+    })
+  }
+
+  replaceDocumentContent(
+    req: ClinicalRequestBase & {
+      input: ClinicalReplaceDocumentContentInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('replaceDocumentContent')
+
+    const existing = this.adapter.findDocument(req.input.documentId)
+    if (!existing) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    const deps = this.deps(req.pets)
+    resolvePet(existing.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.write',
+      existing.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    if (isClinicalWithdrawn(existing)) {
+      throw new ClinicalError(
+        'FORBIDDEN',
+        'Withdrawn document cannot be updated',
+        'forbidden',
+      )
+    }
+
+    if (!req.input.fileName?.trim()) {
+      throw invalidDocument('Invalid document file metadata')
+    }
+
+    const previousVersion = clinicalCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureDocumentSnapshot(existing)
+
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.uploadedAt,
+        createdByAccountId: existing.uploadedByAccountId,
+        recordSource: existing.recordSource,
+        lifecycleStatus: existing.lifecycleStatus,
+      },
+      req.context,
+    )
+    const newVersion = previousVersion + 1
+    const updated: PetDocument = {
+      ...existing,
+      fileName: req.input.fileName.trim(),
+      fileSizeBytes: req.input.fileSizeBytes,
+      size: req.input.size,
+      mimeType: req.input.mimeType,
+      storageKey: req.input.storageKey ?? existing.storageKey,
+      url: req.input.clearUrl || req.input.storageKey ? undefined : existing.url,
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
+      recordSource: existing.recordSource,
+      lifecycleStatus: existing.lifecycleStatus ?? 'active',
+      encounterId: existing.encounterId,
+      isPublic: false,
+      version: newVersion,
+    }
+
+    this.adapter.setDocuments(
+      this.adapter.getDocuments().map((d) => (d.id === updated.id ? updated : d)),
+    )
+    this.adapter.appendDocumentVersion(freezeDocumentSnapshot(updated, 'update'))
+    emitVersionTransitionAudit(
+      req.context,
+      'documents.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'document',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'documents.write',
+      previousVersion,
+      newVersion,
+    }
+  }
+
+  private mutateDocumentVersioned(
+    req: ClinicalRequestBase & { pets?: Pet[] },
+    mutationKind: 'update' | 'correct',
+    input: {
+      documentId: string
+      updates: Partial<PetDocument>
+      correctionReason?: string
+      correctionOfVersion?: number
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate(
+      mutationKind === 'correct' ? 'correctDocument' : 'updateDocument',
+    )
+
+    const existing = this.adapter.findDocument(input.documentId)
+    if (!existing) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    const deps = this.deps(req.pets)
+    resolvePet(existing.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.write',
+      existing.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    if (isClinicalWithdrawn(existing)) {
+      throw new ClinicalError(
+        'FORBIDDEN',
+        'Withdrawn document cannot be updated',
+        'forbidden',
+      )
+    }
+
+    const previousVersion = clinicalCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureDocumentSnapshot(existing)
+
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.uploadedAt,
+        createdByAccountId: existing.uploadedByAccountId,
+        recordSource: existing.recordSource,
+        lifecycleStatus: existing.lifecycleStatus,
+      },
+      req.context,
+    )
+    const safe = stripClinicalClientUpdates(
+      input.updates as Record<string, unknown>,
+    )
+    const newVersion = previousVersion + 1
+    const updated: PetDocument = {
+      ...existing,
+      ...(safe as Partial<PetDocument>),
+      id: existing.id,
+      petId: existing.petId,
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
+      encounterId: existing.encounterId,
+      recordSource: existing.recordSource,
+      lifecycleStatus: existing.lifecycleStatus ?? 'active',
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
+      isPublic: false,
+      version: newVersion,
+    }
+
+    this.adapter.setDocuments(
+      this.adapter.getDocuments().map((d) => (d.id === updated.id ? updated : d)),
+    )
+    this.adapter.appendDocumentVersion(
+      freezeDocumentSnapshot(updated, mutationKind, {
+        correctionOfVersion:
+          mutationKind === 'correct'
+            ? input.correctionOfVersion ?? previousVersion
+            : undefined,
+        correctionReason:
+          mutationKind === 'correct' ? input.correctionReason : undefined,
+      }),
+    )
+    emitVersionTransitionAudit(
+      req.context,
+      'documents.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'document',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'documents.write',
+      previousVersion,
+      newVersion,
+    }
+  }
+
+  withdrawDocument(
+    req: ClinicalRequestBase & {
+      input: ClinicalWithdrawDocumentInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<PetDocument> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('withdrawDocument')
+
+    const existing = this.adapter.findDocument(req.input.documentId)
+    if (!existing) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    const deps = this.deps(req.pets)
+    resolvePet(existing.petId, deps)
+    authorizePetAction(
+      req.context,
+      'documents.write',
+      existing.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    if (isClinicalWithdrawn(existing)) {
+      throw new ClinicalError('FORBIDDEN', 'Document already withdrawn', 'forbidden')
+    }
+
+    const previousVersion = clinicalCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureDocumentSnapshot(existing)
+
+    const withdraw = stampClinicalWithdraw(existing, req.context)
+    const newVersion = previousVersion + 1
+    const updated: PetDocument = {
+      ...existing,
+      lifecycleStatus: 'withdrawn',
+      withdrawnAt: withdraw.withdrawnAt,
+      withdrawnByAccountId: withdraw.withdrawnByAccountId,
+      updatedAt: withdraw.updatedAt,
+      updatedByAccountId: withdraw.updatedByAccountId,
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
+      encounterId: existing.encounterId,
+      isPublic: false,
+      version: newVersion,
+    }
+
+    this.adapter.setDocuments(
+      this.adapter.getDocuments().map((d) => (d.id === updated.id ? updated : d)),
+    )
+    this.adapter.appendDocumentVersion(freezeDocumentSnapshot(updated, 'withdraw'))
+
+    if (!this.adapter.findDocument(updated.id)) {
+      throw new ClinicalError('INVALID_DOCUMENT', 'Withdraw must retain history row')
+    }
+
+    emitVersionTransitionAudit(
+      req.context,
+      'documents.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'document',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'documents.write',
+      previousVersion,
+      newVersion,
     }
   }
 }

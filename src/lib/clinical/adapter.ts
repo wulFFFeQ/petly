@@ -1,5 +1,5 @@
 /**
- * K56/K57/K58 — Clinical persistence adapter boundary.
+ * K56/K57/K58/K59 — Clinical persistence adapter boundary.
  *
  * DemoClinicalPersistenceAdapter = DEMO only (local simulation).
  * ServerClinicalPersistenceAdapter = contract stub → SERVER_REQUIRED.
@@ -9,6 +9,8 @@
  * K57: HealthRecord version ledger stores immutable snapshots of the SAME
  * HealthRecord resource — not a parallel Health SSOT.
  * K58: ClinicalEncounter store + separate immutable encounter version ledger.
+ * K59: PetDocument store + separate immutable document version ledger
+ *      (PetDocument remains Document SSOT — not ClinicalDocument).
  */
 
 import type {
@@ -26,6 +28,7 @@ import type {
   ClinicalAuthority,
   ClinicalEncounterVersionSnapshot,
   HealthRecordVersionSnapshot,
+  PetDocumentVersionSnapshot,
 } from './types'
 
 export type ClinicalPersistenceAdapter = {
@@ -64,6 +67,14 @@ export type ClinicalPersistenceAdapter = {
     encounterId: string,
     version: number,
   ): ClinicalEncounterVersionSnapshot | undefined
+
+  /** K59 — append-only immutable PetDocument version snapshot. */
+  appendDocumentVersion(snapshot: PetDocumentVersionSnapshot): void
+  listDocumentVersions(documentId: string): PetDocumentVersionSnapshot[]
+  getDocumentVersion(
+    documentId: string,
+    version: number,
+  ): PetDocumentVersionSnapshot | undefined
 }
 
 export type DemoClinicalStoreHooks = {
@@ -79,6 +90,8 @@ export type DemoClinicalStoreHooks = {
   setEncounters?: (encounters: ClinicalEncounter[]) => void
   getEncounterVersions?: () => ClinicalEncounterVersionSnapshot[]
   setEncounterVersions?: (snapshots: ClinicalEncounterVersionSnapshot[]) => void
+  getDocumentVersions?: () => PetDocumentVersionSnapshot[]
+  setDocumentVersions?: (snapshots: PetDocumentVersionSnapshot[]) => void
 }
 
 /**
@@ -94,6 +107,7 @@ export class DemoClinicalPersistenceAdapter implements ClinicalPersistenceAdapte
   private memoryVersions: HealthRecordVersionSnapshot[] = []
   private memoryEncounters: ClinicalEncounter[] = []
   private memoryEncounterVersions: ClinicalEncounterVersionSnapshot[] = []
+  private memoryDocumentVersions: PetDocumentVersionSnapshot[] = []
 
   constructor(hooks: DemoClinicalStoreHooks) {
     this.hooks = hooks
@@ -252,6 +266,58 @@ export class DemoClinicalPersistenceAdapter implements ClinicalPersistenceAdapte
     if (!found) return undefined
     return { ...found, encounter: { ...found.encounter } }
   }
+
+  private readDocumentVersions(): PetDocumentVersionSnapshot[] {
+    if (this.hooks.getDocumentVersions) {
+      return this.hooks.getDocumentVersions()
+    }
+    return this.memoryDocumentVersions
+  }
+
+  private writeDocumentVersions(next: PetDocumentVersionSnapshot[]): void {
+    if (this.hooks.setDocumentVersions) {
+      this.hooks.setDocumentVersions(next)
+      return
+    }
+    this.memoryDocumentVersions = next
+  }
+
+  appendDocumentVersion(snapshot: PetDocumentVersionSnapshot): void {
+    const existing = this.readDocumentVersions()
+    const clash = existing.find(
+      (s) =>
+        s.documentId === snapshot.documentId && s.version === snapshot.version,
+    )
+    if (clash) {
+      throw immutableVersion(
+        `Version ${snapshot.version} already exists for document ${snapshot.documentId}`,
+      )
+    }
+    const frozen: PetDocumentVersionSnapshot = {
+      ...snapshot,
+      document: { ...snapshot.document },
+    }
+    this.writeDocumentVersions([...existing, frozen])
+  }
+
+  listDocumentVersions(documentId: string): PetDocumentVersionSnapshot[] {
+    return this.readDocumentVersions()
+      .filter((s) => s.documentId === documentId)
+      .slice()
+      .sort((a, b) => a.version - b.version)
+      .map((s) => ({ ...s, document: { ...s.document } }))
+  }
+
+  getDocumentVersion(
+    documentId: string,
+    version: number,
+  ): PetDocumentVersionSnapshot | undefined {
+    const found = this.readDocumentVersions().find(
+      (s) => s.documentId === documentId && s.version === version,
+    )
+    if (!found) return undefined
+    return { ...found, document: { ...found.document } }
+  }
 }
 
 /**
@@ -265,6 +331,7 @@ export function createInMemoryDemoClinicalAdapter(
     versions?: HealthRecordVersionSnapshot[]
     encounters?: ClinicalEncounter[]
     encounterVersions?: ClinicalEncounterVersionSnapshot[]
+    documentVersions?: PetDocumentVersionSnapshot[]
   },
 ): DemoClinicalPersistenceAdapter {
   let healthRecords = [...(seed?.healthRecords ?? [])]
@@ -273,6 +340,7 @@ export function createInMemoryDemoClinicalAdapter(
   let versions = [...(seed?.versions ?? [])]
   let encounters = [...(seed?.encounters ?? [])]
   let encounterVersions = [...(seed?.encounterVersions ?? [])]
+  let documentVersions = [...(seed?.documentVersions ?? [])]
   return new DemoClinicalPersistenceAdapter({
     getHealthRecords: () => healthRecords,
     setHealthRecords: (next) => {
@@ -297,6 +365,10 @@ export function createInMemoryDemoClinicalAdapter(
     getEncounterVersions: () => encounterVersions,
     setEncounterVersions: (next) => {
       encounterVersions = next
+    },
+    getDocumentVersions: () => documentVersions,
+    setDocumentVersions: (next) => {
+      documentVersions = next
     },
   })
 }
@@ -384,6 +456,21 @@ export class ServerClinicalPersistenceAdapter implements ClinicalPersistenceAdap
     _encounterId: string,
     _version: number,
   ): ClinicalEncounterVersionSnapshot | undefined {
+    this.fail()
+  }
+
+  appendDocumentVersion(_snapshot: PetDocumentVersionSnapshot): void {
+    this.fail()
+  }
+
+  listDocumentVersions(_documentId: string): PetDocumentVersionSnapshot[] {
+    this.fail()
+  }
+
+  getDocumentVersion(
+    _documentId: string,
+    _version: number,
+  ): PetDocumentVersionSnapshot | undefined {
     this.fail()
   }
 }

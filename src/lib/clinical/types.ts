@@ -1,10 +1,11 @@
 /**
- * K56/K57/K58 — Clinical service contracts (authority boundary).
+ * K56/K57/K58/K59 — Clinical service contracts (authority boundary).
  * Not a parallel HealthRecord / access / permission / audit system.
  *
  * DEMO localStorage is never production authority.
  * K57: integer version + immutable history snapshots of the same HealthRecord.
  * K58: ClinicalEncounter container + separate encounter history ledger.
+ * K59: PetDocument remains Document SSOT + separate document history ledger.
  */
 
 import type {
@@ -90,6 +91,22 @@ export type ClinicalEncounterVersionSnapshot = {
   encounter: ClinicalEncounter
 }
 
+/**
+ * K59 — immutable snapshot of a PetDocument at a specific version.
+ * Document history ≠ HealthRecord / Encounter history.
+ * NOT a parallel ClinicalDocument SSOT.
+ */
+export type PetDocumentVersionSnapshot = {
+  documentId: string
+  petId: string
+  version: number
+  frozenAt: string
+  mutationKind: ClinicalMutationKind
+  correctionOfVersion?: number
+  correctionReason?: string
+  document: PetDocument
+}
+
 export type ClinicalRequestBase = {
   /** Trusted SecurityContext (session-bound). */
   context: SecurityContext
@@ -162,6 +179,54 @@ export type ClinicalCreateWeightInput = {
   note?: string
   /** K58 — optional encounter link (not authz). */
   encounterId?: string
+}
+
+/** K59 — create PetDocument metadata (blob I/O stays outside service). */
+export type ClinicalCreateDocumentInput = {
+  petId: string
+  name: string
+  category: PetDocument['category']
+  documentType: PetDocument['documentType']
+  fileName: string
+  fileSizeBytes?: number
+  size: string
+  mimeType?: string
+  storageKey?: string
+  url?: string
+  issuedAt?: string
+  expiresAt?: string
+  notes?: string
+  reminderEnabled?: boolean
+  reminderOffsetsDays?: number[]
+  /** Optional ClinicalEncounter reference — not authorization. */
+  encounterId?: string
+}
+
+export type ClinicalUpdateDocumentInput = {
+  documentId: string
+  updates: Partial<PetDocument>
+}
+
+export type ClinicalReplaceDocumentContentInput = {
+  documentId: string
+  fileName: string
+  fileSizeBytes?: number
+  size: string
+  mimeType?: string
+  storageKey?: string
+  /** Clears legacy url when replacing with storageKey. */
+  clearUrl?: boolean
+}
+
+export type ClinicalWithdrawDocumentInput = {
+  documentId: string
+}
+
+export type ClinicalCorrectDocumentInput = {
+  documentId: string
+  updates: Partial<PetDocument>
+  correctionReason?: string
+  correctionOfVersion?: number
 }
 
 export type ClinicalCreateEncounterInput = {

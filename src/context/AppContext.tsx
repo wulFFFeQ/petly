@@ -157,6 +157,7 @@ import {
   isClinicalError,
   type ClinicalEncounterVersionSnapshot,
   type HealthRecordVersionSnapshot,
+  type PetDocumentVersionSnapshot,
 } from '../lib/clinical'
 import {
   tryAssertPetClinical,
@@ -212,6 +213,8 @@ const HEALTH_VERSIONS_STORAGE_KEY = 'lovedandknown.healthRecordVersions'
 /** K58 DEMO ClinicalEncounter store — not production authority. */
 const CLINICAL_ENCOUNTERS_STORAGE_KEY = 'lovedandknown.clinicalEncounters'
 const CLINICAL_ENCOUNTER_VERSIONS_STORAGE_KEY = 'lovedandknown.clinicalEncounterVersions'
+/** K59 DEMO PetDocument version ledger — not production authority. */
+const DOCUMENT_VERSIONS_STORAGE_KEY = 'lovedandknown.petDocumentVersions'
 const CALENDAR_STORAGE_KEY = 'lovedandknown.calendarEvents'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
@@ -406,6 +409,19 @@ function loadClinicalEncounterVersions(): ClinicalEncounterVersionSnapshot[] {
   }
 }
 
+function loadDocumentVersions(): PetDocumentVersionSnapshot[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(DOCUMENT_VERSIONS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as PetDocumentVersionSnapshot[]
+    if (!Array.isArray(parsed)) return []
+    return parsed
+  } catch {
+    return []
+  }
+}
+
 function loadDocuments(): PetDocument[] {
   return loadDocumentsMeta(initialPetDocuments)
 }
@@ -586,6 +602,8 @@ interface AppContextValue {
     notes?: string
     reminderEnabled?: boolean
     reminderOffsetsDays?: number[]
+    /** Optional ClinicalEncounter reference — not authorization. */
+    encounterId?: string
   }) => Promise<PetDocument | null>
   updatePetDocument: (documentId: string, updates: Partial<PetDocument>) => void
   replacePetDocument: (documentId: string, file: File) => Promise<boolean>
@@ -747,6 +765,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [clinicalEncounterVersions, setClinicalEncounterVersions] = useState<
     ClinicalEncounterVersionSnapshot[]
   >(loadClinicalEncounterVersions)
+  const [documentVersions, setDocumentVersions] = useState<PetDocumentVersionSnapshot[]>(
+    loadDocumentVersions,
+  )
   const [posts, setPosts] = useState<CommunityPost[]>(loadPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(loadCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
@@ -1254,6 +1275,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [clinicalEncounterVersions])
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        DOCUMENT_VERSIONS_STORAGE_KEY,
+        JSON.stringify(documentVersions),
+      )
+    } catch {
+      /* DEMO quota — session state remains */
+    }
+  }, [documentVersions])
+
+  useEffect(() => {
     persistDocumentsMeta(documents)
   }, [documents])
 
@@ -1718,51 +1750,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notes?: string
     reminderEnabled?: boolean
     reminderOffsetsDays?: number[]
+    encounterId?: string
   }): Promise<PetDocument | null> => {
-    const gate = tryAssertPetClinical('documents.write', input.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění přidávat dokumenty.', 'info')
-      return null
-    }
     const pet = pets.find((item) => item.id === input.petId)
     const stamp = Date.now()
     const id = `doc_${stamp}_${Math.random().toString(36).slice(2, 8)}`
-    const ctx = resolveClinicalStampContext()
-    const provenance = stampNewClinicalRecord(ctx, pet ?? { id: input.petId })
-    const doc: PetDocument = {
-      id,
-      petId: input.petId,
-      name: input.name.trim() || input.file.name,
-      category: input.category,
-      documentType: input.documentType,
-      fileName: input.file.name,
-      fileSizeBytes: input.file.size,
-      size: formatFileSize(input.file.size),
-      mimeType: input.file.type || undefined,
-      uploadedAt: provenance.createdAt,
-      updatedAt: provenance.updatedAt,
-      uploadedByAccountId: provenance.createdByAccountId,
-      updatedByAccountId: provenance.updatedByAccountId,
-      recordSource: provenance.recordSource,
-      lifecycleStatus: 'active',
-      version: 1,
-      issuedAt: input.issuedAt || undefined,
-      expiresAt: input.expiresAt || undefined,
-      notes: input.notes?.trim() || undefined,
-      storageKey: id,
-      isPublic: false,
-      reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
-      reminderOffsetsDays:
-        input.reminderEnabled && input.expiresAt
-          ? input.reminderOffsetsDays?.filter((d) => d > 0)
-          : undefined,
-    }
 
     try {
       assertDocumentFile(input.file)
       await saveDocumentBlob(id, input.file, {
-        mimeType: doc.mimeType,
-        fileName: doc.fileName,
+        mimeType: input.file.type || undefined,
+        fileName: input.file.name,
       })
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'read_failed'
@@ -1780,88 +1778,94 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return null
     }
 
-    const nextDocs = [doc, ...documents]
-    const metaOk = persistDocumentsMeta(nextDocs)
-    if (!metaOk) {
-      await deleteDocumentBlob(id).catch(() => undefined)
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      const result = service.createDocument({
+        context: resolveClinicalStampContext(),
+        pets,
+        documentId: id,
+        input: {
+          petId: input.petId,
+          name: input.name.trim() || input.file.name,
+          category: input.category,
+          documentType: input.documentType,
+          fileName: input.file.name,
+          fileSizeBytes: input.file.size,
+          size: formatFileSize(input.file.size),
+          mimeType: input.file.type || undefined,
+          storageKey: id,
+          issuedAt: input.issuedAt || undefined,
+          expiresAt: input.expiresAt || undefined,
+          notes: input.notes?.trim() || undefined,
+          reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
+          reminderOffsetsDays:
+            input.reminderEnabled && input.expiresAt
+              ? input.reminderOffsetsDays?.filter((d) => d > 0)
+              : undefined,
+          encounterId: input.encounterId,
+        },
+      })
+      const doc = result.data
+      setCalendarEvents((prev) => syncDocumentReminderEvents(prev, doc, pet))
       showToast(
-        'Nahrání selhalo',
-        'Metadata dokumentu se nepodařilo uložit.',
-        'info',
+        'Dokument nahrán',
+        pet ? `Uloženo v sekci Dokumenty u ${pet.name}.` : 'Uloženo v sekci Dokumenty.',
+        'gold',
       )
-      return null
+      return doc
+    } catch (err) {
+      await deleteDocumentBlob(id).catch(() => undefined)
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění přidávat dokumenty.')) {
+        return null
+      }
+      if (
+        isClinicalError(err) &&
+        (err.code === 'FORBIDDEN' ||
+          err.code === 'UNAUTHENTICATED' ||
+          err.code === 'NOT_FOUND')
+      ) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění přidávat dokumenty.', 'info')
+        return null
+      }
+      throw err
     }
-
-    setDocuments(nextDocs)
-    setCalendarEvents((prev) => syncDocumentReminderEvents(prev, doc, pet))
-    showToast(
-      'Dokument nahrán',
-      pet ? `Uloženo v sekci Dokumenty u ${pet.name}.` : 'Uloženo v sekci Dokumenty.',
-      'gold',
-    )
-    return doc
   }
 
   const updatePetDocument = (documentId: string, updates: Partial<PetDocument>) => {
     const existing = documents.find((doc) => doc.id === documentId)
     if (!existing) return
 
-    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění upravovat dokumenty.', 'info')
-      return
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      const result = service.updateDocument({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(existing),
+        input: { documentId, updates },
+      })
+      const pet = pets.find((item) => item.id === result.data.petId)
+      setCalendarEvents((prev) => syncDocumentReminderEvents(prev, result.data, pet))
+      showToast('Dokument upraven', 'Metadata dokumentu byla uložena.', 'gold')
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění upravovat dokumenty.')) return
+      if (
+        isClinicalError(err) &&
+        (err.code === 'FORBIDDEN' ||
+          err.code === 'UNAUTHENTICATED' ||
+          err.code === 'NOT_FOUND')
+      ) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění upravovat dokumenty.', 'info')
+        return
+      }
+      throw err
     }
-
-    if (isClinicalWithdrawn(existing)) {
-      showToast('Záznam stažen', 'Stažený dokument nelze upravit.', 'info')
-      return
-    }
-
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(
-      {
-        createdAt: existing.uploadedAt,
-        createdByAccountId: existing.uploadedByAccountId,
-        recordSource: existing.recordSource,
-        lifecycleStatus: existing.lifecycleStatus,
-      },
-      ctx,
-    )
-    const safe = stripClinicalClientUpdates(updates as Record<string, unknown>)
-    const merged: PetDocument = {
-      ...existing,
-      ...(safe as Partial<PetDocument>),
-      id: existing.id,
-      petId: existing.petId,
-      uploadedAt: existing.uploadedAt,
-      uploadedByAccountId: existing.uploadedByAccountId,
-      isPublic: false,
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-      recordSource: existing.recordSource,
-      lifecycleStatus: existing.lifecycleStatus ?? 'active',
-    }
-
-    setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? merged : doc)))
-    const pet = pets.find((item) => item.id === merged.petId)
-    setCalendarEvents((prev) => syncDocumentReminderEvents(prev, merged, pet))
-    showToast('Dokument upraven', 'Metadata dokumentu byla uložena.', 'gold')
   }
 
   const replacePetDocument = async (documentId: string, file: File): Promise<boolean> => {
     const existing = documents.find((doc) => doc.id === documentId)
     if (!existing) return false
-
-    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění nahrazovat dokumenty.', 'info')
-      return false
-    }
-
-    if (isClinicalWithdrawn(existing)) {
-      showToast('Záznam stažen', 'Stažený dokument nelze nahradit.', 'info')
-      return false
-    }
 
     try {
       assertDocumentFile(file)
@@ -1881,72 +1885,70 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return false
     }
 
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(
-      {
-        createdAt: existing.uploadedAt,
-        createdByAccountId: existing.uploadedByAccountId,
-        recordSource: existing.recordSource,
-        lifecycleStatus: existing.lifecycleStatus,
-      },
-      ctx,
-    )
-
-    const updated: PetDocument = {
-      ...existing,
-      fileName: file.name,
-      fileSizeBytes: file.size,
-      size: formatFileSize(file.size),
-      mimeType: file.type || undefined,
-      storageKey: documentId,
-      url: undefined,
-      uploadedAt: existing.uploadedAt,
-      uploadedByAccountId: existing.uploadedByAccountId,
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-      isPublic: false,
-      lifecycleStatus: existing.lifecycleStatus ?? 'active',
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      service.replaceDocumentContent({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(existing),
+        input: {
+          documentId,
+          fileName: file.name,
+          fileSizeBytes: file.size,
+          size: formatFileSize(file.size),
+          mimeType: file.type || undefined,
+          storageKey: documentId,
+          clearUrl: true,
+        },
+      })
+      showToast('Dokument nahrazen', 'Nová verze souboru byla nahrána.', 'gold')
+      return true
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění nahrazovat dokumenty.')) {
+        return false
+      }
+      if (
+        isClinicalError(err) &&
+        (err.code === 'FORBIDDEN' ||
+          err.code === 'UNAUTHENTICATED' ||
+          err.code === 'NOT_FOUND')
+      ) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění nahrazovat dokumenty.', 'info')
+        return false
+      }
+      throw err
     }
-
-    const nextDocs = documents.map((doc) => (doc.id === documentId ? updated : doc))
-    if (!persistDocumentsMeta(nextDocs)) {
-      showToast('Nahrazení selhalo', 'Metadata se nepodařilo uložit.', 'info')
-      return false
-    }
-
-    setDocuments(nextDocs)
-    showToast('Dokument nahrazen', 'Nová verze souboru byla nahrána.', 'gold')
-    return true
   }
 
   const deletePetDocument = async (documentId: string) => {
     const existing = documents.find((doc) => doc.id === documentId)
     if (!existing) return
 
-    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění stahovat dokumenty.', 'info')
-      return
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      service.withdrawDocument({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(existing),
+        input: { documentId },
+      })
+      setCalendarEvents((prev) => removeDocumentReminderEvents(prev, documentId))
+      showToast('Dokument stažen', 'Dokument byl stažen a zůstává dohledatelný.', 'info')
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění stahovat dokumenty.')) return
+      if (
+        isClinicalError(err) &&
+        (err.code === 'FORBIDDEN' ||
+          err.code === 'UNAUTHENTICATED' ||
+          err.code === 'NOT_FOUND')
+      ) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění stahovat dokumenty.', 'info')
+        return
+      }
+      throw err
     }
-
-    if (isClinicalWithdrawn(existing)) {
-      showToast('Dokument stažen', 'Dokument je již stažen.', 'info')
-      return
-    }
-
-    const ctx = resolveClinicalStampContext()
-    const withdraw = stampClinicalWithdraw(existing, ctx)
-    const updated: PetDocument = {
-      ...existing,
-      ...withdraw,
-      uploadedAt: existing.uploadedAt,
-      uploadedByAccountId: existing.uploadedByAccountId,
-      isPublic: false,
-    }
-
-    setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? updated : doc)))
-    setCalendarEvents((prev) => removeDocumentReminderEvents(prev, documentId))
-    showToast('Dokument stažen', 'Dokument byl stažen a zůstává dohledatelný.', 'info')
   }
 
   const resolveDocumentUrl = async (doc: PetDocument): Promise<string | null> => {
@@ -1969,6 +1971,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setHealthRecordVersions: (next) => setHealthRecordVersions(next),
       getDocuments: () => documents,
       setDocuments: (next) => setDocuments(next),
+      getDocumentVersions: () => documentVersions,
+      setDocumentVersions: (next) => setDocumentVersions(next),
       getEncounters: () => clinicalEncounters,
       setEncounters: (next) => setClinicalEncounters(next),
       getEncounterVersions: () => clinicalEncounterVersions,

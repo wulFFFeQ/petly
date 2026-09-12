@@ -4,6 +4,7 @@
  */
 
 import type { HealthRecord, Pet, PetDocument } from '../../types'
+import { toAuthorizedDocumentViews } from '../clinical/documentProjection'
 import {
   canOrganizationActorViewDocuments,
   canOrganizationActorViewHealth,
@@ -119,7 +120,7 @@ export function projectPetForOrganization(
   }
 
   if (canOrganizationActorViewDocuments(ctx)) {
-    view.documents = [...petDocs]
+    view.documents = toAuthorizedDocumentViews(petDocs, 'organization')
   }
 
   void options.ownerContacts

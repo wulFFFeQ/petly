@@ -316,9 +316,11 @@ export function ProfessionalPetPage() {
             <p className="mt-2 text-xs text-[#7D8B82]">Žádné dokumenty</p>
           ) : (
             <ul className="mt-2 space-y-2">
-              {view.documents.map((d) => (
+          {view.documents.map((d) => (
                 <li key={d.id} className="text-xs text-[#4A564F]">
-                  {d.name || d.fileName || d.id}
+                  {d.name || d.fileName || 'Dokument'}
+                  {typeof d.version === 'number' ? ` · v${d.version}` : ''}
+                  {d.documentType ? ` · ${d.documentType}` : ''}
                 </li>
               ))}
             </ul>

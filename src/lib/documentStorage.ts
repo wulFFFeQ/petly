@@ -1,5 +1,6 @@
 import type { DocumentCategory, DocumentTypeId } from './documentCategories'
 import { mapLegacyDocumentType } from './documentCategories'
+import { normalizePetDocumentVersion } from './health/clinicalProvenance'
 import type { PetDocument } from '../types'
 
 const DB_NAME = 'lovedandknown-documents'
@@ -126,7 +127,7 @@ export function normalizePetDocument(raw: LegacyPetDocument): PetDocument {
   const name = raw.name ?? 'Dokument'
   const fileName = raw.fileName ?? (raw.url ? name : name)
 
-  return {
+  return normalizePetDocumentVersion({
     id: raw.id ?? `doc_${Date.now()}`,
     petId: raw.petId ?? '',
     name,
@@ -138,6 +139,14 @@ export function normalizePetDocument(raw: LegacyPetDocument): PetDocument {
     mimeType: raw.mimeType,
     uploadedAt: raw.uploadedAt ?? nowIso,
     updatedAt: raw.updatedAt ?? raw.uploadedAt ?? nowIso,
+    uploadedByAccountId: raw.uploadedByAccountId,
+    updatedByAccountId: raw.updatedByAccountId,
+    recordSource: raw.recordSource,
+    lifecycleStatus: raw.lifecycleStatus,
+    withdrawnAt: raw.withdrawnAt,
+    withdrawnByAccountId: raw.withdrawnByAccountId,
+    version: raw.version,
+    encounterId: raw.encounterId,
     issuedAt: raw.issuedAt,
     expiresAt: raw.expiresAt ?? undefined,
     notes: raw.notes,
@@ -146,7 +155,7 @@ export function normalizePetDocument(raw: LegacyPetDocument): PetDocument {
     isPublic: false,
     reminderEnabled: raw.reminderEnabled ?? false,
     reminderOffsetsDays: raw.reminderOffsetsDays,
-  }
+  })
 }
 
 export function persistDocumentsMeta(documents: PetDocument[]): boolean {

@@ -1,4 +1,5 @@
 import type { HealthRecord, Pet, PetDocument } from '../../types'
+import { toAuthorizedDocumentViews } from '../clinical/documentProjection'
 import {
   canProfessionalViewDocuments,
   canProfessionalViewHealth,
@@ -92,7 +93,7 @@ export function projectPetForProfessional(
   }
 
   if (canProfessionalViewDocuments(access, now)) {
-    view.documents = [...petDocs]
+    view.documents = toAuthorizedDocumentViews(petDocs, 'professional')
     if (petDocs.length > 0) viewedDocs = true
   }
 
