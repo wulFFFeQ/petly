@@ -18,9 +18,9 @@ export function DocumentDeleteConfirm({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DC] bg-white p-5 shadow-lg">
-        <h3 className="text-base font-bold text-[#191E1B]">Smazat dokument?</h3>
+        <h3 className="text-base font-bold text-[#191E1B]">Stáhnout dokument?</h3>
         <p className="mt-1 text-xs text-[#7D8B82]">
-          Tento dokument bude trvale odstraněn z profilu mazlíčka.
+          Dokument bude stažen z běžného přehledu a zůstane dohledatelný.
           {documentName ? ` (${documentName})` : ''}
         </p>
         <div className="mt-4 flex justify-end gap-2">
@@ -28,7 +28,7 @@ export function DocumentDeleteConfirm({
             Zrušit
           </Button>
           <Button type="button" variant="danger" size="sm" onClick={onConfirm}>
-            Smazat dokument
+            Stáhnout dokument
           </Button>
         </div>
       </div>

@@ -10,6 +10,10 @@ import {
 import { ChevronRight, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
+  resolveClinicalStampContext,
+  stampWeightCreate,
+} from '../../lib/health/clinicalProvenance'
+import {
   getWeightMeasurementsForPet,
   persistWeightMeasurement,
 } from '../../lib/badges/badgeData'
@@ -158,13 +162,14 @@ export function WeightChart({
       return
     }
 
-    const entry: WeightMeasurement = {
+    const petForStamp = allPets.find((p) => p.id === petId) ?? { id: petId }
+    const entry = stampWeightCreate(resolveClinicalStampContext(), petForStamp, {
       id: `wm_${petId}_${Date.now()}`,
       petId,
       date: formatIsoDateToCzech(todayIsoDate()),
       weight: Math.round(value * 10) / 10,
       note: newWeightNote.trim() || undefined,
-    }
+    })
     persistWeightMeasurement(entry)
     refreshBadges()
     setNewWeight('')

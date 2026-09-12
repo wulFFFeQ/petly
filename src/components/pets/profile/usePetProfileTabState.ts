@@ -13,6 +13,10 @@ import {
   saveDailyCareCompleted,
 } from '../../../lib/dailyCareChecklist'
 import { persistWeightMeasurement, getWeightMeasurementsForPet } from '../../../lib/badges/badgeData'
+import {
+  resolveClinicalStampContext,
+  stampWeightCreate,
+} from '../../../lib/health/clinicalProvenance'
 import { APP_TODAY } from '../../../lib/dashboardDates'
 import { tryAssertPetClinical } from '../../../lib/security'
 import { usePetClinicalFlags } from '../../../lib/security/useAuthorizedHealthScope'
@@ -84,10 +88,10 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
 
   const clinical = usePetClinicalFlags(pet.id)
   const healthRecordsForPet = clinical.canRead
-    ? allRecords.filter((r) => r.petId === pet.id)
+    ? allRecords.filter((r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn')
     : []
   const documents = clinical.canReadDocuments
-    ? allDocuments.filter((d) => d.petId === pet.id)
+    ? allDocuments.filter((d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn')
     : []
   const photos = allPhotos.filter((p) => p.petId === pet.id)
 
@@ -369,13 +373,13 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
 
     const today = new Date()
     const dateStr = `${today.getDate()}. ${today.getMonth() + 1}. ${today.getFullYear()}`
-    const entry: WeightMeasurement = {
+    const entry = stampWeightCreate(resolveClinicalStampContext(), pet, {
       id: `wm_${Date.now()}`,
       petId: pet.id,
       date: dateStr,
       weight,
       note: newWeightNote || undefined,
-    }
+    })
     setWeightData((prev) => [...prev, entry])
     persistWeightMeasurement(entry)
     refreshBadges()

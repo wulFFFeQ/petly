@@ -225,6 +225,14 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'attestorDocument',
   'chipNumber',
   'documentIds',
+  // K51 — clinical provenance / actor identity must never appear on public payloads
+  'createdByAccountId',
+  'updatedByAccountId',
+  'uploadedByAccountId',
+  'withdrawnByAccountId',
+  'recordSource',
+  'lifecycleStatus',
+  'withdrawnAt',
 ] as const
 
 export type PublicPayloadForbiddenKey = (typeof PUBLIC_PAYLOAD_FORBIDDEN_KEYS)[number]

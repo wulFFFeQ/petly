@@ -1,6 +1,10 @@
 import { Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
+  clinicalRecordSourceLabel,
+  formatClinicalUpdatedAt,
+} from '../../lib/health/clinicalProvenance'
+import {
   formatMedicationRemainingLabel,
   formatReminderDaysLabel,
   MAX_REMINDER_DAYS,
@@ -122,7 +126,13 @@ export function HealthRecordDetailBody({
 
   const handleDelete = () => {
     const label = record.subtitle || record.title
-    if (!window.confirm(`Opravdu smazat záznam „${label}"?`)) return
+    if (
+      !window.confirm(
+        `Opravdu stáhnout záznam „${label}"? Záznam zůstane dohledatelný, ale zmizí z běžného přehledu.`,
+      )
+    ) {
+      return
+    }
     onDelete(record.id)
     onClose()
   }
@@ -271,6 +281,25 @@ export function HealthRecordDetailBody({
 
   return (
     <div className="space-y-4">
+      {(clinicalRecordSourceLabel(record.recordSource) ||
+        formatClinicalUpdatedAt(record.updatedAt)) && (
+        <div
+          className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2.5 space-y-0.5"
+          data-testid="health-record-provenance"
+        >
+          {clinicalRecordSourceLabel(record.recordSource) && (
+            <p className="text-xs font-semibold text-[#4A564F]">
+              {clinicalRecordSourceLabel(record.recordSource)}
+            </p>
+          )}
+          {formatClinicalUpdatedAt(record.updatedAt) && (
+            <p className="text-[11px] text-[#7D8B82]">
+              Naposledy upraveno {formatClinicalUpdatedAt(record.updatedAt)}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-[#FAF8F5] border border-[#E8E4DC] p-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[#7D8B82]">Datum</p>
@@ -416,7 +445,7 @@ export function HealthRecordDetailBody({
         </Button>
         <Button variant="danger" size="sm" onClick={handleDelete} className="gap-1.5">
           <Trash2 size={14} />
-          Smazat
+          Stáhnout záznam
         </Button>
         {onGoTimeline && (
           <Button variant="outline" size="sm" onClick={onGoTimeline}>

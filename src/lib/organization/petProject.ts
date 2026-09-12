@@ -99,8 +99,12 @@ export function projectPetForOrganization(
   view.type = pet.type
   view.breed = pet.breed
 
-  const petRecords = (options.healthRecords ?? []).filter((r) => r.petId === pet.id)
-  const petDocs = (options.documents ?? []).filter((d) => d.petId === pet.id)
+  const petRecords = (options.healthRecords ?? []).filter(
+    (r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn',
+  )
+  const petDocs = (options.documents ?? []).filter(
+    (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+  )
 
   if (canOrganizationActorViewHealth(ctx)) {
     view.healthRecords = [...petRecords]

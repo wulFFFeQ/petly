@@ -90,8 +90,12 @@ export function projectPetForHousehold(
     if (pet.gender) view.gender = pet.gender
     if (pet.image) view.image = pet.image
     if (pet.bio) view.bio = pet.bio
-    view.healthRecords = (options.healthRecords ?? []).filter((r) => r.petId === pet.id)
-    view.documents = (options.documents ?? []).filter((d) => d.petId === pet.id)
+    view.healthRecords = (options.healthRecords ?? []).filter(
+      (r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn',
+    )
+    view.documents = (options.documents ?? []).filter(
+      (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+    )
     view.photos = (options.photos ?? []).filter((p) => p.petId === pet.id)
     if (pet.emergencyCard) view.emergencyCard = pet.emergencyCard
     view.calendarWriteAllowed = true
@@ -127,11 +131,15 @@ export function projectPetForHousehold(
   }
 
   if (hasHouseholdPermission(access, 'health_read', now)) {
-    view.healthRecords = (options.healthRecords ?? []).filter((r) => r.petId === pet.id)
+    view.healthRecords = (options.healthRecords ?? []).filter(
+      (r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn',
+    )
   }
 
   if (hasHouseholdPermission(access, 'documents_read', now)) {
-    view.documents = (options.documents ?? []).filter((d) => d.petId === pet.id)
+    view.documents = (options.documents ?? []).filter(
+      (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+    )
   }
 
   if (hasHouseholdPermission(access, 'gallery_read', now)) {

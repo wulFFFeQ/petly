@@ -351,6 +351,20 @@ export interface HealthAssessmentSnapshot {
   answers: Record<string, string>
 }
 
+/**
+ * Informational clinical provenance source — NOT an authorization role.
+ * Authorization always goes through authorize() / clinicalGate.
+ */
+export type ClinicalRecordSource =
+  | 'owner'
+  | 'co_owner'
+  | 'caregiver'
+  | 'professional'
+  | 'organization'
+
+/** Soft-delete boundary for clinical rows — not a full immutable ledger. */
+export type ClinicalLifecycleStatus = 'active' | 'withdrawn'
+
 export interface HealthRecord {
   id: string
   petId: string
@@ -369,6 +383,19 @@ export interface HealthRecord {
   reminderDays?: number
   reminderEnabled?: boolean
   notes?: string
+  /** ISO timestamp — set on create; immutable on edit. */
+  createdAt?: string
+  /** ISO timestamp — refreshed on every successful mutation. */
+  updatedAt?: string
+  /** Trusted actor Account.id from SecurityContext (never display name). */
+  createdByAccountId?: string
+  updatedByAccountId?: string
+  /** Metadata only — never used as permission bypass. */
+  recordSource?: ClinicalRecordSource
+  /** Default active; withdrawn = soft-delete (row retained). */
+  lifecycleStatus?: ClinicalLifecycleStatus
+  withdrawnAt?: string
+  withdrawnByAccountId?: string
 }
 
 export interface TimelineEvent {
@@ -409,6 +436,14 @@ export interface PetDocument {
   uploadedAt: string
   /** ISO timestamp or legacy display label of last update. */
   updatedAt: string
+  /** Trusted actor Account.id from SecurityContext. */
+  uploadedByAccountId?: string
+  updatedByAccountId?: string
+  /** Metadata only — never used as permission bypass. */
+  recordSource?: ClinicalRecordSource
+  lifecycleStatus?: ClinicalLifecycleStatus
+  withdrawnAt?: string
+  withdrawnByAccountId?: string
   /** ISO date `YYYY-MM-DD` when issued. */
   issuedAt?: string
   /** ISO date `YYYY-MM-DD` when expires; omit / undefined = no expiry. */
@@ -441,6 +476,11 @@ export interface WeightMeasurement {
   date: string
   weight: number
   note?: string
+  createdAt?: string
+  updatedAt?: string
+  createdByAccountId?: string
+  updatedByAccountId?: string
+  recordSource?: ClinicalRecordSource
 }
 
 export interface OverviewItem {

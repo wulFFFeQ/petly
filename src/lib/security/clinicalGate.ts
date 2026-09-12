@@ -205,7 +205,9 @@ export function filterHealthRecordsForClinicalAccess(
   const allowedIds = new Set(
     filterPetsWithClinicalAccess(pets, action, options).map((p) => p.id),
   )
-  return records.filter((r) => allowedIds.has(r.petId))
+  return records.filter(
+    (r) => allowedIds.has(r.petId) && r.lifecycleStatus !== 'withdrawn',
+  )
 }
 
 /**

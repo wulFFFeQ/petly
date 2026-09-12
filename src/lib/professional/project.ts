@@ -66,8 +66,12 @@ export function projectPetForProfessional(
   view.type = pet.type
   view.breed = pet.breed
 
-  const petRecords = (options.healthRecords ?? []).filter((r) => r.petId === pet.id)
-  const petDocs = (options.documents ?? []).filter((d) => d.petId === pet.id)
+  const petRecords = (options.healthRecords ?? []).filter(
+    (r) => r.petId === pet.id && r.lifecycleStatus !== 'withdrawn',
+  )
+  const petDocs = (options.documents ?? []).filter(
+    (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
+  )
 
   let viewedRecords = false
   let viewedDocs = false

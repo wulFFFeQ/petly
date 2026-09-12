@@ -142,6 +142,15 @@ import {
 } from '../lib/household'
 import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
 import {
+  isClinicalWithdrawn,
+  normalizeHealthRecordProvenance,
+  resolveClinicalStampContext,
+  stampClinicalUpdate,
+  stampClinicalWithdraw,
+  stampNewClinicalRecord,
+  stripClinicalClientUpdates,
+} from '../lib/health/clinicalProvenance'
+import {
   tryAssertPetClinical,
   writeActionForHealthRecordType,
 } from '../lib/security'
@@ -309,24 +318,26 @@ function loadPhotos(): PetPhoto[] {
 }
 
 function normalizeStoredHealthRecord(record: HealthRecord): HealthRecord {
+  let next = record
   if (record.type === 'examination') {
-    return record.title === 'Laboratorní výsledky'
-      ? { ...record, title: 'Vyšetření' }
-      : record
+    next =
+      record.title === 'Laboratorní výsledky'
+        ? { ...record, title: 'Vyšetření' }
+        : record
+  } else if (record.type === 'vet') {
+    const blob = `${record.title} ${record.subtitle}`
+    if (/laborator|vyšetřen|krevní|biochem/i.test(blob)) {
+      next = {
+        ...record,
+        type: 'examination',
+        title:
+          record.title === 'Laboratorní výsledky' || record.title === 'Návštěva veterináře'
+            ? 'Vyšetření'
+            : record.title,
+      }
+    }
   }
-  if (record.type !== 'vet') return record
-
-  const blob = `${record.title} ${record.subtitle}`
-  if (!/laborator|vyšetřen|krevní|biochem/i.test(blob)) return record
-
-  return {
-    ...record,
-    type: 'examination',
-    title:
-      record.title === 'Laboratorní výsledky' || record.title === 'Návštěva veterináře'
-        ? 'Vyšetření'
-        : record.title,
-  }
+  return normalizeHealthRecordProvenance(next)
 }
 
 function loadHealthRecords(): HealthRecord[] {
@@ -1610,7 +1621,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const pet = pets.find((item) => item.id === input.petId)
     const stamp = Date.now()
     const id = `doc_${stamp}_${Math.random().toString(36).slice(2, 8)}`
-    const nowIso = new Date().toISOString()
+    const ctx = resolveClinicalStampContext()
+    const provenance = stampNewClinicalRecord(ctx, pet ?? { id: input.petId })
     const doc: PetDocument = {
       id,
       petId: input.petId,
@@ -1621,8 +1633,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fileSizeBytes: input.file.size,
       size: formatFileSize(input.file.size),
       mimeType: input.file.type || undefined,
-      uploadedAt: nowIso,
-      updatedAt: nowIso,
+      uploadedAt: provenance.createdAt,
+      updatedAt: provenance.updatedAt,
+      uploadedByAccountId: provenance.createdByAccountId,
+      updatedByAccountId: provenance.updatedByAccountId,
+      recordSource: provenance.recordSource,
+      lifecycleStatus: 'active',
       issuedAt: input.issuedAt || undefined,
       expiresAt: input.expiresAt || undefined,
       notes: input.notes?.trim() || undefined,
@@ -1689,13 +1705,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    if (isClinicalWithdrawn(existing)) {
+      showToast('Záznam stažen', 'Stažený dokument nelze upravit.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.uploadedAt,
+        createdByAccountId: existing.uploadedByAccountId,
+        recordSource: existing.recordSource,
+        lifecycleStatus: existing.lifecycleStatus,
+      },
+      ctx,
+    )
+    const safe = stripClinicalClientUpdates(updates as Record<string, unknown>)
     const merged: PetDocument = {
       ...existing,
-      ...updates,
+      ...(safe as Partial<PetDocument>),
       id: existing.id,
-      petId: updates.petId ?? existing.petId,
+      petId: existing.petId,
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
       isPublic: false,
-      updatedAt: new Date().toISOString(),
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
+      recordSource: existing.recordSource,
+      lifecycleStatus: existing.lifecycleStatus ?? 'active',
     }
 
     setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? merged : doc)))
@@ -1711,6 +1748,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
     if (!gate.ok) {
       showToast('Bez oprávnění', 'Nemáte oprávnění nahrazovat dokumenty.', 'info')
+      return false
+    }
+
+    if (isClinicalWithdrawn(existing)) {
+      showToast('Záznam stažen', 'Stažený dokument nelze nahradit.', 'info')
       return false
     }
 
@@ -1732,6 +1774,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return false
     }
 
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.uploadedAt,
+        createdByAccountId: existing.uploadedByAccountId,
+        recordSource: existing.recordSource,
+        lifecycleStatus: existing.lifecycleStatus,
+      },
+      ctx,
+    )
+
     const updated: PetDocument = {
       ...existing,
       fileName: file.name,
@@ -1740,8 +1793,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mimeType: file.type || undefined,
       storageKey: documentId,
       url: undefined,
-      updatedAt: new Date().toISOString(),
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
       isPublic: false,
+      lifecycleStatus: existing.lifecycleStatus ?? 'active',
     }
 
     const nextDocs = documents.map((doc) => (doc.id === documentId ? updated : doc))
@@ -1757,17 +1814,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deletePetDocument = async (documentId: string) => {
     const existing = documents.find((doc) => doc.id === documentId)
-    if (existing) {
-      const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
-      if (!gate.ok) {
-        showToast('Bez oprávnění', 'Nemáte oprávnění mazat dokumenty.', 'info')
-        return
-      }
+    if (!existing) return
+
+    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění stahovat dokumenty.', 'info')
+      return
     }
-    await deleteDocumentBlob(documentId).catch(() => undefined)
-    setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
+
+    if (isClinicalWithdrawn(existing)) {
+      showToast('Dokument stažen', 'Dokument je již stažen.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const withdraw = stampClinicalWithdraw(existing, ctx)
+    const updated: PetDocument = {
+      ...existing,
+      ...withdraw,
+      uploadedAt: existing.uploadedAt,
+      uploadedByAccountId: existing.uploadedByAccountId,
+      isPublic: false,
+    }
+
+    setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? updated : doc)))
     setCalendarEvents((prev) => removeDocumentReminderEvents(prev, documentId))
-    showToast('Dokument smazán', 'Dokument byl trvale odstraněn.', 'info')
+    showToast('Dokument stažen', 'Dokument byl stažen a zůstává dohledatelný.', 'info')
   }
 
   const resolveDocumentUrl = async (doc: PetDocument): Promise<string | null> => {
@@ -1829,6 +1901,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       assessment: 'Zdravotní přehled',
     }
 
+    const ctx = resolveClinicalStampContext()
+    const provenance = stampNewClinicalRecord(ctx, pet)
+
     const record: HealthRecord = {
       id: `hr_${Date.now()}`,
       petId: input.petId,
@@ -1847,6 +1922,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reminderEnabled: input.type === 'medication' ? true : undefined,
       scheduleTime: input.type === 'medication' ? '09:00' : undefined,
       reminderDays: input.type === 'medication' ? 7 : undefined,
+      ...provenance,
     }
 
     setHealthRecords((prev) => [record, ...prev])
@@ -1874,7 +1950,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const updated: HealthRecord = { ...record, ...updates }
+    if (isClinicalWithdrawn(record)) {
+      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(record, ctx)
+    const safe = stripClinicalClientUpdates(updates as Record<string, unknown>)
+    const updated: HealthRecord = {
+      ...record,
+      ...(safe as Partial<HealthRecord>),
+      id: record.id,
+      petId: record.petId,
+      createdAt: record.createdAt ?? stamp.createdAt,
+      createdByAccountId: record.createdByAccountId,
+      recordSource: record.recordSource,
+      lifecycleStatus: record.lifecycleStatus ?? 'active',
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
+    }
     setHealthRecords((prev) =>
       prev.map((item) => (item.id === recordId ? updated : item)),
     )
@@ -1895,13 +1990,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const writeAction = writeActionForHealthRecordType(record.type)
     const gate = tryAssertPetClinical(writeAction, record.petId, { pets })
     if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění mazat zdravotní záznamy.', 'info')
+      showToast('Bez oprávnění', 'Nemáte oprávnění stahovat zdravotní záznamy.', 'info')
       return
     }
 
+    if (isClinicalWithdrawn(record)) {
+      showToast('Záznam stažen', 'Záznam je již stažen.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const withdraw = stampClinicalWithdraw(record, ctx)
+    const updated: HealthRecord = {
+      ...record,
+      ...withdraw,
+      createdAt: record.createdAt ?? withdraw.createdAt,
+      createdByAccountId: record.createdByAccountId,
+    }
+
     disableMedicationReminder(recordId)
-    setHealthRecords((prev) => prev.filter((item) => item.id !== recordId))
-    showToast('Záznam smazán', record.subtitle || record.title, 'info')
+    setHealthRecords((prev) =>
+      prev.map((item) => (item.id === recordId ? updated : item)),
+    )
+    showToast('Záznam stažen', record.subtitle || record.title, 'info')
   }
 
   const toggleMedicationReminder = (recordId: string) => {
@@ -1914,12 +2025,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    if (isClinicalWithdrawn(record)) {
+      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(record, ctx)
     const nextEnabled = !record.reminderEnabled
     const updated: HealthRecord = {
       ...record,
       reminderEnabled: nextEnabled,
       scheduleTime: record.scheduleTime || '09:00',
       reminderDays: normalizeReminderDays(record.reminderDays),
+      createdAt: record.createdAt ?? stamp.createdAt,
+      createdByAccountId: record.createdByAccountId,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
     }
     setHealthRecords((prev) =>
       prev.map((item) => (item.id === recordId ? updated : item)),
@@ -1952,8 +2074,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    if (isClinicalWithdrawn(record)) {
+      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(record, ctx)
     const normalized = /^\d{1,2}:\d{2}$/.test(time.trim()) ? time.trim() : '09:00'
-    const updated: HealthRecord = { ...record, scheduleTime: normalized }
+    const updated: HealthRecord = {
+      ...record,
+      scheduleTime: normalized,
+      createdAt: record.createdAt ?? stamp.createdAt,
+      createdByAccountId: record.createdByAccountId,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
+    }
     setHealthRecords((prev) =>
       prev.map((item) => (item.id === recordId ? updated : item)),
     )
@@ -1973,9 +2109,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    if (isClinicalWithdrawn(record)) {
+      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+      return
+    }
+
+    const ctx = resolveClinicalStampContext()
+    const stamp = stampClinicalUpdate(record, ctx)
     const updated: HealthRecord = {
       ...record,
       reminderDays: normalizeReminderDays(days),
+      createdAt: record.createdAt ?? stamp.createdAt,
+      createdByAccountId: record.createdByAccountId,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId,
     }
     setHealthRecords((prev) =>
       prev.map((item) => (item.id === recordId ? updated : item)),
