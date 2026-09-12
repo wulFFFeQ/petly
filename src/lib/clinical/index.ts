@@ -10,6 +10,7 @@
  * K59: PetDocument clinical boundary + separate immutable document history.
  * K60: WeightMeasurement clinical boundary (health.read/write; no parallel ACL).
  * K61: Clinical Share = workflow over authorize + Messages (not access grant).
+ * K62: clinical.emergency.write = Emergency Card only (≠ health.write).
  */
 
 export type {
@@ -92,3 +93,14 @@ export {
   type ClinicalShareResult,
   type CreateClinicalShareInput,
 } from './share'
+
+export {
+  applyEmergencyWritePatch,
+  assertValidEmergencyWriteInput,
+  EMERGENCY_WRITE_ALLOWED_KEYS,
+  EMERGENCY_WRITE_FORBIDDEN_KEYS,
+  stampEmergencyWriteProvenance,
+  type ClinicalEmergencyWriteInput,
+  type ClinicalEmergencyWritePatch,
+  type EmergencyWriteProvenance,
+} from './emergencyWrite'

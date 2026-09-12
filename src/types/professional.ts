@@ -105,6 +105,8 @@ export type ProfessionalPermission =
   | 'addVaccination'
   | 'addHealthRecord'
   | 'addNote'
+  /** K62 — Emergency Card write only; never implies addHealthRecord. */
+  | 'emergencyWrite'
 
 export type ProfessionalAccessStatus = 'pending' | 'active' | 'revoked' | 'expired'
 

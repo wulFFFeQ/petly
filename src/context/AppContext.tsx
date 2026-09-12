@@ -155,6 +155,7 @@ import {
   type HealthRecordVersionSnapshot,
   type PetDocumentVersionSnapshot,
 } from '../lib/clinical'
+import type { EmergencyCardSettings } from '../types/emergencyCard'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
 import type {
@@ -1450,17 +1451,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let breedingJustEnabledPet: Pet | null = null
     let petForVerification: Pet | null = null
 
-    // Emergency Card write — Owner or household emergency_write (domain boundary).
+    // K62 — Emergency Card write must pass ClinicalService + clinical.emergency.write.
+    // UI is not the authorization boundary.
+    let authorizedEmergencyCard: EmergencyCardSettings | undefined
     if (Object.prototype.hasOwnProperty.call(updates, 'emergencyCard')) {
       const pet = pets.find((item) => item.id === petId)
       if (!pet) return
-      if (!canWritePetEmergency(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
-        showToast(
-          'Nedostatečná oprávnění',
-          'Nemáte oprávnění upravovat nouzovou kartu tohoto mazlíčka.',
-          'info',
-        )
+      const card = updates.emergencyCard
+      if (!card) {
+        showToast('Neplatná data', 'Nouzová karta nemůže být prázdná.', 'info')
         return
+      }
+      const adapter = buildHealthClinicalAdapter()
+      const service = createDemoClinicalService(adapter, { store: { pets } })
+      try {
+        const result = service.emergencyWrite({
+          context: resolveClinicalStampContext(),
+          pets,
+          input: {
+            petId,
+            patch: {
+              publicSlug: card.publicSlug,
+              health: card.health ?? null,
+              vet: card.vet ?? null,
+              ownerPhoneForPrint: card.ownerPhoneForPrint ?? null,
+              visibility: card.visibility,
+            },
+          },
+        })
+        authorizedEmergencyCard = result.data
+      } catch (err) {
+        if (handleClinicalMutationError(err, 'Nemáte oprávnění upravovat nouzovou kartu tohoto mazlíčka.')) {
+          return
+        }
+        // Legacy HH helper message fallback (same deny).
+        if (!canWritePetEmergency(pet, resolveActorAccountId(), loadPetHouseholdAccess())) {
+          showToast(
+            'Nedostatečná oprávnění',
+            'Nemáte oprávnění upravovat nouzovou kartu tohoto mazlíčka.',
+            'info',
+          )
+          return
+        }
+        throw err
       }
     }
 
@@ -1474,21 +1507,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ? { ...updates, breedingProfile: false }
             : updates
 
-        const { next: ruled, breedingJustEnabled } = applyBreedingProfileRules(pet, safeUpdates)
+        const mergedUpdates =
+          authorizedEmergencyCard !== undefined
+            ? { ...safeUpdates, emergencyCard: authorizedEmergencyCard }
+            : safeUpdates
+
+        const { next: ruled, breedingJustEnabled } = applyBreedingProfileRules(pet, mergedUpdates)
         const next: Pet = ruled
 
-        if ('gender' in safeUpdates) {
-          const gender = safeUpdates.gender
-            ? normalizeGenderForType(safeUpdates.gender, next.type)
+        if ('gender' in mergedUpdates) {
+          const gender = mergedUpdates.gender
+            ? normalizeGenderForType(mergedUpdates.gender, next.type)
             : undefined
           if (gender) next.gender = gender
           else delete next.gender
         }
-        if ('age' in safeUpdates && (safeUpdates.age == null || safeUpdates.age < 0)) {
+        if ('age' in mergedUpdates && (mergedUpdates.age == null || mergedUpdates.age < 0)) {
           delete next.age
         }
-        if ('ageMonths' in safeUpdates) {
-          const months = safeUpdates.ageMonths
+        if ('ageMonths' in mergedUpdates) {
+          const months = mergedUpdates.ageMonths
           if (months == null || months <= 0) delete next.ageMonths
           else next.ageMonths = Math.min(11, Math.floor(months))
         }
@@ -1499,18 +1537,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           delete next.age
           delete next.ageMonths
         }
-        if ('weight' in safeUpdates && (safeUpdates.weight == null || safeUpdates.weight <= 0)) {
+        if ('weight' in mergedUpdates && (mergedUpdates.weight == null || mergedUpdates.weight <= 0)) {
           delete next.weight
         }
-        if ('dateOfBirth' in safeUpdates && !safeUpdates.dateOfBirth?.trim()) {
+        if ('dateOfBirth' in mergedUpdates && !mergedUpdates.dateOfBirth?.trim()) {
           delete next.dateOfBirth
         }
-        if ('microchip' in safeUpdates) {
-          if (!safeUpdates.microchip?.trim()) {
+        if ('microchip' in mergedUpdates) {
+          if (!mergedUpdates.microchip?.trim()) {
             delete next.microchip
             delete next.microchipVerification
           } else {
-            const nextChip = safeUpdates.microchip.trim()
+            const nextChip = mergedUpdates.microchip.trim()
             next.microchip = nextChip
             if (
               next.microchipVerification &&

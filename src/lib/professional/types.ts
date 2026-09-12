@@ -58,6 +58,8 @@ export const PROFESSIONAL_PERMISSIONS = [
   'addVaccination',
   'addHealthRecord',
   'addNote',
+  /** K62 — Emergency Card write only; never implies addHealthRecord / health.write. */
+  'emergencyWrite',
 ] as const
 
 export const PROFESSIONAL_ACCESS_STATUSES = [
@@ -89,4 +91,5 @@ export const WRITE_PERMISSIONS = [
   'addVaccination',
   'addHealthRecord',
   'addNote',
+  'emergencyWrite',
 ] as const

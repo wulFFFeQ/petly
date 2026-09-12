@@ -28,13 +28,14 @@ export function decideOwnerPetAccess(
     }
   }
 
-  // Emergency clinical write is time-bound + separate from permanent health.write.
+  // K62: owner may manage Emergency Card via clinical.emergency.write.
+  // Scope is enforced in ClinicalService — this action never grants health.write.
   if (action === 'clinical.emergency.write') {
     return {
-      allowed: false,
-      code: 'unauthorized',
-      reason: 'clinical.emergency.write is not permanent owner health.write',
-      denyClass: 'deny_by_default',
+      allowed: true,
+      reason: 'owner',
+      path: 'owner',
+      permission: 'clinical.emergency.write',
     }
   }
 

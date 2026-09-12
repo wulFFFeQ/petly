@@ -9,7 +9,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
   'Akita': '/breeds/akita.jpg?v=2',
   'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=2',
-  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=1',
+  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=3',
   'Americká akita': '/breeds/americka-akita.jpg?v=2',
   'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
   'Americký buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',

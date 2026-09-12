@@ -11,6 +11,7 @@ import {
 import { loadPetProfessionalAccess } from '../../professional/storage'
 import type { PetProfessionalAccess } from '../../professional/types'
 import { professionalPermissionForAction } from '../actions'
+import { denyIfEmergencyWriteLacksExpiry } from '../emergencyWriteGrant'
 import type { AuthorizationDecision, SecurityAction } from '../types'
 
 export type ProfessionalAdapterDeps = {
@@ -80,6 +81,10 @@ export function authorizeProfessionalPet(
       denyClass: 'missing_grant',
     }
   }
+
+  // K62 — Pro emergency write must be time-bounded (expiresAt required).
+  const expiryDeny = denyIfEmergencyWriteLacksExpiry(action, access.expiresAt, now)
+  if (expiryDeny) return expiryDeny
 
   const allowed =
     hasPermission(access, mapping.permission, now) ||

@@ -58,6 +58,12 @@ import {
   serverRequired,
   staleVersion,
 } from './errors'
+import {
+  applyEmergencyWritePatch,
+  assertValidEmergencyWriteInput,
+  stampEmergencyWriteProvenance,
+  type ClinicalEmergencyWriteInput,
+} from './emergencyWrite'
 import type {
   ClinicalAuthority,
   ClinicalCorrectDocumentInput,
@@ -81,6 +87,7 @@ import type {
   HealthRecordVersionSnapshot,
   PetDocumentVersionSnapshot,
 } from './types'
+import type { EmergencyCardSettings } from '../../types/emergencyCard'
 
 function denyShortcuts(req: ClinicalRequestBase): void {
   if (req.bookingId?.trim()) {
@@ -1058,23 +1065,63 @@ export class ClinicalService {
   }
 
   /**
-   * Emergency clinical write — time-bounded future action.
-   * Must never become permanent health.write.
+   * Emergency clinical write — Emergency Card fields only (K62).
+   * Never permanent health.write; never mutates HealthRecord / docs / weight / encounter.
    */
-  emergencyWrite(req: ClinicalRequestBase & { petId: string; pets?: Pet[] }): never {
+  emergencyWrite(
+    req: ClinicalRequestBase & {
+      input: ClinicalEmergencyWriteInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<EmergencyCardSettings> {
     denyShortcuts(req)
-    assertTrustedActor(req.context, req.claimedActorAccountId)
+    const actorId = assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('emergencyWrite')
+
+    const patch = assertValidEmergencyWriteInput(req.input, req.context)
+
     const deps = this.deps(req.pets)
-    resolvePet(req.petId, deps)
+    const pet = resolvePet(req.input.petId, deps)
     authorizePetAction(
       req.context,
       'clinical.emergency.write',
-      req.petId,
+      req.input.petId,
       deps,
       req.claimedOrganizationId,
       req.claimedActorAccountId,
     )
-    throw notImplemented('emergencyWrite')
+
+    const emergencyCard = applyEmergencyWritePatch(pet, patch)
+    const provenance = stampEmergencyWriteProvenance(req.context)
+
+    // Extra scrubbed audit for workflow phase (K48 only — not EmergencyAudit).
+    emitAuthorizationAudit({
+      actorAccountId: actorId,
+      actorKind: req.context.actor.kind,
+      resourceType: 'pet',
+      resourceId: pet.id,
+      organizationId: req.context.organization?.organizationId,
+      professionalId: req.context.professional?.professionalProfileId,
+      membershipId: req.context.organization?.membershipId,
+      action: 'clinical.emergency.write',
+      authorizationResult: 'allow',
+      permission: 'clinical.emergency.write',
+      correlationId: req.context.correlationId,
+      channel: req.context.channel,
+      authority: req.context.authority,
+      metadata: {
+        workflow: 'clinical_emergency_write',
+        phase: 'mutated',
+        updatedAt: provenance.updatedAt,
+      },
+    })
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: emergencyCard,
+      authorizationAction: 'clinical.emergency.write',
+    }
   }
 
   // ─── K58 Clinical Encounter ─────────────────────────────────────────────

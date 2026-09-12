@@ -1060,14 +1060,32 @@ check('AL) no fake sign', () => {
   )
 })
 
-check('AM) emergency remains separate permission', () => {
-  const { service } = freshService()
+check('AM) emergency remains separate permission (≠ health.write)', () => {
+  const { service, adapter } = freshService()
+  const before = adapter.getHealthRecords().length
+  // K62: owner may write Emergency Card via clinical.emergency.write — not HealthRecord.
+  const er = service.emergencyWrite({
+    context: ctxForAccount(SELF_OWNER_ID),
+    pets,
+    input: {
+      petId: bella.id,
+      patch: { health: { allergies: 'ER note' } },
+    },
+  })
+  assert.equal(er.ok, true)
+  assert.equal(er.authorizationAction, 'clinical.emergency.write')
+  assert.equal(adapter.getHealthRecords().length, before)
+  // Clinical entity mutation via emergency path still DENY
   expectClinicalCode(
     () =>
       service.emergencyWrite({
         context: ctxForAccount(SELF_OWNER_ID),
         pets,
-        petId: bella.id,
+        input: {
+          petId: bella.id,
+          patch: { health: { allergies: 'x' } },
+          healthRecord: { id: 'hr_forge' },
+        },
       }),
     'FORBIDDEN',
   )

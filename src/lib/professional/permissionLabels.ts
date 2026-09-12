@@ -11,6 +11,7 @@ export const PERMISSION_LABELS: Record<ProfessionalPermission, string> = {
   addVaccination: 'Přidat očkování',
   addHealthRecord: 'Přidat zdravotní záznam',
   addNote: 'Přidat poznámku',
+  emergencyWrite: 'Nouzová karta (časově omezené)',
 }
 
 export const READ_PERMISSION_OPTIONS = READ_PERMISSIONS.map((id) => ({

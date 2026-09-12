@@ -7,6 +7,7 @@
 import { assertPetOwner } from '../pets/ownership'
 import { normalizePermissions } from '../professional/permissions'
 import type { ProfessionalPermission } from '../professional/types'
+import { assertEmergencyWriteGrantHasExpiry } from '../security/emergencyWriteGrant'
 import type { Pet } from '../../types'
 import {
   findMembership,
@@ -308,11 +309,14 @@ export function grantOrganizationPetAccess(
   const visibilityMode: OrganizationPetVisibilityMode =
     input.visibilityMode ?? 'assigned_only'
 
+  const permissions = normalizePermissions(input.permissions)
+  assertEmergencyWriteGrantHasExpiry(permissions, input.expiresAt)
+
   const access: OrganizationPetAccess = {
     id: input.id ?? open?.id ?? createOrganizationPetAccessId(),
     petId: input.pet.id,
     organizationId,
-    permissions: normalizePermissions(input.permissions),
+    permissions,
     status: input.status ?? 'active',
     visibilityMode,
     grantedAt: stamp,

@@ -89,6 +89,16 @@ export {
   type ClinicalShareReceivedContext,
 } from './fromClinicalShare'
 export {
+  buildClinicalEmergencyAccessGrantedNotification,
+  buildClinicalEmergencyAccessRevokedNotification,
+  emitClinicalEmergencyAccessGrantedNotification,
+  emitClinicalEmergencyAccessRevokedNotification,
+  isSafeClinicalEmergencyNotificationPayload,
+  clinicalEmergencyGrantDedupeKey,
+  type ClinicalEmergencyAccessGrantedContext,
+  type ClinicalEmergencyAccessRevokedContext,
+} from './fromClinicalEmergency'
+export {
   buildPaymentNotification,
   emitPaymentNotification,
   isSafePaymentNotificationPayload,

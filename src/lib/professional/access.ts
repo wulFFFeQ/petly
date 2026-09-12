@@ -1,4 +1,5 @@
 import { appendAccessLog, createAccessLogEntry } from './audit'
+import { assertEmergencyWriteGrantHasExpiry } from '../security/emergencyWriteGrant'
 import { normalizePermissions } from './permissions'
 import type {
   PetProfessionalAccess,
@@ -84,11 +85,13 @@ export function grantPetAccess(
   }
 
   const nowIso = input.grantedAt ?? new Date().toISOString()
+  const permissions = normalizePermissions(input.permissions)
+  assertEmergencyWriteGrantHasExpiry(permissions, input.expiresAt)
   const access: PetProfessionalAccess = {
     id: input.id ?? open?.id ?? createAccessId(),
     petId: input.petId,
     professionalId: input.professionalId,
-    permissions: normalizePermissions(input.permissions),
+    permissions,
     status: input.status ?? 'active',
     grantedAt: nowIso,
     grantedByAccountId: input.grantedByAccountId,
@@ -343,9 +346,11 @@ export function updateAccessPermissions(
   let updated: PetProfessionalAccess | null = null
   const next = accessList.map((a) => {
     if (a.id !== accessId) return a
+    const nextPermissions = normalizePermissions(permissions)
+    assertEmergencyWriteGrantHasExpiry(nextPermissions, a.expiresAt)
     updated = {
       ...a,
-      permissions: normalizePermissions(permissions),
+      permissions: nextPermissions,
     }
     return updated
   })

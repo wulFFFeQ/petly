@@ -846,6 +846,9 @@ export type NotificationType =
   | 'payment_refunded'
   /** K61 — clinical share received (no clinical payload in notification). */
   | 'clinical_share_received'
+  /** K62 — time-bounded clinical.emergency.write granted/revoked (no clinical payload). */
+  | 'clinical_emergency_access_granted'
+  | 'clinical_emergency_access_revoked'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 

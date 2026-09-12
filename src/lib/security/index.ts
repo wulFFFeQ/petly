@@ -104,6 +104,13 @@ export { projectAfterAuthorize } from './adapters/project'
 export { projectAuthorizedPublicPet } from './adapters/public'
 export { actorHasOrgMembershipOnly } from './adapters/organizationPet'
 
+/** K62 — time-bounded clinical.emergency.write grant integrity (not a new ACL). */
+export {
+  assertEmergencyWriteGrantHasExpiry,
+  denyIfEmergencyWriteLacksExpiry,
+  hasEmergencyWritePermission,
+} from './emergencyWriteGrant'
+
 /** K50 — clinical authorize glue (not a new ACL). */
 export {
   authorizePetClinical,

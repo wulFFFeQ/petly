@@ -41,7 +41,7 @@ const DOG_CURATED_IMAGES = {
   // Distinct from husky — Malamute editorial on dark bokeh (not snow full-body).
   'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=2',
   // Alpine Dachsbracke — dark short-coat hound on golden bokeh (not dachshund snap).
-  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=1',
+  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=3',
   'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
   'Australský honácký pes': UNSPLASH('photo-1769117086709-7507034281fa'),
   'Australský honácký pes s krátkým ocasem': UNSPLASH('photo-1769117086709-7507034281fa'),

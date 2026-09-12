@@ -117,7 +117,10 @@ export function householdPermissionForAction(
       return 'pet_profile_read'
     case 'pet.profile.write':
       return 'pet_profile_write'
-    // clinical.sign / clinical.emergency.write — no HH fold (deny-by-default)
+    case 'clinical.emergency.write':
+      // K62 — Emergency Card only; never health_write.
+      return 'emergency_write'
+    // clinical.sign — no HH fold (deny-by-default)
     default:
       return null
   }
@@ -164,7 +167,10 @@ export function professionalPermissionForAction(
       return { permission: 'viewHealth' }
     case 'organization.pet.access':
       return { permission: 'viewHealth' }
-    // clinical.sign / finalize / admin / export / emergency — no Pro auto-map
+    case 'clinical.emergency.write':
+      // K62 — Emergency Card only; never folds into addHealthRecord.
+      return { permission: 'emergencyWrite' }
+    // clinical.sign / finalize / admin / export — no Pro auto-map
     // (server-required; do not pretend addHealthRecord = clinician sign).
     default:
       return null

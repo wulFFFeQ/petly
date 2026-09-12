@@ -13,6 +13,7 @@ import { loadOrganizationPetAccess } from '../../organization/petAccessStorage'
 import type { OrganizationMembership, OrganizationPetAccess } from '../../organization/types'
 import { isOrganizationMembershipEffective } from '../../organization/access'
 import { professionalPermissionForAction } from '../actions'
+import { denyIfEmergencyWriteLacksExpiry } from '../emergencyWriteGrant'
 import type { AuthorizationDecision, SecurityAction, ValidatedOrganizationContext } from '../types'
 
 export type OrganizationPetAdapterDeps = {
@@ -145,6 +146,14 @@ export function authorizeOrganizationPet(
       denyClass: 'cross_organization',
     }
   }
+
+  // K62 — Org emergency write must be time-bounded (expiresAt required).
+  const expiryDeny = denyIfEmergencyWriteLacksExpiry(
+    action,
+    resolved.access.expiresAt,
+    now,
+  )
+  if (expiryDeny) return expiryDeny
 
   const ctx = {
     access: resolved.access,

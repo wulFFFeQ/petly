@@ -815,19 +815,28 @@ check('V) export server-required', () => {
   )
 })
 
-// W — emergency not permanent health.write
-check('W) emergency not permanent health.write', () => {
-  const { service } = freshService()
-  expectClinicalCode(
-    () =>
-      service.emergencyWrite({
-        context: ctxForAccount(SELF_OWNER_ID),
-        petId: bella.id,
-        pets,
-      }),
-    'FORBIDDEN',
-  )
-  // Owner still has health.write
+// W — emergency write ≠ permanent health.write (K62: Emergency Card ALLOW for owner)
+check('W) emergency write ≠ health.write (Emergency Card scoped)', () => {
+  const { service, adapter } = freshService()
+  const before = adapter.getHealthRecords().length
+  const result = service.emergencyWrite({
+    context: ctxForAccount(SELF_OWNER_ID),
+    pets,
+    input: {
+      petId: bella.id,
+      patch: {
+        health: { allergies: 'Penicillin' },
+        visibility: { showHealthAllergies: true },
+      },
+    },
+  })
+  assert.equal(result.ok, true)
+  assert.equal(result.authorizationAction, 'clinical.emergency.write')
+  assert.equal(result.data.health?.allergies, 'Penicillin')
+  // Must not create HealthRecord via emergency path
+  assert.equal(adapter.getHealthRecords().length, before)
+
+  // health.write still works separately
   const { service: s2 } = freshService()
   const ok = s2.createRecord({
     context: ctxForAccount(SELF_OWNER_ID),
@@ -841,6 +850,24 @@ check('W) emergency not permanent health.write', () => {
   })
   assert.equal(ok.ok, true)
   assert.ok(!KNOWN_SECURITY_ACTIONS.includes('clinical.write' as never))
+})
+
+// W2 — emergency cannot mutate HealthRecord payload
+check('W2) emergency write rejects clinical entity mutation', () => {
+  const { service } = freshService()
+  expectClinicalCode(
+    () =>
+      service.emergencyWrite({
+        context: ctxForAccount(SELF_OWNER_ID),
+        pets,
+        input: {
+          petId: bella.id,
+          patch: { health: { allergies: 'x' } },
+          healthRecord: { id: 'hr_forge' },
+        },
+      }),
+    'FORBIDDEN',
+  )
 })
 
 // X — no parallel access model

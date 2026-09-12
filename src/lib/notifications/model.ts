@@ -71,6 +71,8 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'payment_cancelled',
   'payment_refunded',
   'clinical_share_received',
+  'clinical_emergency_access_granted',
+  'clinical_emergency_access_revoked',
 ]
 
 function resolveType(raw: Record<string, unknown>): NotificationType {
