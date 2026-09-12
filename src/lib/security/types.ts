@@ -193,4 +193,9 @@ export type AuthorizationAuditPayload = {
   authority: SecurityAuthority
   denyCode?: AuthorizationDenyCode
   denyClass?: AuthorizationDenyClass
+  /**
+   * K57 — optional scrub-safe metadata (e.g. previousVersion / newVersion integers).
+   * Never clinical payloads / PII.
+   */
+  metadata?: Record<string, unknown>
 }

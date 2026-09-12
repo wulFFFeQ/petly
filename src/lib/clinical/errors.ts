@@ -1,6 +1,7 @@
 /**
  * K56 — Structured clinical service errors.
  * No sensitive internal details in client-facing messages.
+ * K57 — STALE_VERSION / IMMUTABLE_VERSION / INVALID_VERSION.
  */
 
 import {
@@ -14,6 +15,9 @@ export type ClinicalErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'STALE_ACCESS'
+  | 'STALE_VERSION'
+  | 'IMMUTABLE_VERSION'
+  | 'INVALID_VERSION'
   | 'INVALID_RESOURCE'
   | 'SERVER_REQUIRED'
   | 'NOT_IMPLEMENTED'
@@ -32,6 +36,18 @@ export class ClinicalError extends Error {
 
 export function isClinicalError(err: unknown): err is ClinicalError {
   return err instanceof ClinicalError
+}
+
+export function staleVersion(message = 'Record was modified concurrently'): ClinicalError {
+  return new ClinicalError('STALE_VERSION', message)
+}
+
+export function immutableVersion(message = 'Historical version is immutable'): ClinicalError {
+  return new ClinicalError('IMMUTABLE_VERSION', message)
+}
+
+export function invalidVersion(message = 'Invalid version'): ClinicalError {
+  return new ClinicalError('INVALID_VERSION', message)
 }
 
 /** Map K47 AuthorizationError → ClinicalError (no data leak expansion). */

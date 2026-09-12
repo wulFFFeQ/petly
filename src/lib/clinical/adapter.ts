@@ -1,15 +1,25 @@
 /**
- * K56 — Clinical persistence adapter boundary.
+ * K56/K57 — Clinical persistence adapter boundary.
  *
  * DemoClinicalPersistenceAdapter = DEMO only (local simulation).
  * ServerClinicalPersistenceAdapter = contract stub → SERVER_REQUIRED.
  *
  * Server adapter must NEVER wrap localStorage and pretend to be a server.
+ *
+ * K57: HealthRecord version ledger stores immutable snapshots of the SAME
+ * HealthRecord resource — not a parallel Health SSOT.
  */
 
 import type { HealthRecord, PetDocument, WeightMeasurement } from '../../types'
-import { ClinicalError, serverRequired } from './errors'
-import type { ClinicalAuthority } from './types'
+import {
+  ClinicalError,
+  immutableVersion,
+  serverRequired,
+} from './errors'
+import type {
+  ClinicalAuthority,
+  HealthRecordVersionSnapshot,
+} from './types'
 
 export type ClinicalPersistenceAdapter = {
   readonly authority: ClinicalAuthority
@@ -26,6 +36,14 @@ export type ClinicalPersistenceAdapter = {
 
   getWeightMeasurements(): WeightMeasurement[]
   persistWeightMeasurement(entry: WeightMeasurement): void
+
+  /** K57 — append-only immutable HealthRecord version snapshot. */
+  appendHealthRecordVersion(snapshot: HealthRecordVersionSnapshot): void
+  listHealthRecordVersions(recordId: string): HealthRecordVersionSnapshot[]
+  getHealthRecordVersion(
+    recordId: string,
+    version: number,
+  ): HealthRecordVersionSnapshot | undefined
 }
 
 export type DemoClinicalStoreHooks = {
@@ -35,17 +53,21 @@ export type DemoClinicalStoreHooks = {
   setDocuments?: (documents: PetDocument[]) => void
   getWeightMeasurements?: () => WeightMeasurement[]
   persistWeightMeasurement?: (entry: WeightMeasurement) => void
+  getHealthRecordVersions?: () => HealthRecordVersionSnapshot[]
+  setHealthRecordVersions?: (snapshots: HealthRecordVersionSnapshot[]) => void
 }
 
 /**
  * DEMO persistence — in-memory / React-state / localStorage via hooks.
  * Explicitly NOT production authority.
+ * Version ledger simulates immutable history; DEMO ≠ production concurrency.
  */
 export class DemoClinicalPersistenceAdapter implements ClinicalPersistenceAdapter {
   readonly authority: ClinicalAuthority = 'demo'
   readonly wired = true as const
 
   private readonly hooks: DemoClinicalStoreHooks
+  private memoryVersions: HealthRecordVersionSnapshot[] = []
 
   constructor(hooks: DemoClinicalStoreHooks) {
     this.hooks = hooks
@@ -84,7 +106,55 @@ export class DemoClinicalPersistenceAdapter implements ClinicalPersistenceAdapte
       this.hooks.persistWeightMeasurement(entry)
       return
     }
-    // Optional in-memory-only callers may omit weight hooks.
+  }
+
+  private readVersions(): HealthRecordVersionSnapshot[] {
+    if (this.hooks.getHealthRecordVersions) {
+      return this.hooks.getHealthRecordVersions()
+    }
+    return this.memoryVersions
+  }
+
+  private writeVersions(next: HealthRecordVersionSnapshot[]): void {
+    if (this.hooks.setHealthRecordVersions) {
+      this.hooks.setHealthRecordVersions(next)
+      return
+    }
+    this.memoryVersions = next
+  }
+
+  appendHealthRecordVersion(snapshot: HealthRecordVersionSnapshot): void {
+    const existing = this.readVersions()
+    const clash = existing.find(
+      (s) => s.recordId === snapshot.recordId && s.version === snapshot.version,
+    )
+    if (clash) {
+      throw immutableVersion(
+        `Version ${snapshot.version} already exists for record ${snapshot.recordId}`,
+      )
+    }
+    // Deep-freeze payload copy — historical row must not share mutable refs.
+    const frozen: HealthRecordVersionSnapshot = {
+      ...snapshot,
+      record: { ...snapshot.record },
+    }
+    this.writeVersions([...existing, frozen])
+  }
+
+  listHealthRecordVersions(recordId: string): HealthRecordVersionSnapshot[] {
+    return this.readVersions()
+      .filter((s) => s.recordId === recordId)
+      .slice()
+      .sort((a, b) => a.version - b.version)
+  }
+
+  getHealthRecordVersion(
+    recordId: string,
+    version: number,
+  ): HealthRecordVersionSnapshot | undefined {
+    return this.readVersions().find(
+      (s) => s.recordId === recordId && s.version === version,
+    )
   }
 }
 
@@ -96,11 +166,13 @@ export function createInMemoryDemoClinicalAdapter(
     healthRecords?: HealthRecord[]
     documents?: PetDocument[]
     weights?: WeightMeasurement[]
+    versions?: HealthRecordVersionSnapshot[]
   },
 ): DemoClinicalPersistenceAdapter {
   let healthRecords = [...(seed?.healthRecords ?? [])]
   let documents = [...(seed?.documents ?? [])]
   let weights = [...(seed?.weights ?? [])]
+  let versions = [...(seed?.versions ?? [])]
   return new DemoClinicalPersistenceAdapter({
     getHealthRecords: () => healthRecords,
     setHealthRecords: (next) => {
@@ -113,6 +185,10 @@ export function createInMemoryDemoClinicalAdapter(
     getWeightMeasurements: () => weights,
     persistWeightMeasurement: (entry) => {
       weights = [...weights.filter((w) => w.id !== entry.id), entry]
+    },
+    getHealthRecordVersions: () => versions,
+    setHealthRecordVersions: (next) => {
+      versions = next
     },
   })
 }
@@ -158,6 +234,21 @@ export class ServerClinicalPersistenceAdapter implements ClinicalPersistenceAdap
   }
 
   persistWeightMeasurement(_entry: WeightMeasurement): void {
+    this.fail()
+  }
+
+  appendHealthRecordVersion(_snapshot: HealthRecordVersionSnapshot): void {
+    this.fail()
+  }
+
+  listHealthRecordVersions(_recordId: string): HealthRecordVersionSnapshot[] {
+    this.fail()
+  }
+
+  getHealthRecordVersion(
+    _recordId: string,
+    _version: number,
+  ): HealthRecordVersionSnapshot | undefined {
     this.fail()
   }
 }

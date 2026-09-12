@@ -396,6 +396,11 @@ export interface HealthRecord {
   lifecycleStatus?: ClinicalLifecycleStatus
   withdrawnAt?: string
   withdrawnByAccountId?: string
+  /**
+   * K57 — server-authoritative integer version (start at 1).
+   * Client must never set this as authority; DEMO may simulate increment.
+   */
+  version?: number
 }
 
 export interface TimelineEvent {
@@ -444,6 +449,8 @@ export interface PetDocument {
   lifecycleStatus?: ClinicalLifecycleStatus
   withdrawnAt?: string
   withdrawnByAccountId?: string
+  /** K57 — server-authoritative integer version (start at 1). */
+  version?: number
   /** ISO date `YYYY-MM-DD` when issued. */
   issuedAt?: string
   /** ISO date `YYYY-MM-DD` when expires; omit / undefined = no expiry. */
@@ -481,6 +488,8 @@ export interface WeightMeasurement {
   createdByAccountId?: string
   updatedByAccountId?: string
   recordSource?: ClinicalRecordSource
+  /** K57 — server-authoritative integer version (start at 1). */
+  version?: number
 }
 
 export interface OverviewItem {

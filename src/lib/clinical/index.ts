@@ -1,17 +1,20 @@
 /**
- * K56 — Server clinical vertical (service / authority boundary).
+ * K56/K57 — Server clinical vertical (service / authority boundary).
  *
  * Not a parallel Health / Access / Permission / Audit system.
  * HealthRecord / PetDocument / WeightMeasurement remain SSOT.
  * SecurityContext + authorize() remain the only authorization path.
+ * K57: integer version + immutable HealthRecord version snapshots.
  */
 
 export type {
   ClinicalAuthority,
   ClinicalAudit,
   ClinicalAuthorizationDecision,
+  ClinicalCorrectRecordInput,
   ClinicalCreateRecordInput,
   ClinicalCreateWeightInput,
+  ClinicalMutationKind,
   ClinicalMutationResult,
   ClinicalPersistence,
   ClinicalReadRequest,
@@ -21,16 +24,20 @@ export type {
   ClinicalServiceOptions,
   ClinicalUpdateRecordInput,
   ClinicalWithdrawRecordInput,
+  HealthRecordVersionSnapshot,
   TrustedActor,
 } from './types'
 
 export {
   ClinicalError,
   clinicalErrorFromAuthorization,
+  immutableVersion,
+  invalidVersion,
   isClinicalError,
   notImplemented,
   rethrowAsClinical,
   serverRequired,
+  staleVersion,
   type ClinicalErrorCode,
 } from './errors'
 

@@ -3,6 +3,7 @@
  * PetDocument / WeightMeasurement. Not a new Health or Actor model.
  *
  * recordSource is metadata only — never an authorization bypass.
+ * K57 — version is server/DEMO-authority; client Partial must never set it.
  */
 
 import type {
@@ -27,6 +28,7 @@ export type ClinicalCreateStamp = {
   updatedByAccountId?: string
   recordSource?: ClinicalRecordSource
   lifecycleStatus: ClinicalLifecycleStatus
+  version: number
 }
 
 export type ClinicalUpdateStamp = {
@@ -47,6 +49,7 @@ export const HEALTH_RECORD_IMMUTABLE_KEYS = [
   'lifecycleStatus',
   'withdrawnAt',
   'withdrawnByAccountId',
+  'version',
 ] as const
 
 export const DOCUMENT_IMMUTABLE_KEYS = [
@@ -57,6 +60,7 @@ export const DOCUMENT_IMMUTABLE_KEYS = [
   'lifecycleStatus',
   'withdrawnAt',
   'withdrawnByAccountId',
+  'version',
 ] as const
 
 const PROVENANCE_STRIP_KEYS = new Set([
@@ -75,6 +79,10 @@ const PROVENANCE_STRIP_KEYS = new Set([
   'ownerAccountId',
   'ownerContacts',
   'microchip',
+  'version',
+  'mutationKind',
+  'correctionOfVersion',
+  'correctionReason',
 ])
 
 /** Current DEMO SecurityContext for stamping after clinicalGate ALLOW. */
@@ -120,6 +128,7 @@ export function stampNewClinicalRecord(
     ...(actor ? { createdByAccountId: actor, updatedByAccountId: actor } : {}),
     ...(source ? { recordSource: source } : {}),
     lifecycleStatus: 'active',
+    version: 1,
   }
 }
 
@@ -184,7 +193,7 @@ export function stampClinicalWithdraw(
   }
 }
 
-/** Strip provenance / ownership / identity keys from client Partial updates. */
+/** Strip provenance / ownership / identity / version keys from client Partial updates. */
 export function stripClinicalClientUpdates<T extends Record<string, unknown>>(
   updates: T,
 ): Partial<T> {
@@ -238,18 +247,23 @@ export function formatClinicalUpdatedAt(iso: string | undefined): string | null 
 }
 
 /**
- * Backfill missing timestamps for legacy/seed rows.
- * Never invents fake actors.
+ * Backfill missing timestamps / version for legacy/seed rows.
+ * Never invents fake actors or fabricated multi-version history.
  */
 export function normalizeHealthRecordProvenance(record: HealthRecord): HealthRecord {
   const now = new Date().toISOString()
   const createdAt = record.createdAt ?? now
   const updatedAt = record.updatedAt ?? createdAt
   const lifecycleStatus = record.lifecycleStatus ?? 'active'
+  const version =
+    typeof record.version === 'number' && Number.isInteger(record.version) && record.version >= 1
+      ? record.version
+      : 1
   if (
     record.createdAt === createdAt &&
     record.updatedAt === updatedAt &&
-    record.lifecycleStatus === lifecycleStatus
+    record.lifecycleStatus === lifecycleStatus &&
+    record.version === version
   ) {
     return record
   }
@@ -258,13 +272,39 @@ export function normalizeHealthRecordProvenance(record: HealthRecord): HealthRec
     createdAt,
     updatedAt,
     lifecycleStatus,
+    version,
   }
+}
+
+/** Additive version normalize for PetDocument — no fabricated history. */
+export function normalizePetDocumentVersion(doc: PetDocument): PetDocument {
+  const version =
+    typeof doc.version === 'number' && Number.isInteger(doc.version) && doc.version >= 1
+      ? doc.version
+      : 1
+  if (doc.version === version) return doc
+  return { ...doc, version }
+}
+
+/** Additive version normalize for WeightMeasurement — no fabricated history. */
+export function normalizeWeightMeasurementVersion(
+  entry: WeightMeasurement,
+): WeightMeasurement {
+  const version =
+    typeof entry.version === 'number' && Number.isInteger(entry.version) && entry.version >= 1
+      ? entry.version
+      : 1
+  if (entry.version === version) return entry
+  return { ...entry, version }
 }
 
 export function stampWeightCreate(
   ctx: SecurityContext,
   pet: Pick<Pet, 'id' | 'ownerAccountId'> | Pet,
-  entry: Omit<WeightMeasurement, 'createdAt' | 'updatedAt' | 'createdByAccountId' | 'updatedByAccountId' | 'recordSource'>,
+  entry: Omit<
+    WeightMeasurement,
+    'createdAt' | 'updatedAt' | 'createdByAccountId' | 'updatedByAccountId' | 'recordSource' | 'version'
+  >,
 ): WeightMeasurement {
   const stamp = stampNewClinicalRecord(ctx, pet)
   return {
@@ -274,5 +314,21 @@ export function stampWeightCreate(
     createdByAccountId: stamp.createdByAccountId,
     updatedByAccountId: stamp.updatedByAccountId,
     recordSource: stamp.recordSource,
+    version: 1,
   }
+}
+
+/** Current version integer from a clinical row (migration: missing → 1). */
+export function clinicalCurrentVersion(
+  record: { version?: number } | null | undefined,
+): number {
+  if (
+    record &&
+    typeof record.version === 'number' &&
+    Number.isInteger(record.version) &&
+    record.version >= 1
+  ) {
+    return record.version
+  }
+  return 1
 }

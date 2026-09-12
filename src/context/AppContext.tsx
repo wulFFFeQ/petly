@@ -142,6 +142,7 @@ import {
 } from '../lib/household'
 import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
 import {
+  clinicalCurrentVersion,
   isClinicalWithdrawn,
   normalizeHealthRecordProvenance,
   resolveClinicalStampContext,
@@ -154,6 +155,7 @@ import {
   createDemoClinicalService,
   DemoClinicalPersistenceAdapter,
   isClinicalError,
+  type HealthRecordVersionSnapshot,
 } from '../lib/clinical'
 import {
   tryAssertPetClinical,
@@ -202,6 +204,8 @@ export type DiscoverFilter = 'all' | 'dog' | 'cat' | 'nearby' | 'popular'
 const PETS_STORAGE_KEY = 'lovedandknown.pets'
 const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
+/** K57 DEMO immutable HealthRecord version ledger — not production authority. */
+const HEALTH_VERSIONS_STORAGE_KEY = 'lovedandknown.healthRecordVersions'
 const CALENDAR_STORAGE_KEY = 'lovedandknown.calendarEvents'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
@@ -354,6 +358,19 @@ function loadHealthRecords(): HealthRecord[] {
     return parsed.map(normalizeStoredHealthRecord)
   } catch {
     return initialHealthRecords
+  }
+}
+
+function loadHealthRecordVersions(): HealthRecordVersionSnapshot[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(HEALTH_VERSIONS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as HealthRecordVersionSnapshot[]
+    if (!Array.isArray(parsed)) return []
+    return parsed
+  } catch {
+    return []
   }
 }
 
@@ -678,6 +695,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [photos, setPhotos] = useState<PetPhoto[]>(loadPhotos)
   const [documents, setDocuments] = useState<PetDocument[]>(loadDocuments)
   const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(loadHealthRecords)
+  const [healthRecordVersions, setHealthRecordVersions] = useState<HealthRecordVersionSnapshot[]>(
+    loadHealthRecordVersions,
+  )
   const [posts, setPosts] = useState<CommunityPost[]>(loadPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(loadCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
@@ -1150,6 +1170,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Ignore quota errors — records remain available in the current session.
     }
   }, [healthRecords])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        HEALTH_VERSIONS_STORAGE_KEY,
+        JSON.stringify(healthRecordVersions),
+      )
+    } catch {
+      // Ignore quota errors — versions remain available in the current session.
+    }
+  }, [healthRecordVersions])
 
   useEffect(() => {
     persistDocumentsMeta(documents)
@@ -1643,6 +1674,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatedByAccountId: provenance.updatedByAccountId,
       recordSource: provenance.recordSource,
       lifecycleStatus: 'active',
+      version: 1,
       issuedAt: input.issuedAt || undefined,
       expiresAt: input.expiresAt || undefined,
       notes: input.notes?.trim() || undefined,
@@ -1858,6 +1890,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return null
   }
 
+  const buildHealthClinicalAdapter = () =>
+    new DemoClinicalPersistenceAdapter({
+      getHealthRecords: () => healthRecords,
+      setHealthRecords: (next) => setHealthRecords(next),
+      getHealthRecordVersions: () => healthRecordVersions,
+      setHealthRecordVersions: (next) => setHealthRecordVersions(next),
+    })
+
+  const handleClinicalMutationError = (err: unknown, denyMessage: string): boolean => {
+    if (!isClinicalError(err)) return false
+    if (err.code === 'STALE_VERSION') {
+      showToast(
+        'Konflikt verzí',
+        'Záznam byl mezitím změněn. Načti aktuální verzi a zkus úpravu znovu.',
+        'info',
+      )
+      return true
+    }
+    if (err.code === 'FORBIDDEN' && err.message.includes('Withdrawn')) {
+      showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
+      return true
+    }
+    if (err.code === 'FORBIDDEN' && err.message.includes('already withdrawn')) {
+      showToast('Záznam stažen', 'Záznam je již stažen.', 'info')
+      return true
+    }
+    if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
+      showToast('Bez oprávnění', denyMessage, 'info')
+      return true
+    }
+    return false
+  }
+
   const enableMedicationReminder = (record: HealthRecord) => {
     const petName = petNameForRecord(pets, record.petId)
     const withDefaults: HealthRecord = {
@@ -1890,10 +1955,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const recordDate = new Date(`${input.date}T12:00:00`)
     const isPastOrToday = recordDate.getTime() <= today.getTime() + 12 * 60 * 60 * 1000
 
-    const adapter = new DemoClinicalPersistenceAdapter({
-      getHealthRecords: () => healthRecords,
-      setHealthRecords: (next) => setHealthRecords(next),
-    })
+    const adapter = buildHealthClinicalAdapter()
     const service = createDemoClinicalService(adapter, { store: { pets } })
 
     try {
@@ -1944,16 +2006,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
-    const adapter = new DemoClinicalPersistenceAdapter({
-      getHealthRecords: () => healthRecords,
-      setHealthRecords: (next) => setHealthRecords(next),
-    })
+    const adapter = buildHealthClinicalAdapter()
     const service = createDemoClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.updateRecord({
         context: resolveClinicalStampContext(),
         pets,
+        expectedVersion: clinicalCurrentVersion(record),
         input: { recordId, updates },
       })
       const updated = result.data
@@ -1964,15 +2024,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       showToast('Záznam upraven', updated.subtitle || updated.title, 'gold')
     } catch (err) {
-      if (isClinicalError(err)) {
-        if (err.code === 'FORBIDDEN' && err.message.includes('Withdrawn')) {
-          showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
-          return
-        }
-        if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
-          showToast('Bez oprávnění', 'Nemáte oprávnění upravovat zdravotní záznamy.', 'info')
-          return
-        }
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění upravovat zdravotní záznamy.')) {
+        return
       }
       throw err
     }
@@ -1982,30 +2035,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
-    const adapter = new DemoClinicalPersistenceAdapter({
-      getHealthRecords: () => healthRecords,
-      setHealthRecords: (next) => setHealthRecords(next),
-    })
+    const adapter = buildHealthClinicalAdapter()
     const service = createDemoClinicalService(adapter, { store: { pets } })
 
     try {
       const result = service.withdrawRecord({
         context: resolveClinicalStampContext(),
         pets,
+        expectedVersion: clinicalCurrentVersion(record),
         input: { recordId },
       })
       disableMedicationReminder(recordId)
       showToast('Záznam stažen', result.data.subtitle || result.data.title, 'info')
     } catch (err) {
-      if (isClinicalError(err)) {
-        if (err.code === 'FORBIDDEN' && err.message.includes('already withdrawn')) {
-          showToast('Záznam stažen', 'Záznam je již stažen.', 'info')
-          return
-        }
-        if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
-          showToast('Bez oprávnění', 'Nemáte oprávnění stahovat zdravotní záznamy.', 'info')
-          return
-        }
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění stahovat zdravotní záznamy.')) {
+        return
       }
       throw err
     }
@@ -2015,48 +2059,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
 
-    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
-      return
-    }
-
     if (isClinicalWithdrawn(record)) {
       showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
       return
     }
 
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(record, ctx)
     const nextEnabled = !record.reminderEnabled
-    const updated: HealthRecord = {
-      ...record,
-      reminderEnabled: nextEnabled,
-      scheduleTime: record.scheduleTime || '09:00',
-      reminderDays: normalizeReminderDays(record.reminderDays),
-      createdAt: record.createdAt ?? stamp.createdAt,
-      createdByAccountId: record.createdByAccountId,
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-    }
-    setHealthRecords((prev) =>
-      prev.map((item) => (item.id === recordId ? updated : item)),
-    )
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    if (nextEnabled) {
-      enableMedicationReminder(updated)
-      const schedule = buildMedicationReminderNotification(
-        updated,
-        petNameForRecord(pets, record.petId),
-      )
-      showToast('Připomínka zapnuta', schedule.message || schedule.time || '', 'gold')
-    } else {
-      disableMedicationReminder(recordId)
-      showToast(
-        'Připomínka vypnuta',
-        `${record.subtitle} · ${record.scheduleTime || record.date}`,
-        'gold',
-      )
+    try {
+      const result = service.updateRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(record),
+        input: {
+          recordId,
+          updates: {
+            reminderEnabled: nextEnabled,
+            scheduleTime: record.scheduleTime || '09:00',
+            reminderDays: normalizeReminderDays(record.reminderDays),
+          },
+        },
+      })
+      const updated = result.data
+      if (nextEnabled) {
+        enableMedicationReminder(updated)
+        const schedule = buildMedicationReminderNotification(
+          updated,
+          petNameForRecord(pets, record.petId),
+        )
+        showToast('Připomínka zapnuta', schedule.message || schedule.time || '', 'gold')
+      } else {
+        disableMedicationReminder(recordId)
+        showToast(
+          'Připomínka vypnuta',
+          `${record.subtitle} · ${record.scheduleTime || record.date}`,
+          'gold',
+        )
+      }
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění měnit připomínky léků.')) {
+        return
+      }
+      throw err
     }
   }
 
@@ -2064,34 +2110,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
 
-    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
-      return
-    }
-
     if (isClinicalWithdrawn(record)) {
       showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
       return
     }
 
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(record, ctx)
     const normalized = /^\d{1,2}:\d{2}$/.test(time.trim()) ? time.trim() : '09:00'
-    const updated: HealthRecord = {
-      ...record,
-      scheduleTime: normalized,
-      createdAt: record.createdAt ?? stamp.createdAt,
-      createdByAccountId: record.createdByAccountId,
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-    }
-    setHealthRecords((prev) =>
-      prev.map((item) => (item.id === recordId ? updated : item)),
-    )
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    if (updated.reminderEnabled) {
-      enableMedicationReminder(updated)
+    try {
+      const result = service.updateRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(record),
+        input: { recordId, updates: { scheduleTime: normalized } },
+      })
+      if (result.data.reminderEnabled) {
+        enableMedicationReminder(result.data)
+      }
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění měnit připomínky léků.')) {
+        return
+      }
+      throw err
     }
   }
 
@@ -2099,33 +2141,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
 
-    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
-    if (!gate.ok) {
-      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
-      return
-    }
-
     if (isClinicalWithdrawn(record)) {
       showToast('Záznam stažen', 'Stažený záznam nelze upravit.', 'info')
       return
     }
 
-    const ctx = resolveClinicalStampContext()
-    const stamp = stampClinicalUpdate(record, ctx)
-    const updated: HealthRecord = {
-      ...record,
-      reminderDays: normalizeReminderDays(days),
-      createdAt: record.createdAt ?? stamp.createdAt,
-      createdByAccountId: record.createdByAccountId,
-      updatedAt: stamp.updatedAt,
-      updatedByAccountId: stamp.updatedByAccountId,
-    }
-    setHealthRecords((prev) =>
-      prev.map((item) => (item.id === recordId ? updated : item)),
-    )
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
 
-    if (updated.reminderEnabled) {
-      enableMedicationReminder(updated)
+    try {
+      const result = service.updateRecord({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: clinicalCurrentVersion(record),
+        input: {
+          recordId,
+          updates: { reminderDays: normalizeReminderDays(days) },
+        },
+      })
+      if (result.data.reminderEnabled) {
+        enableMedicationReminder(result.data)
+      }
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění měnit připomínky léků.')) {
+        return
+      }
+      throw err
     }
   }
 

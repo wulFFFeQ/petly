@@ -658,6 +658,7 @@ check('Q) withdrawn record cannot hard-delete', () => {
   const withdrawn = service.withdrawRecord({
     context: ctxForAccount(SELF_OWNER_ID),
     pets,
+    expectedVersion: 1,
     input: { recordId: 'hr_q' },
   })
   assert.equal(withdrawn.data.lifecycleStatus, 'withdrawn')
@@ -685,6 +686,7 @@ check('R) createdAt preserved', () => {
   const updated = service.updateRecord({
     context: ctxForAccount(SELF_OWNER_ID),
     pets,
+    expectedVersion: 1,
     input: {
       recordId: 'hr_r',
       updates: {
@@ -718,6 +720,7 @@ check('S) updatedBy populated', () => {
   const updated = service.updateRecord({
     context: ctxForAccount(coOwner.id),
     pets,
+    expectedVersion: 1,
     input: { recordId: 'hr_s', updates: { subtitle: 'Co edit' } },
   })
   assert.equal(updated.data.updatedByAccountId, coOwner.id)

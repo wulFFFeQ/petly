@@ -57,8 +57,8 @@ const DOG_CURATED_IMAGES = {
   'Americká akita': '/breeds/americka-akita.jpg?v=1',
   // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).
   'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
-  // American Foxhound — landscape stack, head fully in frame (not clipped dog.ceo close-up).
-  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=1',
+  // American Foxhound — outdoor head portrait (HQ bokeh; not indoor show-floor).
+  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=2',
   // American Hairless Terrier — HQ portrait, full head (not Yorkshire mislabel).
   'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
 }

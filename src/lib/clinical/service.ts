@@ -1,14 +1,19 @@
 /**
- * K56 — ClinicalService authority boundary.
+ * K56/K57 — ClinicalService authority boundary.
  *
- * request → trusted SecurityContext → actor → pet → authorize() → mutate → provenance → (audit via authorize)
+ * request → trusted SecurityContext → actor → pet → authorize()
+ *   → expectedVersion CAS → immutable history → mutate → provenance
+ *   → (audit via authorize + optional version metadata)
  *
  * Uses existing HealthRecord / PetDocument / WeightMeasurement SSOT.
  * Uses existing authorize() + clinicalGate helpers — no parallel ACL.
+ *
+ * DEMO authority simulates versioning; DEMO ≠ production concurrency.
  */
 
 import type { HealthRecord, Pet, WeightMeasurement } from '../../types'
 import {
+  clinicalCurrentVersion,
   isClinicalWithdrawn,
   stampClinicalUpdate,
   stampClinicalWithdraw,
@@ -20,6 +25,7 @@ import {
   assertAuthorized,
   type AuthorizeDeps,
 } from '../security/authorize'
+import { emitAuthorizationAudit } from '../security/auditHook'
 import {
   buildDemoClinicalAuthorizeDeps,
   writeActionForHealthRecordType,
@@ -33,20 +39,25 @@ import {
 } from './adapter'
 import {
   ClinicalError,
+  invalidVersion,
   notImplemented,
   rethrowAsClinical,
   serverRequired,
+  staleVersion,
 } from './errors'
 import type {
   ClinicalAuthority,
+  ClinicalCorrectRecordInput,
   ClinicalCreateRecordInput,
   ClinicalCreateWeightInput,
+  ClinicalMutationKind,
   ClinicalMutationResult,
   ClinicalReadRequest,
   ClinicalRequestBase,
   ClinicalServiceOptions,
   ClinicalUpdateRecordInput,
   ClinicalWithdrawRecordInput,
+  HealthRecordVersionSnapshot,
 } from './types'
 
 function denyShortcuts(req: ClinicalRequestBase): void {
@@ -64,7 +75,6 @@ function denyShortcuts(req: ClinicalRequestBase): void {
       'isolation',
     )
   }
-  // encounterId alone is never an auth shortcut (K58 will resolve encounter → pet).
   if (req.encounterId?.trim() && !('petId' in req && (req as { petId?: string }).petId)) {
     throw new ClinicalError(
       'FORBIDDEN',
@@ -116,7 +126,6 @@ function resolvePet(petId: string, deps: AuthorizeDeps): Pet {
   const pets = deps.store?.pets
   const pet = pets?.find((p) => p.id === petId)
   if (!pet) {
-    // Safe not-found — do not leak whether pet exists via other channels.
     throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
   }
   return pet
@@ -133,6 +142,72 @@ function readActionForRecordType(type: HealthRecord['type']): SecurityAction {
     default:
       return 'health.read'
   }
+}
+
+function requireExpectedVersion(
+  expected: number | undefined,
+  currentVersion: number,
+): void {
+  if (expected === undefined || !Number.isInteger(expected) || expected < 1) {
+    throw invalidVersion('expectedVersion is required and must be a positive integer')
+  }
+  if (expected !== currentVersion) {
+    throw staleVersion(
+      `Expected version ${expected} but current is ${currentVersion}`,
+    )
+  }
+}
+
+function freezeSnapshot(
+  record: HealthRecord,
+  mutationKind: ClinicalMutationKind,
+  extras?: {
+    correctionOfVersion?: number
+    correctionReason?: string
+  },
+): HealthRecordVersionSnapshot {
+  const version = clinicalCurrentVersion(record)
+  return {
+    recordId: record.id,
+    petId: record.petId,
+    version,
+    frozenAt: new Date().toISOString(),
+    mutationKind,
+    correctionOfVersion: extras?.correctionOfVersion,
+    correctionReason: extras?.correctionReason,
+    record: { ...record, version },
+  }
+}
+
+/**
+ * Emit K48-compatible version transition metadata after successful mutation.
+ * Not a parallel audit system — uses existing emitAuthorizationAudit.
+ */
+function emitVersionTransitionAudit(
+  ctx: SecurityContext,
+  action: SecurityAction,
+  petId: string,
+  previousVersion: number,
+  newVersion: number,
+): void {
+  emitAuthorizationAudit({
+    actorAccountId: actorAccountId(ctx),
+    actorKind: ctx.actor.kind,
+    resourceType: 'pet',
+    resourceId: petId,
+    organizationId: ctx.organization?.organizationId,
+    professionalId: ctx.professional?.professionalProfileId,
+    membershipId: ctx.organization?.membershipId,
+    action,
+    authorizationResult: 'allow',
+    correlationId: ctx.correlationId,
+    channel: ctx.channel,
+    authority: ctx.authority,
+    metadata: {
+      previousVersion,
+      newVersion,
+    },
+  })
 }
 
 export class ClinicalService {
@@ -165,6 +240,19 @@ export class ClinicalService {
   private requireDemoForMutate(operation: string): void {
     if (this.authority === 'server') {
       throw serverRequired(operation)
+    }
+  }
+
+  /** Ensure current row has a ledger snapshot for its version (migration / first mutate). */
+  private ensureCurrentSnapshot(
+    current: HealthRecord,
+    mutationKind: ClinicalMutationKind = 'create',
+  ): void {
+    const version = clinicalCurrentVersion(current)
+    if (!this.adapter.getHealthRecordVersion(current.id, version)) {
+      this.adapter.appendHealthRecordVersion(
+        freezeSnapshot({ ...current, version }, mutationKind),
+      )
     }
   }
 
@@ -225,14 +313,106 @@ export class ClinicalService {
     )
 
     if (isClinicalWithdrawn(record)) {
-      // Withdrawn stays in history; ordinary read projection excludes it.
       throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
     }
 
     return {
       ok: true,
       authority: this.authority,
-      data: record,
+      data: { ...record, version: clinicalCurrentVersion(record) },
+      authorizationAction: action,
+    }
+  }
+
+  /** Current version only — same authz as readRecord. */
+  getCurrentRecord(
+    req: ClinicalReadRequest & { pets?: Pet[]; recordId: string },
+  ): ClinicalMutationResult<HealthRecord> {
+    return this.readRecord(req)
+  }
+
+  /**
+   * Authorized clinical history — not public, not booking/microchip.
+   * Professional access still requires authorize() + permission (role ≠ access).
+   */
+  getRecordHistory(
+    req: ClinicalRequestBase & { petId: string; recordId: string; pets?: Pet[] },
+  ): ClinicalMutationResult<HealthRecordVersionSnapshot[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getRecordHistory')
+
+    const deps = this.deps(req.pets)
+    const current = this.adapter.findHealthRecord(req.recordId)
+    if (!current || current.petId !== req.petId) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    resolvePet(req.petId, deps)
+    const action = readActionForRecordType(current.type)
+    authorizePetAction(
+      req.context,
+      action,
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    this.ensureCurrentSnapshot(current)
+    const history = this.adapter.listHealthRecordVersions(req.recordId)
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: history,
+      authorizationAction: action,
+    }
+  }
+
+  getRecordVersion(
+    req: ClinicalRequestBase & {
+      petId: string
+      recordId: string
+      version: number
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<HealthRecordVersionSnapshot> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getRecordVersion')
+
+    if (!Number.isInteger(req.version) || req.version < 1) {
+      throw invalidVersion('version must be a positive integer')
+    }
+
+    const deps = this.deps(req.pets)
+    const current = this.adapter.findHealthRecord(req.recordId)
+    if (!current || current.petId !== req.petId) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    resolvePet(req.petId, deps)
+    const action = readActionForRecordType(current.type)
+    authorizePetAction(
+      req.context,
+      action,
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    this.ensureCurrentSnapshot(current)
+    const snap = this.adapter.getHealthRecordVersion(req.recordId, req.version)
+    if (!snap) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: snap,
       authorizationAction: action,
     }
   }
@@ -291,15 +471,20 @@ export class ClinicalService {
       reminderEnabled: input.reminderEnabled,
       notes: input.notes,
       ...provenance,
+      version: 1,
     }
 
     this.adapter.setHealthRecords([record, ...this.adapter.getHealthRecords()])
+    this.adapter.appendHealthRecordVersion(freezeSnapshot(record, 'create'))
+    emitVersionTransitionAudit(req.context, writeAction, input.petId, 0, 1)
 
     return {
       ok: true,
       authority: this.authority,
       data: record,
       authorizationAction: writeAction,
+      previousVersion: 0,
+      newVersion: 1,
     }
   }
 
@@ -309,11 +494,41 @@ export class ClinicalService {
       pets?: Pet[]
     },
   ): ClinicalMutationResult<HealthRecord> {
+    return this.mutateVersioned(req, 'update', {
+      recordId: req.input.recordId,
+      updates: req.input.updates,
+    })
+  }
+
+  correctRecord(
+    req: ClinicalRequestBase & {
+      input: ClinicalCorrectRecordInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<HealthRecord> {
+    return this.mutateVersioned(req, 'correct', {
+      recordId: req.input.recordId,
+      updates: req.input.updates,
+      correctionReason: req.input.correctionReason,
+      correctionOfVersion: req.input.correctionOfVersion,
+    })
+  }
+
+  private mutateVersioned(
+    req: ClinicalRequestBase & { pets?: Pet[] },
+    mutationKind: 'update' | 'correct',
+    input: {
+      recordId: string
+      updates: Partial<HealthRecord>
+      correctionReason?: string
+      correctionOfVersion?: number
+    },
+  ): ClinicalMutationResult<HealthRecord> {
     denyShortcuts(req)
     assertTrustedActor(req.context, req.claimedActorAccountId)
-    this.requireDemoForMutate('updateRecord')
+    this.requireDemoForMutate(mutationKind === 'correct' ? 'correctRecord' : 'updateRecord')
 
-    const existing = this.adapter.findHealthRecord(req.input.recordId)
+    const existing = this.adapter.findHealthRecord(input.recordId)
     if (!existing) {
       throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
     }
@@ -321,7 +536,7 @@ export class ClinicalService {
     const deps = this.deps(req.pets)
     resolvePet(existing.petId, deps)
     const writeAction = writeActionForHealthRecordType(
-      req.input.updates.type ?? existing.type,
+      input.updates.type ?? existing.type,
     )
     authorizePetAction(
       req.context,
@@ -336,10 +551,15 @@ export class ClinicalService {
       throw new ClinicalError('FORBIDDEN', 'Withdrawn record cannot be updated', 'forbidden')
     }
 
+    const previousVersion = clinicalCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureCurrentSnapshot(existing)
+
     const stamp = stampClinicalUpdate(existing, req.context)
     const safe = stripClinicalClientUpdates(
-      req.input.updates as Record<string, unknown>,
+      input.updates as Record<string, unknown>,
     )
+    const newVersion = previousVersion + 1
     const updated: HealthRecord = {
       ...existing,
       ...(safe as Partial<HealthRecord>),
@@ -351,10 +571,28 @@ export class ClinicalService {
       lifecycleStatus: existing.lifecycleStatus ?? 'active',
       updatedAt: stamp.updatedAt,
       updatedByAccountId: stamp.updatedByAccountId,
+      version: newVersion,
     }
 
     this.adapter.setHealthRecords(
       this.adapter.getHealthRecords().map((r) => (r.id === updated.id ? updated : r)),
+    )
+    this.adapter.appendHealthRecordVersion(
+      freezeSnapshot(updated, mutationKind, {
+        correctionOfVersion:
+          mutationKind === 'correct'
+            ? input.correctionOfVersion ?? previousVersion
+            : undefined,
+        correctionReason:
+          mutationKind === 'correct' ? input.correctionReason : undefined,
+      }),
+    )
+    emitVersionTransitionAudit(
+      req.context,
+      writeAction,
+      existing.petId,
+      previousVersion,
+      newVersion,
     )
 
     return {
@@ -362,6 +600,8 @@ export class ClinicalService {
       authority: this.authority,
       data: updated,
       authorizationAction: writeAction,
+      previousVersion,
+      newVersion,
     }
   }
 
@@ -382,7 +622,6 @@ export class ClinicalService {
 
     const deps = this.deps(req.pets)
     resolvePet(existing.petId, deps)
-    // K50/K51: soft withdraw gated as typed write (clinical.withdraw vocab ready for later split).
     const writeAction = writeActionForHealthRecordType(existing.type)
     authorizePetAction(
       req.context,
@@ -397,29 +636,44 @@ export class ClinicalService {
       throw new ClinicalError('FORBIDDEN', 'Record already withdrawn', 'forbidden')
     }
 
+    const previousVersion = clinicalCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureCurrentSnapshot(existing)
+
     const withdraw = stampClinicalWithdraw(existing, req.context)
+    const newVersion = previousVersion + 1
     const updated: HealthRecord = {
       ...existing,
       ...withdraw,
       createdAt: existing.createdAt ?? withdraw.createdAt,
       createdByAccountId: existing.createdByAccountId,
-      // Soft withdraw — never hard-delete from adapter.
+      version: newVersion,
     }
 
     this.adapter.setHealthRecords(
       this.adapter.getHealthRecords().map((r) => (r.id === updated.id ? updated : r)),
     )
+    this.adapter.appendHealthRecordVersion(freezeSnapshot(updated, 'withdraw'))
 
-    // Prove hard-delete did not happen.
     if (!this.adapter.findHealthRecord(updated.id)) {
       throw new ClinicalError('INVALID_RESOURCE', 'Withdraw must retain history row')
     }
+
+    emitVersionTransitionAudit(
+      req.context,
+      writeAction,
+      existing.petId,
+      previousVersion,
+      newVersion,
+    )
 
     return {
       ok: true,
       authority: this.authority,
       data: updated,
       authorizationAction: writeAction,
+      previousVersion,
+      newVersion,
     }
   }
 
@@ -459,10 +713,12 @@ export class ClinicalService {
       authority: this.authority,
       data: entry,
       authorizationAction: 'health.write',
+      previousVersion: 0,
+      newVersion: 1,
     }
   }
 
-  /** Contract only — requires K57 version/history. */
+  /** Contract only — never fake finalize success. */
   finalizeRecord(req: ClinicalRequestBase & { petId: string; recordId: string; pets?: Pet[] }): never {
     denyShortcuts(req)
     assertTrustedActor(req.context, req.claimedActorAccountId)

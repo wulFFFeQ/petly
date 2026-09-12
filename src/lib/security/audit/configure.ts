@@ -32,7 +32,9 @@ export function configureAuthorizationAudit(
 
   setAuthorizationAuditObserver((payload: AuthorizationAuditPayload) => {
     try {
-      const event = mapAuthorizationPayloadToAuditEvent(payload)
+      const event = mapAuthorizationPayloadToAuditEvent(payload, {
+        metadata: payload.metadata,
+      })
       options?.onEvent?.(event)
       sink.record(event)
     } catch {

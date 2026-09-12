@@ -13,7 +13,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Americká akita': '/breeds/americka-akita.jpg?v=1',
   'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
   'Americký buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
-  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=1',
+  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=2',
   'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
   'Americký stafordširský terier': 'https://images.dog.ceo/breeds/bullterrier-staffordshire/n02093256_3113.jpg',
   'Americký vodní španěl': 'https://images.dog.ceo/breeds/spaniel-welsh/n02102177_1874.jpg',

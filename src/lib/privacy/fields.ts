@@ -233,6 +233,11 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'recordSource',
   'lifecycleStatus',
   'withdrawnAt',
+  // K57 — version / correction metadata never on public payloads
+  'version',
+  'mutationKind',
+  'correctionOfVersion',
+  'correctionReason',
 ] as const
 
 export type PublicPayloadForbiddenKey = (typeof PUBLIC_PAYLOAD_FORBIDDEN_KEYS)[number]

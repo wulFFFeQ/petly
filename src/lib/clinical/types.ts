@@ -1,8 +1,9 @@
 /**
- * K56 — Clinical service contracts (authority boundary).
+ * K56/K57 — Clinical service contracts (authority boundary).
  * Not a parallel HealthRecord / access / permission / audit system.
  *
  * DEMO localStorage is never production authority.
+ * K57: integer version + immutable history snapshots of the same HealthRecord.
  */
 
 import type { HealthRecord, PetDocument, WeightMeasurement } from '../../types'
@@ -33,11 +34,32 @@ export type ClinicalServiceAction =
   | 'create'
   | 'update'
   | 'withdraw'
+  | 'correct'
   | 'finalize'
   | 'sign'
   | 'admin_correct'
   | 'export'
   | 'emergency_write'
+
+export type ClinicalMutationKind = 'create' | 'update' | 'withdraw' | 'correct'
+
+/**
+ * Immutable snapshot of a HealthRecord at a specific version.
+ * NOT a parallel Health SSOT — versions of the existing HealthRecord resource.
+ */
+export type HealthRecordVersionSnapshot = {
+  recordId: string
+  petId: string
+  version: number
+  frozenAt: string
+  mutationKind: ClinicalMutationKind
+  /** For corrections — which prior version this corrects. */
+  correctionOfVersion?: number
+  /** Internal only — never public projection. */
+  correctionReason?: string
+  /** Frozen clinical payload at this version. */
+  record: HealthRecord
+}
 
 export type ClinicalRequestBase = {
   /** Trusted SecurityContext (session-bound). */
@@ -49,8 +71,8 @@ export type ClinicalRequestBase = {
   claimedActorAccountId?: string
   claimedOrganizationId?: string
   /**
-   * Future K57 optimistic concurrency — ignored in DEMO (no fake locking).
-   * Server will require expectedVersion for mutate after finalize.
+   * K57 optimistic concurrency — required for update / withdraw / correct.
+   * Must match current.version or STALE_VERSION (no mutation).
    */
   expectedVersion?: number
   /**
@@ -92,6 +114,15 @@ export type ClinicalWithdrawRecordInput = {
   recordId: string
 }
 
+export type ClinicalCorrectRecordInput = {
+  recordId: string
+  updates: Partial<HealthRecord>
+  /** Optional internal reason — never public projection. */
+  correctionReason?: string
+  /** Defaults to expectedVersion / previous current version. */
+  correctionOfVersion?: number
+}
+
 export type ClinicalCreateWeightInput = {
   petId: string
   id: string
@@ -105,6 +136,8 @@ export type ClinicalMutationResult<T> = {
   authority: ClinicalAuthority
   data: T
   authorizationAction: SecurityAction
+  previousVersion?: number
+  newVersion?: number
 }
 
 export type ClinicalAuthorizationDecision = {
