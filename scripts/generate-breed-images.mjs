@@ -14,12 +14,36 @@ const DOG_BREEDS = extractBreeds('DOG_BREEDS')
 const CAT_BREEDS = extractBreeds('CAT_BREEDS')
 
 const UNSPLASH = (id) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=800&q=85`
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=90`
 
 const DOG_TYPE_FALLBACK = UNSPLASH('photo-1543466835-00a7907e9de1')
 const CAT_TYPE_FALLBACK = UNSPLASH('photo-1514888286974-6c03e2ca1dba')
 const DOG_DEFAULT_COVER = UNSPLASH('photo-1548767797-d8c844163c4c')
 const CAT_DEFAULT_COVER = UNSPLASH('photo-1518791841217-8f162f1e1131')
+
+/**
+ * Curated high-quality Unsplash portraits for popular breeds.
+ * Prefer these over dog.ceo (often low-res phone snaps).
+ * Only include breeds when the photo was visually verified for that breed.
+ * @type {Record<string, string>}
+ */
+const DOG_CURATED_IMAGES = {
+  'Border kolie': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
+  Beagle: UNSPLASH('photo-1543466835-00a7907e9de1'),
+  'Beagle Harrier': UNSPLASH('photo-1543466835-00a7907e9de1'),
+  'Labradorský retriever': UNSPLASH('photo-1626808504752-0a423780d6d1'),
+  'Zlatý retriever': UNSPLASH('photo-1552053831-71594a27632d'),
+  Mops: UNSPLASH('photo-1517849845537-4d257902454a'),
+  'Francouzský buldoček': UNSPLASH('photo-1583511655857-d19b40a7a54e'),
+  'Německý ovčák': UNSPLASH('photo-1589941013453-ec89f33b5e95'),
+  'Sibiřský husky': UNSPLASH('photo-1605568427561-40dd23c2acea'),
+  'Aljašský malamut': UNSPLASH('photo-1605568427561-40dd23c2acea'),
+  'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
+  'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
+  'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
+  Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
+  Šeltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
+}
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */
 /** @type {Record<string, string>} */
@@ -349,15 +373,28 @@ async function fetchDogCeoImages(slug) {
   if (!res.ok) return null
   const data = await res.json()
   if (data.status !== 'success' || !data.message?.length) return null
-  const profile = data.message[0]
+
+  // Prefer ImageNet-style shots (n0…) over casual phone uploads (img_…).
+  const ranked = [...data.message].sort((a, b) => dogCeoQualityScore(b) - dogCeoQualityScore(a))
+  const profile = ranked[0]
   const cover =
-    data.message.length > 1 && data.message[1] !== profile
-      ? data.message[1]
-      : DOG_DEFAULT_COVER
+    ranked.length > 1 && ranked[1] !== profile ? ranked[1] : DOG_DEFAULT_COVER
   return { profile, cover }
 }
 
+function dogCeoQualityScore(url) {
+  if (/\/n0\d+_/.test(url)) return 3
+  if (/\/n\d+_/.test(url)) return 2
+  if (/img_/i.test(url)) return 0
+  return 1
+}
+
 async function resolveDogImages(breed) {
+  const curated = DOG_CURATED_IMAGES[breed]
+  if (curated) {
+    return { profile: curated, cover: DOG_DEFAULT_COVER }
+  }
+
   const slug = resolveDogSlug(breed)
   const primary = await fetchDogCeoImages(slug)
   if (primary) return primary

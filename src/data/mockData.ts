@@ -452,13 +452,13 @@ export const petDocuments: PetDocument[] = [
 
 export const petPhotos: PetPhoto[] = [
   { id: 'ph_luna_1', petId: 'luna', url: getDefaultBreedImage('dog', 'Zlatý retriever'), caption: 'Profilová fotografie' },
-  { id: 'ph_luna_2', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/n02099601_5876.jpg', caption: 'Procházka v parku' },
-  { id: 'ph_luna_3', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/n02099601_9504.jpg', caption: 'Agility trénink' },
-  { id: 'ph_luna_4', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/z6a_3963_200731.jpg', caption: 'Odpočinek doma' },
+  { id: 'ph_luna_2', petId: 'luna', url: 'https://images.unsplash.com/photo-1611003228941-98852ba62227?auto=format&fit=crop&w=1200&q=90', caption: 'Procházka v parku' },
+  { id: 'ph_luna_3', petId: 'luna', url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=1200&q=90', caption: 'Agility trénink' },
+  { id: 'ph_luna_4', petId: 'luna', url: 'https://images.unsplash.com/photo-1611003228941-98852ba62227?auto=format&fit=crop&w=1200&q=90', caption: 'Odpočinek doma' },
   { id: 'ph_milo_1', petId: 'milo', url: getDefaultBreedImage('cat', 'Britská krátkosrstá kočka'), caption: 'Profilová fotografie' },
-  { id: 'ph_milo_2', petId: 'milo', url: 'https://images.unsplash.com/photo-1548247417-ec67f20cf625?auto=format&fit=crop&w=800&q=85', caption: 'Okno a sluníčko' },
+  { id: 'ph_milo_2', petId: 'milo', url: 'https://images.unsplash.com/photo-1512873897628-eea05c840147?auto=format&fit=crop&w=1200&q=90', caption: 'Okno a sluníčko' },
   { id: 'ph_bella_1', petId: 'bella', url: getDefaultBreedImage('dog', 'Border kolie'), caption: 'Profilová fotografie' },
-  { id: 'ph_bella_2', petId: 'bella', url: 'https://images.dog.ceo/breeds/collie-border/n02106166_615.jpg', caption: 'Frisbee na louce' },
+  { id: 'ph_bella_2', petId: 'bella', url: 'https://images.unsplash.com/photo-1765934785570-beb8c9a36446?auto=format&fit=crop&w=1200&q=90', caption: 'Frisbee na louce' },
 ]
 
 export const weightMeasurements: WeightMeasurement[] = [
@@ -595,27 +595,27 @@ export const discoverPets: DiscoverPet[] = [
       },
       {
         id: 'd1g2',
-        url: 'https://images.dog.ceo/breeds/labrador/n02099712_5021.jpg',
+        url: 'https://images.unsplash.com/photo-1630053905273-2dd2f41f0127?auto=format&fit=crop&w=1200&q=90',
         caption: 'U jezera',
       },
       {
         id: 'd1g3',
-        url: 'https://images.dog.ceo/breeds/labrador/n02099712_610.jpg',
+        url: 'https://images.unsplash.com/photo-1537204696486-967f1b7198c8?auto=format&fit=crop&w=1200&q=90',
         caption: 'Výlet do lesa',
       },
       {
         id: 'd1g4',
-        url: 'https://images.dog.ceo/breeds/labrador/n02099712_4428.jpg',
+        url: 'https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?auto=format&fit=crop&w=1200&q=90',
         caption: 'S kamarády',
       },
       {
         id: 'd1g5',
-        url: 'https://images.dog.ceo/breeds/labrador/n02099712_6426.jpg',
+        url: getDefaultBreedImage('dog', 'Labradorský retriever'),
         caption: 'Podzimní procházka',
       },
       {
         id: 'd1g6',
-        url: 'https://images.dog.ceo/breeds/labrador/n02099712_4965.jpg',
+        url: 'https://images.unsplash.com/photo-1630053905273-2dd2f41f0127?auto=format&fit=crop&w=1200&q=90',
         caption: 'Běh v trávě',
       },
     ],
@@ -792,17 +792,17 @@ export const discoverPets: DiscoverPet[] = [
       },
       {
         id: 'd3g2',
-        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_6512.jpg',
+        url: 'https://images.unsplash.com/photo-1765934785570-beb8c9a36446?auto=format&fit=crop&w=1200&q=90',
         caption: 'Lesní běh',
       },
       {
         id: 'd3g3',
-        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_855.jpg',
+        url: 'https://images.unsplash.com/photo-1742301874145-d00ca3b37d7f?auto=format&fit=crop&w=1200&q=90',
         caption: 'Soustředění',
       },
       {
         id: 'd3g4',
-        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_924.jpg',
+        url: 'https://images.unsplash.com/photo-1769117112485-5a6a22c37226?auto=format&fit=crop&w=1200&q=90',
       },
     ],
     publicTimeline: [
