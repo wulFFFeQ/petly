@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 30
+export const BREED_IMAGE_SYNC_GENERATION = 31
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -123,10 +123,10 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Český strakatý pes': '/breeds/cesky-strakaty-pes.jpg?v=2',
   'Český teriér': '/breeds/cesky-terier.jpg?v=1',
   'Čínský chocholatý pes': '/breeds/cinsky-chocholaty-pes.jpg?v=1',
-  'Čivava': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
-  'Čivava dlouhosrstá': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
-  'Čivava krátkosrstá': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
-  'Dalmatin': 'https://images.dog.ceo/breeds/dalmatian/cooper2.jpg',
+  'Čivava': '/breeds/civava-kratkosrsta.jpg?v=1',
+  'Čivava dlouhosrstá': '/breeds/civava-dlouhosrsta.jpg?v=1',
+  'Čivava krátkosrstá': '/breeds/civava-kratkosrsta.jpg?v=1',
+  'Dalmatin': '/breeds/dalmatin.jpg?v=1',
   'Dandie Dinmont terier': 'https://images.dog.ceo/breeds/terrier-dandie/n02096437_1678.jpg',
   'Dánská doga': 'https://images.dog.ceo/breeds/dane-great/n02109047_31830.jpg',
   'Dánsko-švédský farmářský pes': 'https://images.dog.ceo/breeds/danishswedish-farmdog/ebba_004.jpg',
@@ -596,6 +596,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/cesky-strakaty-pes',
   'breeds/cesky-terier',
   'breeds/cinsky-chocholaty-pes',
+  'breeds/civava-dlouhosrsta',
+  'breeds/civava-kratkosrsta',
+  'breeds/dalmatin',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
