@@ -32,6 +32,8 @@ export const PUBLIC_PROFESSIONAL_FORBIDDEN_KEYS = [
   'verified',
   'health',
   'healthRecords',
+  'weight',
+  'weightMeasurements',
   'microchip',
   'ownerContacts',
   'publicVisibility',

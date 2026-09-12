@@ -22,6 +22,7 @@ export const PUBLIC_BREEDER_SHOWCASE_FORBIDDEN_KEYS = [
   'accountId',
   'address',
   'weight',
+  'weightMeasurements',
   'registrationNumber',
   'pedigreeNumber',
   'healthTests',

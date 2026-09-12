@@ -1,5 +1,6 @@
-import type { HealthRecord, Pet, PetDocument } from '../../types'
+import type { HealthRecord, Pet, PetDocument, WeightMeasurement } from '../../types'
 import { toAuthorizedDocumentViews } from '../clinical/documentProjection'
+import { toAuthorizedWeightViews } from '../clinical/measurementProjection'
 import {
   canProfessionalViewDocuments,
   canProfessionalViewHealth,
@@ -12,7 +13,7 @@ import type { PetProfessionalAccess, ProfessionalAccessLog } from './types'
 
 /**
  * Permission-filtered view of an owned pet for a professional.
- * Reads from existing SSOT (Pet / HealthRecord / PetDocument) — never a parallel health store.
+ * Reads from existing SSOT (Pet / HealthRecord / PetDocument / WeightMeasurement) — never a parallel health store.
  * Microchip and ownerContacts are never included (no such permissions in KROK 17).
  */
 export interface ProfessionalPetView {
@@ -24,12 +25,15 @@ export interface ProfessionalPetView {
   vaccinations?: HealthRecord[]
   medications?: HealthRecord[]
   documents?: PetDocument[]
+  /** K60 — scrubbed WeightMeasurement series (requires viewHealth). */
+  weightMeasurements?: WeightMeasurement[]
 }
 
 export type ProjectProfessionalPetOptions = {
   access: PetProfessionalAccess | null | undefined
   healthRecords?: HealthRecord[]
   documents?: PetDocument[]
+  weightMeasurements?: WeightMeasurement[]
   /** Owner contact blob — must never appear on the view. */
   ownerContacts?: { phone?: string; email?: string; address?: string }
   now?: number
@@ -73,13 +77,15 @@ export function projectPetForProfessional(
   const petDocs = (options.documents ?? []).filter(
     (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
   )
+  const petWeights = (options.weightMeasurements ?? []).filter((w) => w.petId === pet.id)
 
   let viewedRecords = false
   let viewedDocs = false
 
   if (canProfessionalViewHealth(access, now)) {
     view.healthRecords = [...petRecords]
-    if (petRecords.length > 0) viewedRecords = true
+    view.weightMeasurements = toAuthorizedWeightViews(petWeights, 'professional')
+    if (petRecords.length > 0 || petWeights.length > 0) viewedRecords = true
   }
 
   if (canProfessionalViewVaccinations(access, now)) {

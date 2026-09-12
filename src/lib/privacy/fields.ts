@@ -195,6 +195,7 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'street',
   'postalCode',
   'weight',
+  'weightMeasurements',
   'healthRecords',
   'health',
   'healthStatus',

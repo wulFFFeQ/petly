@@ -3,8 +3,9 @@
  * Same privacy pattern as projectPetForProfessional; never leaks microchip / owner PII.
  */
 
-import type { HealthRecord, Pet, PetDocument } from '../../types'
+import type { HealthRecord, Pet, PetDocument, WeightMeasurement } from '../../types'
 import { toAuthorizedDocumentViews } from '../clinical/documentProjection'
+import { toAuthorizedWeightViews } from '../clinical/measurementProjection'
 import {
   canOrganizationActorViewDocuments,
   canOrganizationActorViewHealth,
@@ -29,6 +30,8 @@ export interface OrganizationPetView {
   vaccinations?: HealthRecord[]
   medications?: HealthRecord[]
   documents?: PetDocument[]
+  /** K60 — scrubbed WeightMeasurement series (requires viewHealth). */
+  weightMeasurements?: WeightMeasurement[]
 }
 
 export type ProjectOrganizationPetOptions = {
@@ -37,6 +40,7 @@ export type ProjectOrganizationPetOptions = {
   actorAccountId: string
   healthRecords?: HealthRecord[]
   documents?: PetDocument[]
+  weightMeasurements?: WeightMeasurement[]
   /** Owner contact blob — must never appear on the view. */
   ownerContacts?: { phone?: string; email?: string; address?: string }
   now?: number
@@ -106,9 +110,11 @@ export function projectPetForOrganization(
   const petDocs = (options.documents ?? []).filter(
     (d) => d.petId === pet.id && d.lifecycleStatus !== 'withdrawn',
   )
+  const petWeights = (options.weightMeasurements ?? []).filter((w) => w.petId === pet.id)
 
   if (canOrganizationActorViewHealth(ctx)) {
     view.healthRecords = [...petRecords]
+    view.weightMeasurements = toAuthorizedWeightViews(petWeights, 'organization')
   }
 
   if (canOrganizationActorViewVaccinations(ctx)) {

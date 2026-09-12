@@ -366,8 +366,10 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   }
 
   const handleAddWeight = () => {
-    const weight = parseFloat(newWeight.replace(',', '.'))
-    if (!weight || Number.isNaN(weight)) return
+    const normalized = newWeight.trim().replace(',', '.')
+    const value = Number(normalized)
+    if (!Number.isFinite(value) || value <= 0) return
+    const weight = Math.round(value * 10) / 10
 
     const adapter = new DemoClinicalPersistenceAdapter({
       getHealthRecords: () => [],
