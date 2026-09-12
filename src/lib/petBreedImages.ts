@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 40
+export const BREED_IMAGE_SYNC_GENERATION = 41
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -141,9 +141,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Entlebuchský salašnický pes': '/breeds/entlebuchsky-salasnicky-pes.jpg?v=1',
   'Estrelský pastevecký pes': '/breeds/estrelsky-pastevecky-pes.jpg?v=1',
   'Eurasier': '/breeds/eurasier.jpg?v=1',
-  'Faraónský pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Field španěl': 'https://images.dog.ceo/breeds/spaniel-welsh/n02102177_1874.jpg',
-  'Finský honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
+  'Faraónský pes': '/breeds/faraonsky-pes.jpg?v=1',
+  'Field španěl': '/breeds/field-spanel.jpg?v=1',
+  'Finský honič': '/breeds/finsky-honic.jpg?v=1',
   'Finský špic': 'https://images.dog.ceo/breeds/spitz-japanese/beet-004.jpg',
   'Flanderský bouvier': 'https://images.dog.ceo/breeds/bouvier/n02106382_4034.jpg',
   'Flat Coated Retriever': 'https://images.dog.ceo/breeds/retriever-flatcoated/n02099267_4331.jpg',
@@ -613,6 +613,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/entlebuchsky-salasnicky-pes',
   'breeds/estrelsky-pastevecky-pes',
   'breeds/eurasier',
+  'breeds/faraonsky-pes',
+  'breeds/field-spanel',
+  'breeds/finsky-honic',
   'photo-1757781956803-2efc6921abe9',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
