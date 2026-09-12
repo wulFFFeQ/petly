@@ -61,6 +61,10 @@ const DOG_CURATED_IMAGES = {
   'Americký foxhound': '/breeds/americky-foxhound.jpg?v=2',
   // American Hairless Terrier — HQ portrait, full head (not Yorkshire mislabel).
   'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
+  // American Water Spaniel — editorial portrait (not Welsh Springer dog.ceo).
+  'Americký vodní španěl': '/breeds/americky-vodni-spanel.jpg?v=1',
+  // American Staffordshire Terrier — outdoor HQ portrait (not puppy gate snap).
+  'Americký stafordširský terier': '/breeds/americky-stafordsirsky-terier.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

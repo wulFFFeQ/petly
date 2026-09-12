@@ -11,10 +11,17 @@
  * DEMO authority simulates versioning; DEMO ≠ production concurrency.
  */
 
-import type { HealthRecord, Pet, WeightMeasurement } from '../../types'
+import type {
+  ClinicalEncounter,
+  ClinicalEncounterStatus,
+  HealthRecord,
+  Pet,
+  WeightMeasurement,
+} from '../../types'
 import {
   clinicalCurrentVersion,
   isClinicalWithdrawn,
+  resolveRecordSource,
   stampClinicalUpdate,
   stampClinicalWithdraw,
   stampNewClinicalRecord,
@@ -39,6 +46,7 @@ import {
 } from './adapter'
 import {
   ClinicalError,
+  invalidEncounterTransition,
   invalidVersion,
   notImplemented,
   rethrowAsClinical,
@@ -48,13 +56,16 @@ import {
 import type {
   ClinicalAuthority,
   ClinicalCorrectRecordInput,
+  ClinicalCreateEncounterInput,
   ClinicalCreateRecordInput,
   ClinicalCreateWeightInput,
+  ClinicalEncounterVersionSnapshot,
   ClinicalMutationKind,
   ClinicalMutationResult,
   ClinicalReadRequest,
   ClinicalRequestBase,
   ClinicalServiceOptions,
+  ClinicalUpdateEncounterInput,
   ClinicalUpdateRecordInput,
   ClinicalWithdrawRecordInput,
   HealthRecordVersionSnapshot,
@@ -189,12 +200,14 @@ function emitVersionTransitionAudit(
   petId: string,
   previousVersion: number,
   newVersion: number,
+  resourceType: string = 'pet',
+  resourceId?: string,
 ): void {
   emitAuthorizationAudit({
     actorAccountId: actorAccountId(ctx),
     actorKind: ctx.actor.kind,
-    resourceType: 'pet',
-    resourceId: petId,
+    resourceType,
+    resourceId: resourceId ?? petId,
     organizationId: ctx.organization?.organizationId,
     professionalId: ctx.professional?.professionalProfileId,
     membershipId: ctx.organization?.membershipId,
@@ -206,8 +219,122 @@ function emitVersionTransitionAudit(
     metadata: {
       previousVersion,
       newVersion,
+      petId,
     },
   })
+}
+
+const ENCOUNTER_TRANSITIONS: Record<
+  ClinicalEncounterStatus,
+  ClinicalEncounterStatus[]
+> = {
+  scheduled: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+}
+
+function assertEncounterTransition(
+  from: ClinicalEncounterStatus,
+  to: ClinicalEncounterStatus,
+): void {
+  if (from === to) return
+  const allowed = ENCOUNTER_TRANSITIONS[from] ?? []
+  if (!allowed.includes(to)) {
+    throw invalidEncounterTransition(
+      `Cannot transition encounter from ${from} to ${to}`,
+    )
+  }
+}
+
+function validateEncounterTimes(startedAt: string, endedAt?: string): void {
+  if (endedAt && endedAt < startedAt) {
+    throw new ClinicalError(
+      'INVALID_RESOURCE',
+      'endedAt must be greater than or equal to startedAt',
+    )
+  }
+}
+
+function encounterCurrentVersion(e: ClinicalEncounter): number {
+  return Number.isInteger(e.version) && e.version >= 1 ? e.version : 1
+}
+
+function isEncounterWithdrawn(e: ClinicalEncounter): boolean {
+  return e.lifecycleStatus === 'withdrawn'
+}
+
+/**
+ * Owner / household longitudinal view sees all pet encounters.
+ * Professional / organization actors only see matching attribution (cross-clinic isolation).
+ */
+function canActorSeeEncounter(
+  ctx: SecurityContext,
+  encounter: ClinicalEncounter,
+  pet: Pet,
+): boolean {
+  const accountId = actorAccountId(ctx)
+  if (accountId && pet.ownerAccountId === accountId) return true
+
+  const hasOrgFacet = Boolean(ctx.organization?.organizationId)
+  const hasProFacet = Boolean(ctx.professional?.professionalProfileId)
+
+  if (!hasOrgFacet && !hasProFacet) {
+    // Household co-owner / caregiver — longitudinal after authorize().
+    return true
+  }
+
+  if (hasOrgFacet) {
+    return encounter.organizationId === ctx.organization!.organizationId
+  }
+
+  // Solo professional context — only own attribution (or unattributed).
+  const proId = ctx.professional!.professionalProfileId
+  if (encounter.professionalId && encounter.professionalId !== proId) {
+    return false
+  }
+  if (encounter.organizationId) {
+    // Encounter attributed to a clinic — solo pro without matching org cannot see.
+    return false
+  }
+  return true
+}
+
+function freezeEncounterSnapshot(
+  encounter: ClinicalEncounter,
+  mutationKind: ClinicalMutationKind,
+): ClinicalEncounterVersionSnapshot {
+  const version = encounterCurrentVersion(encounter)
+  return {
+    encounterId: encounter.id,
+    petId: encounter.petId,
+    version,
+    frozenAt: new Date().toISOString(),
+    mutationKind,
+    encounter: { ...encounter, version },
+  }
+}
+
+function stripEncounterClientUpdates(
+  updates: Record<string, unknown>,
+): Partial<ClinicalEncounter> {
+  const out: Record<string, unknown> = { ...updates }
+  for (const key of [
+    'id',
+    'petId',
+    'createdAt',
+    'createdByAccountId',
+    'updatedAt',
+    'updatedByAccountId',
+    'recordSource',
+    'lifecycleStatus',
+    'withdrawnAt',
+    'withdrawnByAccountId',
+    'version',
+  ]) {
+    delete out[key]
+  }
+  return out as Partial<ClinicalEncounter>
 }
 
 export class ClinicalService {
@@ -454,6 +581,15 @@ export class ClinicalService {
       assessment: 'Zdravotní přehled',
     }
 
+    let encounterId: string | undefined
+    if (input.encounterId?.trim()) {
+      const enc = this.adapter.findEncounter(input.encounterId.trim())
+      if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
+        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+      }
+      encounterId = enc.id
+    }
+
     const record: HealthRecord = {
       id: req.recordId ?? `hr_${Date.now()}`,
       petId: input.petId,
@@ -470,6 +606,7 @@ export class ClinicalService {
       reminderDays: input.reminderDays,
       reminderEnabled: input.reminderEnabled,
       notes: input.notes,
+      encounterId,
       ...provenance,
       version: 1,
     }
@@ -706,6 +843,14 @@ export class ClinicalService {
       note: req.input.note,
     })
 
+    if (req.input.encounterId?.trim()) {
+      const enc = this.adapter.findEncounter(req.input.encounterId.trim())
+      if (!enc || enc.petId !== req.input.petId || isEncounterWithdrawn(enc)) {
+        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+      }
+      entry.encounterId = enc.id
+    }
+
     this.adapter.persistWeightMeasurement(entry)
 
     return {
@@ -806,6 +951,600 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
     throw notImplemented('emergencyWrite')
+  }
+
+  // ─── K58 Clinical Encounter ─────────────────────────────────────────────
+
+  private ensureEncounterSnapshot(
+    current: ClinicalEncounter,
+    mutationKind: ClinicalMutationKind = 'create',
+  ): void {
+    const version = encounterCurrentVersion(current)
+    if (!this.adapter.getEncounterVersion(current.id, version)) {
+      this.adapter.appendEncounterVersion(
+        freezeEncounterSnapshot({ ...current, version }, mutationKind),
+      )
+    }
+  }
+
+  private resolveEncounterForPet(
+    encounterId: string,
+    petId: string,
+  ): ClinicalEncounter {
+    const encounter = this.adapter.findEncounter(encounterId)
+    if (!encounter || encounter.petId !== petId) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+    return encounter
+  }
+
+  listEncountersForPet(
+    req: ClinicalRequestBase & { petId: string; pets?: Pet[] },
+  ): ClinicalMutationResult<ClinicalEncounter[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('listEncountersForPet')
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const data = this.adapter
+      .getEncounters()
+      .filter(
+        (e) =>
+          e.petId === req.petId &&
+          !isEncounterWithdrawn(e) &&
+          canActorSeeEncounter(req.context, e, pet),
+      )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data,
+      authorizationAction: 'health.read',
+    }
+  }
+
+  getEncounter(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getEncounter')
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const encounter = this.resolveEncounterForPet(req.encounterId, req.petId)
+    if (isEncounterWithdrawn(encounter)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+    if (!canActorSeeEncounter(req.context, encounter, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: { ...encounter, version: encounterCurrentVersion(encounter) },
+      authorizationAction: 'health.read',
+    }
+  }
+
+  createEncounter(
+    req: ClinicalRequestBase & {
+      input: ClinicalCreateEncounterInput
+      pets?: Pet[]
+      encounterId?: string
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    denyShortcuts(req)
+    const actorId = assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('createEncounter')
+
+    const { input } = req
+    if (!input.petId?.trim() || !input.encounterType) {
+      throw new ClinicalError('INVALID_RESOURCE', 'Invalid encounter input')
+    }
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(input.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.write',
+      input.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const now = new Date().toISOString()
+    const startedAt = input.startedAt?.trim() || now
+    validateEncounterTimes(startedAt, input.endedAt)
+    const status: ClinicalEncounterStatus = input.status ?? 'scheduled'
+    if (status === 'completed' || status === 'cancelled') {
+      throw invalidEncounterTransition(
+        'Cannot create encounter already completed or cancelled',
+      )
+    }
+
+    // Client must never authoritatively set createdBy / version / id provenance.
+    const encounter: ClinicalEncounter = {
+      id: req.encounterId ?? `enc_${Date.now()}`,
+      petId: input.petId,
+      status,
+      encounterType: input.encounterType,
+      startedAt,
+      endedAt: input.endedAt,
+      professionalId:
+        input.professionalId ??
+        req.context.professional?.professionalProfileId,
+      organizationId:
+        input.organizationId ?? req.context.organization?.organizationId,
+      bookingId: input.bookingId?.trim() || undefined,
+      reason: input.reason?.trim() || undefined,
+      createdAt: now,
+      createdByAccountId: actorId,
+      updatedAt: now,
+      updatedByAccountId: actorId,
+      recordSource: resolveRecordSource(req.context, pet),
+      lifecycleStatus: 'active',
+      version: 1,
+    }
+
+    this.adapter.setEncounters([encounter, ...this.adapter.getEncounters()])
+    this.adapter.appendEncounterVersion(freezeEncounterSnapshot(encounter, 'create'))
+    emitVersionTransitionAudit(
+      req.context,
+      'health.write',
+      input.petId,
+      0,
+      1,
+      'encounter',
+      encounter.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: encounter,
+      authorizationAction: 'health.write',
+      previousVersion: 0,
+      newVersion: 1,
+    }
+  }
+
+  updateEncounter(
+    req: ClinicalRequestBase & {
+      input: ClinicalUpdateEncounterInput
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('updateEncounter')
+
+    const existing = this.adapter.findEncounter(req.input.encounterId)
+    if (!existing) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(existing.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.write',
+      existing.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    if (isEncounterWithdrawn(existing)) {
+      throw new ClinicalError('FORBIDDEN', 'Withdrawn encounter cannot be updated', 'forbidden')
+    }
+    if (!canActorSeeEncounter(req.context, existing, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+    if (existing.status === 'completed' || existing.status === 'cancelled') {
+      throw invalidEncounterTransition(
+        `Encounter with status ${existing.status} is immutable by normal update`,
+      )
+    }
+
+    const previousVersion = encounterCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureEncounterSnapshot(existing)
+
+    const safe = stripEncounterClientUpdates(
+      req.input.updates as Record<string, unknown>,
+    )
+    if (safe.status) {
+      assertEncounterTransition(existing.status, safe.status)
+    }
+    const startedAt = safe.startedAt ?? existing.startedAt
+    const endedAt = safe.endedAt !== undefined ? safe.endedAt : existing.endedAt
+    validateEncounterTimes(startedAt, endedAt)
+
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.createdAt,
+        createdByAccountId: existing.createdByAccountId,
+      },
+      req.context,
+    )
+    const newVersion = previousVersion + 1
+    const updated: ClinicalEncounter = {
+      ...existing,
+      ...safe,
+      id: existing.id,
+      petId: existing.petId,
+      createdAt: existing.createdAt,
+      createdByAccountId: existing.createdByAccountId,
+      recordSource: existing.recordSource,
+      lifecycleStatus: existing.lifecycleStatus ?? 'active',
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId!,
+      version: newVersion,
+    }
+
+    this.adapter.setEncounters(
+      this.adapter.getEncounters().map((e) => (e.id === updated.id ? updated : e)),
+    )
+    this.adapter.appendEncounterVersion(freezeEncounterSnapshot(updated, 'update'))
+    emitVersionTransitionAudit(
+      req.context,
+      'health.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'encounter',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'health.write',
+      previousVersion,
+      newVersion,
+    }
+  }
+
+  completeEncounter(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+      endedAt?: string
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    return this.transitionEncounter(req, 'completed', 'complete', req.endedAt)
+  }
+
+  cancelEncounter(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+      endedAt?: string
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    return this.transitionEncounter(req, 'cancelled', 'cancel', req.endedAt)
+  }
+
+  private transitionEncounter(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+    },
+    toStatus: 'completed' | 'cancelled',
+    mutationKind: 'complete' | 'cancel',
+    endedAt?: string,
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate(
+      mutationKind === 'complete' ? 'completeEncounter' : 'cancelEncounter',
+    )
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.write',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const existing = this.resolveEncounterForPet(req.encounterId, req.petId)
+    if (isEncounterWithdrawn(existing)) {
+      throw new ClinicalError('FORBIDDEN', 'Withdrawn encounter cannot be updated', 'forbidden')
+    }
+    if (!canActorSeeEncounter(req.context, existing, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    assertEncounterTransition(existing.status, toStatus)
+
+    const previousVersion = encounterCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureEncounterSnapshot(existing)
+
+    const now = new Date().toISOString()
+    const end = endedAt?.trim() || now
+    validateEncounterTimes(existing.startedAt, end)
+
+    const stamp = stampClinicalUpdate(
+      {
+        createdAt: existing.createdAt,
+        createdByAccountId: existing.createdByAccountId,
+      },
+      req.context,
+    )
+    const newVersion = previousVersion + 1
+    const updated: ClinicalEncounter = {
+      ...existing,
+      status: toStatus,
+      endedAt: end,
+      updatedAt: stamp.updatedAt,
+      updatedByAccountId: stamp.updatedByAccountId!,
+      version: newVersion,
+    }
+
+    this.adapter.setEncounters(
+      this.adapter.getEncounters().map((e) => (e.id === updated.id ? updated : e)),
+    )
+    this.adapter.appendEncounterVersion(
+      freezeEncounterSnapshot(updated, mutationKind),
+    )
+    emitVersionTransitionAudit(
+      req.context,
+      'health.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'encounter',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'health.write',
+      previousVersion,
+      newVersion,
+    }
+  }
+
+  withdrawEncounter(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<ClinicalEncounter> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.requireDemoForMutate('withdrawEncounter')
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.write',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const existing = this.resolveEncounterForPet(req.encounterId, req.petId)
+    if (!canActorSeeEncounter(req.context, existing, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+    if (isEncounterWithdrawn(existing)) {
+      throw new ClinicalError('FORBIDDEN', 'Encounter already withdrawn', 'forbidden')
+    }
+
+    const previousVersion = encounterCurrentVersion(existing)
+    requireExpectedVersion(req.expectedVersion, previousVersion)
+    this.ensureEncounterSnapshot(existing)
+
+    const now = new Date().toISOString()
+    const actor = actorAccountId(req.context)!
+    const newVersion = previousVersion + 1
+    const updated: ClinicalEncounter = {
+      ...existing,
+      lifecycleStatus: 'withdrawn',
+      withdrawnAt: now,
+      withdrawnByAccountId: actor,
+      updatedAt: now,
+      updatedByAccountId: actor,
+      version: newVersion,
+    }
+
+    this.adapter.setEncounters(
+      this.adapter.getEncounters().map((e) => (e.id === updated.id ? updated : e)),
+    )
+    this.adapter.appendEncounterVersion(freezeEncounterSnapshot(updated, 'withdraw'))
+
+    if (!this.adapter.findEncounter(updated.id)) {
+      throw new ClinicalError('INVALID_RESOURCE', 'Withdraw must retain history row')
+    }
+
+    emitVersionTransitionAudit(
+      req.context,
+      'health.write',
+      existing.petId,
+      previousVersion,
+      newVersion,
+      'encounter',
+      updated.id,
+    )
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: updated,
+      authorizationAction: 'health.write',
+      previousVersion,
+      newVersion,
+    }
+  }
+
+  getEncounterHistory(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<ClinicalEncounterVersionSnapshot[]> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getEncounterHistory')
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const current = this.resolveEncounterForPet(req.encounterId, req.petId)
+    if (!canActorSeeEncounter(req.context, current, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    this.ensureEncounterSnapshot(current)
+    const history = this.adapter.listEncounterVersions(req.encounterId)
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: history,
+      authorizationAction: 'health.read',
+    }
+  }
+
+  getEncounterVersion(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      version: number
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<ClinicalEncounterVersionSnapshot> {
+    denyShortcuts(req)
+    assertTrustedActor(req.context, req.claimedActorAccountId)
+    this.ensureDemoOrServerReady('getEncounterVersion')
+
+    if (!Number.isInteger(req.version) || req.version < 1) {
+      throw invalidVersion('version must be a positive integer')
+    }
+
+    const deps = this.deps(req.pets)
+    const pet = resolvePet(req.petId, deps)
+    authorizePetAction(
+      req.context,
+      'health.read',
+      req.petId,
+      deps,
+      req.claimedOrganizationId,
+      req.claimedActorAccountId,
+    )
+
+    const current = this.resolveEncounterForPet(req.encounterId, req.petId)
+    if (!canActorSeeEncounter(req.context, current, pet)) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    this.ensureEncounterSnapshot(current)
+    const snap = this.adapter.getEncounterVersion(req.encounterId, req.version)
+    if (!snap) {
+      throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+    }
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: snap,
+      authorizationAction: 'health.read',
+    }
+  }
+
+  /**
+   * Linked clinical fact counts for encounter detail (references only).
+   * Does not embed HealthRecord / document / measurement payloads.
+   */
+  getEncounterLinkedCounts(
+    req: ClinicalRequestBase & {
+      petId: string
+      encounterId: string
+      pets?: Pet[]
+    },
+  ): ClinicalMutationResult<{
+    healthRecords: number
+    documents: number
+    measurements: number
+  }> {
+    const enc = this.getEncounter(req)
+    const healthRecords = this.adapter
+      .getHealthRecords()
+      .filter(
+        (r) =>
+          r.encounterId === enc.data.id &&
+          r.petId === req.petId &&
+          r.lifecycleStatus !== 'withdrawn',
+      ).length
+    const documents = this.adapter
+      .getDocuments()
+      .filter(
+        (d) =>
+          d.encounterId === enc.data.id &&
+          d.petId === req.petId &&
+          d.lifecycleStatus !== 'withdrawn',
+      ).length
+    const measurements = this.adapter
+      .getWeightMeasurements()
+      .filter((w) => w.encounterId === enc.data.id && w.petId === req.petId)
+      .length
+
+    return {
+      ok: true,
+      authority: this.authority,
+      data: { healthRecords, documents, measurements },
+      authorizationAction: 'health.read',
+    }
   }
 }
 

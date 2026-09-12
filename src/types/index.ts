@@ -365,6 +365,60 @@ export type ClinicalRecordSource =
 /** Soft-delete boundary for clinical rows — not a full immutable ledger. */
 export type ClinicalLifecycleStatus = 'active' | 'withdrawn'
 
+/**
+ * K58 — Clinical encounter lifecycle (Booking status ≠ Encounter status).
+ * Completion ≠ clinical.finalize / clinical.sign.
+ */
+export type ClinicalEncounterStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+
+/** K58 — minimal typed vocabulary; extensible without parallel SSOT. */
+export type ClinicalEncounterType =
+  | 'preventive'
+  | 'acute'
+  | 'follow_up'
+  | 'vaccination'
+  | 'laboratory'
+  | 'procedure'
+  | 'hospitalization'
+  | 'telemedicine'
+  | 'emergency'
+  | 'other'
+
+/**
+ * K58 — Clinical episode container over Pet.
+ * Not a Health SSOT: facts stay on HealthRecord / PetDocument / WeightMeasurement.
+ * professionalId / organizationId / bookingId are provenance/context — never authz.
+ */
+export interface ClinicalEncounter {
+  id: string
+  /** Authoritative Pet parent — immutable after create. */
+  petId: string
+  status: ClinicalEncounterStatus
+  encounterType: ClinicalEncounterType
+  startedAt: string
+  endedAt?: string
+  professionalId?: string
+  organizationId?: string
+  /** Optional Booking admin link — never authorization. */
+  bookingId?: string
+  /** Sensitive clinical reason — never public. */
+  reason?: string
+  createdAt: string
+  createdByAccountId: string
+  updatedAt: string
+  updatedByAccountId: string
+  recordSource?: ClinicalRecordSource
+  lifecycleStatus?: ClinicalLifecycleStatus
+  withdrawnAt?: string
+  withdrawnByAccountId?: string
+  /** K57 principles — integer optimistic lock (start at 1). */
+  version: number
+}
+
 export interface HealthRecord {
   id: string
   petId: string
@@ -401,6 +455,11 @@ export interface HealthRecord {
    * Client must never set this as authority; DEMO may simulate increment.
    */
   version?: number
+  /**
+   * K58 — optional ClinicalEncounter grouping reference.
+   * Not ownership, not authorization, not a public identifier.
+   */
+  encounterId?: string
 }
 
 export interface TimelineEvent {
@@ -451,6 +510,11 @@ export interface PetDocument {
   withdrawnByAccountId?: string
   /** K57 — server-authoritative integer version (start at 1). */
   version?: number
+  /**
+   * K58 — optional ClinicalEncounter grouping reference.
+   * Not ownership, not authorization; document content stays on PetDocument.
+   */
+  encounterId?: string
   /** ISO date `YYYY-MM-DD` when issued. */
   issuedAt?: string
   /** ISO date `YYYY-MM-DD` when expires; omit / undefined = no expiry. */
@@ -490,6 +554,11 @@ export interface WeightMeasurement {
   recordSource?: ClinicalRecordSource
   /** K57 — server-authoritative integer version (start at 1). */
   version?: number
+  /**
+   * K58 — optional ClinicalEncounter grouping reference.
+   * WeightMeasurement remains measurement SSOT.
+   */
+  encounterId?: string
 }
 
 export interface OverviewItem {

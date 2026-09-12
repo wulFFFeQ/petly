@@ -1,10 +1,12 @@
 /**
- * K56/K57 — Server clinical vertical (service / authority boundary).
+ * K56/K57/K58 — Server clinical vertical (service / authority boundary).
  *
  * Not a parallel Health / Access / Permission / Audit system.
  * HealthRecord / PetDocument / WeightMeasurement remain SSOT.
+ * ClinicalEncounter is a clinical episode container only.
  * SecurityContext + authorize() remain the only authorization path.
  * K57: integer version + immutable HealthRecord version snapshots.
+ * K58: Encounter lifecycle + separate immutable encounter history.
  */
 
 export type {
@@ -12,8 +14,10 @@ export type {
   ClinicalAudit,
   ClinicalAuthorizationDecision,
   ClinicalCorrectRecordInput,
+  ClinicalCreateEncounterInput,
   ClinicalCreateRecordInput,
   ClinicalCreateWeightInput,
+  ClinicalEncounterVersionSnapshot,
   ClinicalMutationKind,
   ClinicalMutationResult,
   ClinicalPersistence,
@@ -22,16 +26,24 @@ export type {
   ClinicalResource,
   ClinicalServiceAction,
   ClinicalServiceOptions,
+  ClinicalUpdateEncounterInput,
   ClinicalUpdateRecordInput,
   ClinicalWithdrawRecordInput,
   HealthRecordVersionSnapshot,
   TrustedActor,
 } from './types'
 
+export type {
+  ClinicalEncounter,
+  ClinicalEncounterStatus,
+  ClinicalEncounterType,
+} from '../../types'
+
 export {
   ClinicalError,
   clinicalErrorFromAuthorization,
   immutableVersion,
+  invalidEncounterTransition,
   invalidVersion,
   isClinicalError,
   notImplemented,

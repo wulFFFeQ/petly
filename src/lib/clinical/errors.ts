@@ -19,6 +19,7 @@ export type ClinicalErrorCode =
   | 'IMMUTABLE_VERSION'
   | 'INVALID_VERSION'
   | 'INVALID_RESOURCE'
+  | 'INVALID_ENCOUNTER_TRANSITION'
   | 'SERVER_REQUIRED'
   | 'NOT_IMPLEMENTED'
 
@@ -48,6 +49,12 @@ export function immutableVersion(message = 'Historical version is immutable'): C
 
 export function invalidVersion(message = 'Invalid version'): ClinicalError {
   return new ClinicalError('INVALID_VERSION', message)
+}
+
+export function invalidEncounterTransition(
+  message = 'Invalid encounter status transition',
+): ClinicalError {
+  return new ClinicalError('INVALID_ENCOUNTER_TRANSITION', message)
 }
 
 /** Map K47 AuthorizationError → ClinicalError (no data leak expansion). */

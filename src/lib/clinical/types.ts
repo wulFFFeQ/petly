@@ -1,12 +1,20 @@
 /**
- * K56/K57 — Clinical service contracts (authority boundary).
+ * K56/K57/K58 — Clinical service contracts (authority boundary).
  * Not a parallel HealthRecord / access / permission / audit system.
  *
  * DEMO localStorage is never production authority.
  * K57: integer version + immutable history snapshots of the same HealthRecord.
+ * K58: ClinicalEncounter container + separate encounter history ledger.
  */
 
-import type { HealthRecord, PetDocument, WeightMeasurement } from '../../types'
+import type {
+  ClinicalEncounter,
+  ClinicalEncounterStatus,
+  ClinicalEncounterType,
+  HealthRecord,
+  PetDocument,
+  WeightMeasurement,
+} from '../../types'
 import type { AuthorizeDeps } from '../security/authorize'
 import type { SecurityAction, SecurityAuthority, SecurityContext } from '../security/types'
 
@@ -24,7 +32,7 @@ export type ClinicalResource =
   | { kind: 'document'; documentId: string; petId: string }
   | { kind: 'weight'; measurementId: string; petId: string }
   /**
-   * Future K58 — encounter never grants pet access by itself.
+   * K58 — encounter never grants pet access by itself.
    * bookingId / microchip / organizationId are never authorization shortcuts.
    */
   | { kind: 'encounter'; encounterId: string; petId: string }
@@ -40,8 +48,16 @@ export type ClinicalServiceAction =
   | 'admin_correct'
   | 'export'
   | 'emergency_write'
+  | 'complete'
+  | 'cancel'
 
-export type ClinicalMutationKind = 'create' | 'update' | 'withdraw' | 'correct'
+export type ClinicalMutationKind =
+  | 'create'
+  | 'update'
+  | 'withdraw'
+  | 'correct'
+  | 'complete'
+  | 'cancel'
 
 /**
  * Immutable snapshot of a HealthRecord at a specific version.
@@ -59,6 +75,19 @@ export type HealthRecordVersionSnapshot = {
   correctionReason?: string
   /** Frozen clinical payload at this version. */
   record: HealthRecord
+}
+
+/**
+ * K58 — immutable snapshot of a ClinicalEncounter at a specific version.
+ * Encounter history ≠ HealthRecord history.
+ */
+export type ClinicalEncounterVersionSnapshot = {
+  encounterId: string
+  petId: string
+  version: number
+  frozenAt: string
+  mutationKind: ClinicalMutationKind
+  encounter: ClinicalEncounter
 }
 
 export type ClinicalRequestBase = {
@@ -103,6 +132,8 @@ export type ClinicalCreateRecordInput = {
   reminderDays?: number
   reminderEnabled?: boolean
   notes?: string
+  /** K58 — optional encounter link (not authz). */
+  encounterId?: string
 }
 
 export type ClinicalUpdateRecordInput = {
@@ -129,6 +160,37 @@ export type ClinicalCreateWeightInput = {
   date: string
   weight: number
   note?: string
+  /** K58 — optional encounter link (not authz). */
+  encounterId?: string
+}
+
+export type ClinicalCreateEncounterInput = {
+  petId: string
+  encounterType: ClinicalEncounterType
+  status?: ClinicalEncounterStatus
+  startedAt?: string
+  endedAt?: string
+  professionalId?: string
+  organizationId?: string
+  bookingId?: string
+  reason?: string
+}
+
+export type ClinicalUpdateEncounterInput = {
+  encounterId: string
+  updates: Partial<
+    Pick<
+      ClinicalEncounter,
+      | 'encounterType'
+      | 'status'
+      | 'startedAt'
+      | 'endedAt'
+      | 'professionalId'
+      | 'organizationId'
+      | 'bookingId'
+      | 'reason'
+    >
+  >
 }
 
 export type ClinicalMutationResult<T> = {
@@ -171,4 +233,13 @@ export type ClinicalAudit = {
   transactionalWithMutation: boolean
 }
 
-export type { HealthRecord, PetDocument, WeightMeasurement, SecurityContext, SecurityAction }
+export type {
+  ClinicalEncounter,
+  ClinicalEncounterStatus,
+  ClinicalEncounterType,
+  HealthRecord,
+  PetDocument,
+  WeightMeasurement,
+  SecurityContext,
+  SecurityAction,
+}

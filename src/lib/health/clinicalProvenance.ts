@@ -63,6 +63,18 @@ export const DOCUMENT_IMMUTABLE_KEYS = [
   'version',
 ] as const
 
+/** K58 — Encounter identity / provenance never client-authoritative. */
+export const ENCOUNTER_IMMUTABLE_KEYS = [
+  'id',
+  'petId',
+  'createdAt',
+  'createdByAccountId',
+  'lifecycleStatus',
+  'withdrawnAt',
+  'withdrawnByAccountId',
+  'version',
+] as const
+
 const PROVENANCE_STRIP_KEYS = new Set([
   'id',
   'petId',

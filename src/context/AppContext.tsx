@@ -155,6 +155,7 @@ import {
   createDemoClinicalService,
   DemoClinicalPersistenceAdapter,
   isClinicalError,
+  type ClinicalEncounterVersionSnapshot,
   type HealthRecordVersionSnapshot,
 } from '../lib/clinical'
 import {
@@ -165,6 +166,8 @@ import type { EarnedBadge } from '../types/badges'
 import type {
   AppNotification,
   CalendarEvent,
+  ClinicalEncounter,
+  ClinicalEncounterType,
   CommunityPost,
   ConciergeContactPreference,
   ConciergeRequest,
@@ -206,6 +209,9 @@ const PHOTOS_STORAGE_KEY = 'lovedandknown.petPhotos'
 const HEALTH_STORAGE_KEY = 'lovedandknown.healthRecords'
 /** K57 DEMO immutable HealthRecord version ledger — not production authority. */
 const HEALTH_VERSIONS_STORAGE_KEY = 'lovedandknown.healthRecordVersions'
+/** K58 DEMO ClinicalEncounter store — not production authority. */
+const CLINICAL_ENCOUNTERS_STORAGE_KEY = 'lovedandknown.clinicalEncounters'
+const CLINICAL_ENCOUNTER_VERSIONS_STORAGE_KEY = 'lovedandknown.clinicalEncounterVersions'
 const CALENDAR_STORAGE_KEY = 'lovedandknown.calendarEvents'
 const BADGES_STORAGE_KEY = 'lovedandknown.earnedBadges'
 const NIGHT_OWL_STORAGE_KEY = 'lovedandknown.nightOwlEligible'
@@ -374,6 +380,32 @@ function loadHealthRecordVersions(): HealthRecordVersionSnapshot[] {
   }
 }
 
+function loadClinicalEncounters(): ClinicalEncounter[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CLINICAL_ENCOUNTERS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as ClinicalEncounter[]
+    if (!Array.isArray(parsed)) return []
+    return parsed
+  } catch {
+    return []
+  }
+}
+
+function loadClinicalEncounterVersions(): ClinicalEncounterVersionSnapshot[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(CLINICAL_ENCOUNTER_VERSIONS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as ClinicalEncounterVersionSnapshot[]
+    if (!Array.isArray(parsed)) return []
+    return parsed
+  } catch {
+    return []
+  }
+}
+
 function loadDocuments(): PetDocument[] {
   return loadDocumentsMeta(initialPetDocuments)
 }
@@ -492,6 +524,8 @@ interface AppContextValue {
   photos: PetPhoto[]
   documents: PetDocument[]
   healthRecords: HealthRecord[]
+  /** K58 DEMO — ClinicalEncounter containers (localStorage ≠ production). */
+  clinicalEncounters: ClinicalEncounter[]
   posts: CommunityPost[]
   calendarEvents: CalendarEvent[]
   notifications: AppNotification[]
@@ -558,6 +592,15 @@ interface AppContextValue {
   deletePetDocument: (documentId: string) => Promise<void>
   resolveDocumentUrl: (doc: PetDocument) => Promise<string | null>
   addHealthRecord: (input: NewHealthRecordInput) => void
+  /** K58 DEMO — create ClinicalEncounter via ClinicalService (not production). */
+  createClinicalEncounter: (input: {
+    petId: string
+    encounterType: ClinicalEncounterType
+    reason?: string
+  }) => ClinicalEncounter | null
+  startClinicalEncounter: (petId: string, encounterId: string) => ClinicalEncounter | null
+  completeClinicalEncounter: (petId: string, encounterId: string) => ClinicalEncounter | null
+  cancelClinicalEncounter: (petId: string, encounterId: string) => ClinicalEncounter | null
   updateHealthRecord: (recordId: string, updates: Partial<HealthRecord>) => void
   deleteHealthRecord: (recordId: string) => void
   toggleMedicationReminder: (recordId: string) => void
@@ -698,6 +741,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [healthRecordVersions, setHealthRecordVersions] = useState<HealthRecordVersionSnapshot[]>(
     loadHealthRecordVersions,
   )
+  const [clinicalEncounters, setClinicalEncounters] = useState<ClinicalEncounter[]>(
+    loadClinicalEncounters,
+  )
+  const [clinicalEncounterVersions, setClinicalEncounterVersions] = useState<
+    ClinicalEncounterVersionSnapshot[]
+  >(loadClinicalEncounterVersions)
   const [posts, setPosts] = useState<CommunityPost[]>(loadPosts)
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(loadCalendarEvents)
   const [notifications, setNotifications] = useState<AppNotification[]>(loadInitialNotifications)
@@ -1181,6 +1230,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Ignore quota errors — versions remain available in the current session.
     }
   }, [healthRecordVersions])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CLINICAL_ENCOUNTERS_STORAGE_KEY,
+        JSON.stringify(clinicalEncounters),
+      )
+    } catch {
+      /* DEMO quota — session state remains */
+    }
+  }, [clinicalEncounters])
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CLINICAL_ENCOUNTER_VERSIONS_STORAGE_KEY,
+        JSON.stringify(clinicalEncounterVersions),
+      )
+    } catch {
+      /* DEMO quota — session state remains */
+    }
+  }, [clinicalEncounterVersions])
 
   useEffect(() => {
     persistDocumentsMeta(documents)
@@ -1896,6 +1967,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setHealthRecords: (next) => setHealthRecords(next),
       getHealthRecordVersions: () => healthRecordVersions,
       setHealthRecordVersions: (next) => setHealthRecordVersions(next),
+      getDocuments: () => documents,
+      setDocuments: (next) => setDocuments(next),
+      getEncounters: () => clinicalEncounters,
+      setEncounters: (next) => setClinicalEncounters(next),
+      getEncounterVersions: () => clinicalEncounterVersions,
+      setEncounterVersions: (next) => setClinicalEncounterVersions(next),
     })
 
   const handleClinicalMutationError = (err: unknown, denyMessage: string): boolean => {
@@ -1918,6 +1995,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     if (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND') {
       showToast('Bez oprávnění', denyMessage, 'info')
+      return true
+    }
+    if (err.code === 'INVALID_ENCOUNTER_TRANSITION') {
+      showToast('Neplatný stav', 'Tento přechod klinické epizody není povolen.', 'info')
       return true
     }
     return false
@@ -1997,6 +2078,125 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (isClinicalError(err) && (err.code === 'FORBIDDEN' || err.code === 'UNAUTHENTICATED' || err.code === 'NOT_FOUND')) {
         showToast('Bez oprávnění', 'Nemáte oprávnění přidávat zdravotní záznamy.', 'info')
         return
+      }
+      throw err
+    }
+  }
+
+  const createClinicalEncounter = (input: {
+    petId: string
+    encounterType: ClinicalEncounterType
+    reason?: string
+  }): ClinicalEncounter | null => {
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      const result = service.createEncounter({
+        context: resolveClinicalStampContext(),
+        pets,
+        input: {
+          petId: input.petId,
+          encounterType: input.encounterType,
+          status: 'scheduled',
+          reason: input.reason,
+        },
+      })
+      showToast('Klinická epizoda', 'Epizoda vytvořena (DEMO).', 'gold')
+      return result.data
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění vytvářet klinické epizody.')) {
+        return null
+      }
+      throw err
+    }
+  }
+
+  const startClinicalEncounter = (
+    petId: string,
+    encounterId: string,
+  ): ClinicalEncounter | null => {
+    const existing = clinicalEncounters.find((e) => e.id === encounterId)
+    if (!existing) return null
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      const result = service.updateEncounter({
+        context: resolveClinicalStampContext(),
+        pets,
+        expectedVersion: existing.version,
+        input: {
+          encounterId,
+          updates: { status: 'in_progress' },
+        },
+      })
+      showToast('Klinická epizoda', 'Epizoda zahájena.', 'gold')
+      return result.data
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění upravit klinickou epizodu.')) {
+        return null
+      }
+      throw err
+    }
+  }
+
+  const completeClinicalEncounter = (
+    petId: string,
+    encounterId: string,
+  ): ClinicalEncounter | null => {
+    const existing = clinicalEncounters.find((e) => e.id === encounterId)
+    if (!existing) return null
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      // Completion requires in_progress — auto-advance scheduled → in_progress first.
+      let expected = existing.version
+      if (existing.status === 'scheduled') {
+        const started = service.updateEncounter({
+          context: resolveClinicalStampContext(),
+          pets,
+          expectedVersion: expected,
+          input: { encounterId, updates: { status: 'in_progress' } },
+        })
+        expected = started.data.version
+      }
+      const result = service.completeEncounter({
+        context: resolveClinicalStampContext(),
+        pets,
+        petId,
+        encounterId,
+        expectedVersion: expected,
+      })
+      showToast('Klinická epizoda', 'Epizoda dokončena (≠ finalize).', 'gold')
+      return result.data
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění dokončit klinickou epizodu.')) {
+        return null
+      }
+      throw err
+    }
+  }
+
+  const cancelClinicalEncounter = (
+    petId: string,
+    encounterId: string,
+  ): ClinicalEncounter | null => {
+    const existing = clinicalEncounters.find((e) => e.id === encounterId)
+    if (!existing) return null
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    try {
+      const result = service.cancelEncounter({
+        context: resolveClinicalStampContext(),
+        pets,
+        petId,
+        encounterId,
+        expectedVersion: existing.version,
+      })
+      showToast('Klinická epizoda', 'Epizoda zrušena.', 'info')
+      return result.data
+    } catch (err) {
+      if (handleClinicalMutationError(err, 'Nemáte oprávnění zrušit klinickou epizodu.')) {
+        return null
       }
       throw err
     }
@@ -3902,6 +4102,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         photos,
         documents,
         healthRecords,
+        clinicalEncounters,
         posts,
         calendarEvents,
         notifications,
@@ -3942,6 +4143,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deletePetDocument,
         resolveDocumentUrl,
         addHealthRecord,
+        createClinicalEncounter,
+        startClinicalEncounter,
+        completeClinicalEncounter,
+        cancelClinicalEncounter,
         updateHealthRecord,
         deleteHealthRecord,
         toggleMedicationReminder,

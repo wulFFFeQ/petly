@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { ClinicalEncounterSection } from '../components/health/ClinicalEncounterSection'
 import { HealthCategoryPanel } from '../components/health/HealthCategoryPanel'
 import {
   HealthRecordsList,
@@ -106,6 +107,11 @@ export function HealthPage() {
           ) : (
             <>
               <HealthSummary petFilter={petFilter} onOpenDetail={setActiveDetail} />
+              <ClinicalEncounterSection
+                petIds={allowedPets.map((p) => p.id)}
+                canWrite={canWritePet}
+                lockedPetId={petFilter === 'all' ? undefined : petFilter}
+              />
               <WeightChart
                 lockedPetId={petFilter === 'all' ? undefined : petFilter}
                 onSelectPet={(id) => setPetFilter(id)}

@@ -238,6 +238,17 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'mutationKind',
   'correctionOfVersion',
   'correctionReason',
+  // K58 — Clinical Encounter never public
+  'clinicalEncounters',
+  'encounters',
+  'encounterId',
+  'encounterType',
+  'reason',
+  'bookingId',
+  'professionalId',
+  'organizationId',
+  'startedAt',
+  'endedAt',
 ] as const
 
 export type PublicPayloadForbiddenKey = (typeof PUBLIC_PAYLOAD_FORBIDDEN_KEYS)[number]
