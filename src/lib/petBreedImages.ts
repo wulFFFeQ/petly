@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 22
+export const BREED_IMAGE_SYNC_GENERATION = 26
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -111,12 +111,12 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Burgoský perdiquero': '/breeds/burgosky-perdiquero.jpg?v=2',
   'Búrský buldok': '/breeds/bursky-buldok.jpg?v=1',
   'Cairn Terier': '/breeds/cairn-terier.jpg?v=1',
-  'Cao de Castro Laboreiro': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Cao de Serra de Aires': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Clumber španěl': 'https://images.dog.ceo/breeds/clumber/n02101556_3100.jpg',
-  'Coton de Tuléar': 'https://images.dog.ceo/breeds/cotondetulear/imag1063.jpg',
-  'Curly Coated Retriever': 'https://images.dog.ceo/breeds/retriever-curly/n02099429_2733.jpg',
-  'Černohorský planinský honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
+  'Cao de Castro Laboreiro': '/breeds/cao-de-castro-laboreiro.jpg?v=2',
+  'Cao de Serra de Aires': '/breeds/cao-de-serra-de-aires.jpg?v=1',
+  'Clumber španěl': '/breeds/clumber-spanel.jpg?v=2',
+  'Coton de Tuléar': '/breeds/coton-de-tulear.jpg?v=1',
+  'Curly Coated Retriever': '/breeds/curly-coated-retriever.jpg?v=1',
+  'Černohorský planinský honič': '/breeds/cernohorsky-planinsky-honic.jpg?v=1',
   'Československý vlčák': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Český fousek': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Český horský pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
@@ -584,6 +584,12 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/burgosky-perdiquero',
   'breeds/bursky-buldok',
   'breeds/cairn-terier',
+  'breeds/cao-de-castro-laboreiro',
+  'breeds/cao-de-serra-de-aires',
+  'breeds/clumber-spanel',
+  'breeds/coton-de-tulear',
+  'breeds/curly-coated-retriever',
+  'breeds/cernohorsky-planinsky-honic',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
