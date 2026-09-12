@@ -36,6 +36,7 @@ import {
 } from '../health/clinicalProvenance'
 import {
   createDemoIdempotencyStore,
+  createServerIdempotencyStore,
   createServerIdempotencyStoreStub,
   executeIdempotent,
   type IdempotencyStore,
@@ -469,8 +470,12 @@ export class ClinicalService {
     }
   }
 
+  /**
+   * Server mutations allowed only when persistence adapter is wired (LAUNCH 02).
+   * Unwired server adapter still fails closed with SERVER_REQUIRED.
+   */
   private requireDemoForMutate(operation: string): void {
-    if (this.authority === 'server') {
+    if (this.authority === 'server' && !this.adapter.wired) {
       throw serverRequired(operation)
     }
   }
@@ -2453,5 +2458,26 @@ export function createServerClinicalServiceStub(
     adapter,
     deps,
     idempotencyStore: createServerIdempotencyStoreStub(),
+  })
+}
+
+/**
+ * Production ClinicalService when adapter is wired (LAUNCH 02).
+ * Uses ServerIdempotencyStore (memory mirror; Edge Functions own Postgres store).
+ */
+export function createServerClinicalService(
+  adapter: ClinicalPersistenceAdapter,
+  deps?: AuthorizeDeps,
+  idempotencyStore?: IdempotencyStore,
+): ClinicalService {
+  return createClinicalService({
+    authority: 'server',
+    adapter,
+    deps,
+    idempotencyStore:
+      idempotencyStore ??
+      (adapter.wired
+        ? createServerIdempotencyStore({ forceWired: true })
+        : createServerIdempotencyStoreStub()),
   })
 }

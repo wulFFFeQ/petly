@@ -28,6 +28,7 @@ import type {
   ProfessionalType,
 } from '../professional/types'
 import { clearUiWorkspace } from './workspace'
+import { isRealAuthAvailable, signOutAuth } from '../auth/supabaseAuth'
 
 export const ONBOARDING_COMPLETED_KEY = 'lovedandknown.onboardingCompleted'
 
@@ -90,10 +91,16 @@ export function loginSelfSession(): Account {
 /**
  * Deactivate DEMO session and clear session-scoped UI workspace only.
  * Does not delete pets, bookings, messages, health, membership, profiles, or onboarding flag.
+ * When production auth is configured, also signs out Supabase (fire-and-forget).
  */
 export function logoutSelfSession(): void {
   writeSessionActive(false)
   clearUiWorkspace()
+  if (isRealAuthAvailable()) {
+    void signOutAuth().catch(() => {
+      /* ignore — logout must not fail on auth errors */
+    })
+  }
 }
 
 /** Route for account menu "Můj profil" — no dedicated /profile page. */

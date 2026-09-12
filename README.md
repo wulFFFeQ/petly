@@ -2,7 +2,7 @@
 
 Digitální péče o mazlíčky — React + TypeScript + Vite SPA.
 
-**Status:** high-fidelity **DEMO** (browser localStorage / IndexedDB). Not a production multi-user backend. See [docs/LAUNCH-READINESS-AUDIT.md](docs/LAUNCH-READINESS-AUDIT.md).
+**Status:** high-fidelity **DEMO** by default (browser localStorage / IndexedDB). LAUNCH 02 Supabase foundation is in-repo; live connection requires credentials. See [docs/LAUNCH-READINESS-AUDIT.md](docs/LAUNCH-READINESS-AUDIT.md), [docs/LAUNCH-02-BACKEND-MIGRATION.md](docs/LAUNCH-02-BACKEND-MIGRATION.md), [docs/LAUNCH-02-STATUS.md](docs/LAUNCH-02-STATUS.md).
 
 ## Scripts
 
@@ -22,6 +22,7 @@ npm run test:e2e     # Playwright e2e (requires running app + BASE_URL)
 npm run test:assert
 # or one file:
 npx tsx scripts/assert-security-context.mts
+npx tsx scripts/assert-launch02-backend.mts
 ```
 
 ### E2E prerequisites
@@ -32,8 +33,8 @@ npx tsx scripts/assert-security-context.mts
 
 ## Environment
 
-See [`.env.example`](.env.example). No secrets in the client. Server-only variables are documented for LAUNCH 02.
+See [`.env.example`](.env.example). Public: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Server-only (never `VITE_`): `SUPABASE_SERVICE_ROLE_KEY`. Missing client env ⇒ DEMO + `PRODUCTION CONNECTION NOT CONFIGURED`.
 
 ## Hosting note
 
-GitHub Pages is suitable for a labeled DEMO / marketing SPA only. Production multi-user data requires a real auth + API + database stack (LAUNCH 02).
+GitHub Pages is suitable for a labeled DEMO / marketing SPA only. Do not run production multi-user data on Pages. Production requires Supabase + Edge Functions (LAUNCH 02+) on real hosting.

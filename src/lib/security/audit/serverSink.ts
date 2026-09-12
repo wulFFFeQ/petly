@@ -1,25 +1,61 @@
 /**
- * ServerAuditSink — typed stub for future backend persistence.
- *
- * K48: NOT wired. No fake server DB. No pretend persistence.
- * Future server must provide append-only, trusted timestamp, tenant isolation.
+ * ServerAuditSink — production K48 sink.
+ * Unwired: no-op (never fake persistence).
+ * Wired: in-process buffer for client authorize() decisions.
+ * Edge Functions write `audit_events` for server mutations (authoritative).
+ * Audit failure must never flip authorization ALLOW.
  */
 
+import { isProductionBackendConfigured } from '../../backend/config'
 import type { AuditEvent } from './types'
 import type { AuditSink } from './sink'
 
-/**
- * Stub sink — records nowhere.
- * Calling record is a no-op so DEMO can swap sinks without inventing server storage.
- */
 export class ServerAuditSinkStub implements AuditSink {
   readonly wired = false as const
 
   record(_event: AuditEvent): void {
-    // Intentionally empty — no fake server persistence in K48.
+    // Intentionally empty — no fake server persistence.
   }
 }
 
 export function createServerAuditSinkStub(): ServerAuditSinkStub {
   return new ServerAuditSinkStub()
+}
+
+export type ServerAuditSinkOptions = {
+  forceWired?: boolean
+}
+
+export class ServerAuditSink implements AuditSink {
+  readonly wired: boolean
+  private readonly buffer: AuditEvent[] = []
+
+  constructor(options: ServerAuditSinkOptions = {}) {
+    this.wired = Boolean(options.forceWired || isProductionBackendConfigured())
+  }
+
+  record(event: AuditEvent): void {
+    if (!this.wired) return
+    try {
+      this.buffer.push({
+        ...event,
+        authority: 'server',
+      })
+    } catch {
+      /* swallow — audit failure must not change authz */
+    }
+  }
+
+  /** Test helper */
+  drainForTests(): AuditEvent[] {
+    const copy = this.buffer.slice()
+    this.buffer.length = 0
+    return copy
+  }
+}
+
+export function createServerAuditSink(
+  options: ServerAuditSinkOptions = {},
+): ServerAuditSink {
+  return new ServerAuditSink(options)
 }

@@ -19,6 +19,7 @@ import type {
   PetDocument,
   WeightMeasurement,
 } from '../../types'
+import { isProductionBackendConfigured } from '../backend/config'
 import {
   ClinicalError,
   immutableVersion,
@@ -373,110 +374,209 @@ export function createInMemoryDemoClinicalAdapter(
   })
 }
 
+export type ServerClinicalPersistenceOptions = {
+  /**
+   * Force wired memory backend (tests / local without env).
+   * Production: also true when `isProductionBackendConfigured()`.
+   */
+  forceWired?: boolean
+}
+
 /**
- * Server contract stub — no fake DB, no fake HTTP, no LS wrapper.
- * Every persistence call fails with SERVER_REQUIRED.
+ * Production clinical persistence.
+ * - Unwired (default without Supabase env): every call → SERVER_REQUIRED (honest).
+ * - Wired: in-memory SSOT mirror for ClinicalService; Edge `clinical` is network authority.
+ * Never wraps localStorage and pretends to be a server.
  */
 export class ServerClinicalPersistenceAdapter implements ClinicalPersistenceAdapter {
   readonly authority: ClinicalAuthority = 'server'
-  readonly wired = false as const
+  readonly wired: boolean
+
+  private healthRecords: HealthRecord[] = []
+  private documents: PetDocument[] = []
+  private weights: WeightMeasurement[] = []
+  private healthVersions: HealthRecordVersionSnapshot[] = []
+  private encounters: ClinicalEncounter[] = []
+  private encounterVersions: ClinicalEncounterVersionSnapshot[] = []
+  private documentVersions: PetDocumentVersionSnapshot[] = []
+
+  constructor(options: ServerClinicalPersistenceOptions = {}) {
+    this.wired = Boolean(options.forceWired || isProductionBackendConfigured())
+  }
 
   private fail(): never {
     throw serverRequired('Clinical persistence')
   }
 
+  private ensureWired(): void {
+    if (!this.wired) this.fail()
+  }
+
   getHealthRecords(): HealthRecord[] {
-    this.fail()
+    this.ensureWired()
+    return this.healthRecords
   }
 
-  setHealthRecords(_records: HealthRecord[]): void {
-    this.fail()
+  setHealthRecords(records: HealthRecord[]): void {
+    this.ensureWired()
+    this.healthRecords = records
   }
 
-  findHealthRecord(_recordId: string): HealthRecord | undefined {
-    this.fail()
+  findHealthRecord(recordId: string): HealthRecord | undefined {
+    this.ensureWired()
+    return this.healthRecords.find((r) => r.id === recordId)
   }
 
   getDocuments(): PetDocument[] {
-    this.fail()
+    this.ensureWired()
+    return this.documents
   }
 
-  setDocuments(_documents: PetDocument[]): void {
-    this.fail()
+  setDocuments(documents: PetDocument[]): void {
+    this.ensureWired()
+    this.documents = documents
   }
 
-  findDocument(_documentId: string): PetDocument | undefined {
-    this.fail()
+  findDocument(documentId: string): PetDocument | undefined {
+    this.ensureWired()
+    return this.documents.find((d) => d.id === documentId)
   }
 
   getWeightMeasurements(): WeightMeasurement[] {
-    this.fail()
+    this.ensureWired()
+    return this.weights
   }
 
-  persistWeightMeasurement(_entry: WeightMeasurement): void {
-    this.fail()
+  persistWeightMeasurement(entry: WeightMeasurement): void {
+    this.ensureWired()
+    const idx = this.weights.findIndex((w) => w.id === entry.id)
+    if (idx >= 0) this.weights[idx] = entry
+    else this.weights.push(entry)
   }
 
-  appendHealthRecordVersion(_snapshot: HealthRecordVersionSnapshot): void {
-    this.fail()
+  appendHealthRecordVersion(snapshot: HealthRecordVersionSnapshot): void {
+    this.ensureWired()
+    const clash = this.healthVersions.find(
+      (s) => s.recordId === snapshot.recordId && s.version === snapshot.version,
+    )
+    if (clash) {
+      throw immutableVersion(
+        `Version ${snapshot.version} already exists for record ${snapshot.recordId}`,
+      )
+    }
+    this.healthVersions.push({ ...snapshot, record: { ...snapshot.record } })
   }
 
-  listHealthRecordVersions(_recordId: string): HealthRecordVersionSnapshot[] {
-    this.fail()
+  listHealthRecordVersions(recordId: string): HealthRecordVersionSnapshot[] {
+    this.ensureWired()
+    return this.healthVersions
+      .filter((s) => s.recordId === recordId)
+      .slice()
+      .sort((a, b) => a.version - b.version)
   }
 
   getHealthRecordVersion(
-    _recordId: string,
-    _version: number,
+    recordId: string,
+    version: number,
   ): HealthRecordVersionSnapshot | undefined {
-    this.fail()
+    this.ensureWired()
+    return this.healthVersions.find(
+      (s) => s.recordId === recordId && s.version === version,
+    )
   }
 
   getEncounters(): ClinicalEncounter[] {
-    this.fail()
+    this.ensureWired()
+    return this.encounters
   }
 
-  setEncounters(_encounters: ClinicalEncounter[]): void {
-    this.fail()
+  setEncounters(encounters: ClinicalEncounter[]): void {
+    this.ensureWired()
+    this.encounters = encounters
   }
 
-  findEncounter(_encounterId: string): ClinicalEncounter | undefined {
-    this.fail()
+  findEncounter(encounterId: string): ClinicalEncounter | undefined {
+    this.ensureWired()
+    return this.encounters.find((e) => e.id === encounterId)
   }
 
-  appendEncounterVersion(_snapshot: ClinicalEncounterVersionSnapshot): void {
-    this.fail()
+  appendEncounterVersion(snapshot: ClinicalEncounterVersionSnapshot): void {
+    this.ensureWired()
+    const clash = this.encounterVersions.find(
+      (s) => s.encounterId === snapshot.encounterId && s.version === snapshot.version,
+    )
+    if (clash) {
+      throw immutableVersion(
+        `Version ${snapshot.version} already exists for encounter ${snapshot.encounterId}`,
+      )
+    }
+    this.encounterVersions.push({
+      ...snapshot,
+      encounter: { ...snapshot.encounter },
+    })
   }
 
-  listEncounterVersions(_encounterId: string): ClinicalEncounterVersionSnapshot[] {
-    this.fail()
+  listEncounterVersions(encounterId: string): ClinicalEncounterVersionSnapshot[] {
+    this.ensureWired()
+    return this.encounterVersions
+      .filter((s) => s.encounterId === encounterId)
+      .slice()
+      .sort((a, b) => a.version - b.version)
   }
 
   getEncounterVersion(
-    _encounterId: string,
-    _version: number,
+    encounterId: string,
+    version: number,
   ): ClinicalEncounterVersionSnapshot | undefined {
-    this.fail()
+    this.ensureWired()
+    return this.encounterVersions.find(
+      (s) => s.encounterId === encounterId && s.version === version,
+    )
   }
 
-  appendDocumentVersion(_snapshot: PetDocumentVersionSnapshot): void {
-    this.fail()
+  appendDocumentVersion(snapshot: PetDocumentVersionSnapshot): void {
+    this.ensureWired()
+    const clash = this.documentVersions.find(
+      (s) => s.documentId === snapshot.documentId && s.version === snapshot.version,
+    )
+    if (clash) {
+      throw immutableVersion(
+        `Version ${snapshot.version} already exists for document ${snapshot.documentId}`,
+      )
+    }
+    this.documentVersions.push({
+      ...snapshot,
+      document: { ...snapshot.document },
+    })
   }
 
-  listDocumentVersions(_documentId: string): PetDocumentVersionSnapshot[] {
-    this.fail()
+  listDocumentVersions(documentId: string): PetDocumentVersionSnapshot[] {
+    this.ensureWired()
+    return this.documentVersions
+      .filter((s) => s.documentId === documentId)
+      .slice()
+      .sort((a, b) => a.version - b.version)
   }
 
   getDocumentVersion(
-    _documentId: string,
-    _version: number,
+    documentId: string,
+    version: number,
   ): PetDocumentVersionSnapshot | undefined {
-    this.fail()
+    this.ensureWired()
+    return this.documentVersions.find(
+      (s) => s.documentId === documentId && s.version === version,
+    )
   }
 }
 
+/** Unwired stub — still SERVER_REQUIRED (default without credentials). */
 export function createServerClinicalPersistenceStub(): ServerClinicalPersistenceAdapter {
-  return new ServerClinicalPersistenceAdapter()
+  return new ServerClinicalPersistenceAdapter({ forceWired: false })
+}
+
+/** Wired server adapter for tests / configured production client mirror. */
+export function createWiredServerClinicalPersistenceAdapter(): ServerClinicalPersistenceAdapter {
+  return new ServerClinicalPersistenceAdapter({ forceWired: true })
 }
 
 /** Assert adapter matches declared service authority. */

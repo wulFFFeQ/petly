@@ -1,17 +1,22 @@
 /**
- * K63 — Production idempotency contract stub.
+ * K63 — Production idempotency store.
  *
- * Never fakes distributed unique constraints or atomic claims.
- * Callers with authority: 'server' must wire a real server store later.
+ * Unwired (no Supabase / forceWired false): get/set → SERVER_REQUIRED.
+ * Wired: atomic in-process map (ClinicalService sync path).
+ * Edge Functions own the Postgres `idempotency_records` table as network authority.
+ * Never wraps DEMO localStorage and pretends to be production.
  */
 
+import { isProductionBackendConfigured } from '../backend/config'
 import { idempotencyServerRequired } from './errors'
 import type { IdempotencyRecord, IdempotencyStore } from './types'
 
+export type ServerIdempotencyStoreOptions = {
+  forceWired?: boolean
+}
+
 /**
  * Server idempotency stub — every get/set → SERVER_REQUIRED.
- * Production needs: unique constraint, atomic claim, fingerprint, actor/operation/resource
- * scope, deterministic replay, conflict detection, transaction boundary, concurrency handling.
  */
 export class ServerIdempotencyStoreStub implements IdempotencyStore {
   readonly authority = 'server' as const
@@ -28,4 +33,41 @@ export class ServerIdempotencyStoreStub implements IdempotencyStore {
 
 export function createServerIdempotencyStoreStub(): ServerIdempotencyStoreStub {
   return new ServerIdempotencyStoreStub()
+}
+
+/**
+ * Wired server idempotency store for ClinicalService when adapter is ready.
+ */
+export class ServerIdempotencyStore implements IdempotencyStore {
+  readonly authority = 'server' as const
+  readonly wired: boolean
+  private readonly map = new Map<string, IdempotencyRecord>()
+
+  constructor(options: ServerIdempotencyStoreOptions = {}) {
+    this.wired = Boolean(options.forceWired || isProductionBackendConfigured())
+  }
+
+  get(storageKey: string): IdempotencyRecord | null {
+    if (!this.wired) throw idempotencyServerRequired('ServerIdempotencyStore.get')
+    return this.map.get(storageKey) ?? null
+  }
+
+  set(record: IdempotencyRecord): void {
+    if (!this.wired) throw idempotencyServerRequired('ServerIdempotencyStore.set')
+    this.map.set(record.storageKey, {
+      ...record,
+      authority: 'server',
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  clearForTests(): void {
+    this.map.clear()
+  }
+}
+
+export function createServerIdempotencyStore(
+  options: ServerIdempotencyStoreOptions = {},
+): ServerIdempotencyStore {
+  return new ServerIdempotencyStore(options)
 }

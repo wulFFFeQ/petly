@@ -65,6 +65,18 @@ export {
 } from './demoSessionAdapter'
 
 export {
+  createServerSecurityContextFromSession,
+  type ServerSessionAdapterInput,
+  type ServerSessionAdapterResult,
+} from './serverSessionAdapter'
+
+export {
+  createAppSecurityContext,
+  type AppSecurityContextResult,
+  type CreateAppSecurityContextInput,
+} from './appSessionAdapter'
+
+export {
   authorize,
   assertAuthorized,
   switchToOrganizationMode,
@@ -152,7 +164,9 @@ export {
   DemoAuditSink,
   createDemoAuditSink,
   DEMO_AUDIT_STORAGE_KEY,
+  ServerAuditSink,
   ServerAuditSinkStub,
+  createServerAuditSink,
   createServerAuditSinkStub,
   filterAuditEvents,
   queryDemoAuditEvents,
@@ -162,3 +176,13 @@ export {
   configureAuthorizationAudit,
   getActiveAuditSink,
 } from './audit'
+
+export {
+  PUBLIC_FORBIDDEN_KEYS,
+  assertPublicProjectionSafe,
+  authorizeMessagingParticipants,
+  authorizePetServer,
+  rejectForgedActorClaim,
+  type ServerAuthorizationDecision,
+  type ServerSecurityAction,
+} from './serverAuthorizeCore'

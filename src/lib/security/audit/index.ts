@@ -32,8 +32,11 @@ export {
   type DemoAuditSinkOptions,
 } from './demoSink'
 export {
+  ServerAuditSink,
   ServerAuditSinkStub,
+  createServerAuditSink,
   createServerAuditSinkStub,
+  type ServerAuditSinkOptions,
 } from './serverSink'
 export {
   filterAuditEvents,

@@ -38,8 +38,11 @@ export {
 } from './store'
 
 export {
+  ServerIdempotencyStore,
   ServerIdempotencyStoreStub,
+  createServerIdempotencyStore,
   createServerIdempotencyStoreStub,
+  type ServerIdempotencyStoreOptions,
 } from './server'
 
 export {

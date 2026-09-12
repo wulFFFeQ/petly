@@ -78,14 +78,17 @@ export {
   assertAdapterAuthority,
   createInMemoryDemoClinicalAdapter,
   createServerClinicalPersistenceStub,
+  createWiredServerClinicalPersistenceAdapter,
   type ClinicalPersistenceAdapter,
   type DemoClinicalStoreHooks,
+  type ServerClinicalPersistenceOptions,
 } from './adapter'
 
 export {
   ClinicalService,
   createClinicalService,
   createDemoClinicalService,
+  createServerClinicalService,
   createServerClinicalServiceStub,
 } from './service'
 
@@ -97,12 +100,10 @@ export {
 } from './share'
 
 export {
-  applyEmergencyWritePatch,
-  assertValidEmergencyWriteInput,
-  EMERGENCY_WRITE_ALLOWED_KEYS,
-  EMERGENCY_WRITE_FORBIDDEN_KEYS,
-  stampEmergencyWriteProvenance,
-  type ClinicalEmergencyWriteInput,
-  type ClinicalEmergencyWritePatch,
-  type EmergencyWriteProvenance,
-} from './emergencyWrite'
+  canUseServerClinicalRemote,
+  serverEmergencyWrite,
+  serverListHealthRecords,
+  serverPrepareDocumentUpload,
+  serverSignedDocumentDownload,
+  serverUpsertHealthRecord,
+} from './serverRemote'
