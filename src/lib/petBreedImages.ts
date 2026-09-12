@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 28
+export const BREED_IMAGE_SYNC_GENERATION = 29
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -120,9 +120,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Československý vlčák': '/breeds/ceskoslovensky-vlcak.jpg?v=1',
   'Český fousek': '/breeds/cesky-fousek.jpg?v=1',
   'Český horský pes': '/breeds/cesky-horsky-pes.jpg?v=2',
-  'Český strakatý pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Český teriér': 'https://images.dog.ceo/breeds/terrier-yorkshire/n02094433_10184.jpg',
-  'Čínský chocholatý pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
+  'Český strakatý pes': '/breeds/cesky-strakaty-pes.jpg?v=1',
+  'Český teriér': '/breeds/cesky-terier.jpg?v=1',
+  'Čínský chocholatý pes': '/breeds/cinsky-chocholaty-pes.jpg?v=1',
   'Čivava': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
   'Čivava dlouhosrstá': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
   'Čivava krátkosrstá': 'https://images.dog.ceo/breeds/chihuahua/n02085620_4814.jpg',
@@ -593,6 +593,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/ceskoslovensky-vlcak',
   'breeds/cesky-fousek',
   'breeds/cesky-horsky-pes',
+  'breeds/cesky-strakaty-pes',
+  'breeds/cesky-terier',
+  'breeds/cinsky-chocholaty-pes',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
