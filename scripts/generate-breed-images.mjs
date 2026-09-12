@@ -45,9 +45,8 @@ const DOG_CURATED_IMAGES = {
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Šeltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
-  // Full-body golden Afghan — clearer silhouette than dog.ceo’s tight face crop.
-  'Afgánský chrt':
-    'https://images.dog.ceo/breeds/hound-afghan/n02088094_3629.jpg',
+  // Local portrait + PetPhotoCard object-top keeps the head on 4:3 cards.
+  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=2',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

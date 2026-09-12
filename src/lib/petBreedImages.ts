@@ -3,7 +3,7 @@ import type { PetType } from './petTypes'
 import { petPlaceholderImages } from './petTypes'
 
 export const DOG_BREED_IMAGES: Record<string, string> = {
-  'Afgánský chrt': 'https://images.dog.ceo/breeds/hound-afghan/n02088094_3629.jpg',
+  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=2',
   'Aidi': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Airedale terier': 'https://images.dog.ceo/breeds/airedale/n02096051_3796.jpg',
   'Akita': 'https://images.dog.ceo/breeds/akita/akita_hiking_in_shpella_e_pellumbasit.jpg',
@@ -466,6 +466,7 @@ const managedBreedDefaultUrls = new Set<string>([
 /** Old wrong defaults (e.g. fluffy cat used for Sphynx) so existing pets can be corrected. */
 const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'images.dog.ceo/',
+  'breeds/afgansky-chrt',
   'photo-1511044568932-338cba0ad803',
   'photo-1513364777861-7528a2401784',
   'photo-1529778873920-4da49237a0b8',

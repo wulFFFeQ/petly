@@ -13,7 +13,7 @@ export function DiscoverProfileHero({ pet }: DiscoverProfileHeroProps) {
   return (
     <Card variant="elevated" padding="none" className="overflow-hidden">
       <div className="relative aspect-[16/10] min-h-[240px] bg-stone-100 sm:aspect-[2/1]">
-        <img src={pet.image} alt={pet.name} className="h-full w-full object-cover" />
+        <img src={pet.image} alt={pet.name} className="h-full w-full object-cover object-top" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 text-white">
           <div className="flex flex-wrap items-center gap-2">
