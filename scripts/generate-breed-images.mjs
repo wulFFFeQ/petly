@@ -29,7 +29,6 @@ const CAT_DEFAULT_COVER = UNSPLASH('photo-1518791841217-8f162f1e1131')
 const DOG_CURATED_IMAGES = {
   'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=3',
   // Reference style: local editorial portrait (4:3, head in frame for object-center cards).
-  'Border kolie': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Beagle: UNSPLASH('photo-1543466835-00a7907e9de1'),
   'Beagle Harrier': UNSPLASH('photo-1543466835-00a7907e9de1'),
   'Labradorský retriever': UNSPLASH('photo-1626808504752-0a423780d6d1'),
@@ -74,6 +73,9 @@ const DOG_CURATED_IMAGES = {
   'Black and Tan Coonhound': '/breeds/black-and-tan-coonhound.jpg?v=1',
   Bloodhound: '/breeds/bloodhound.jpg?v=1',
   Bobtail: '/breeds/bobtail.jpg?v=1',
+  'Boloňský psík': '/breeds/bolonsky-psik.jpg?v=1',
+  'Bordeauxská doga': '/breeds/bordeauxska-doga.jpg?v=1',
+  'Border kolie': '/breeds/border-kolie.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),

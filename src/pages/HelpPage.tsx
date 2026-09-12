@@ -1,4 +1,5 @@
 import { HelpGuidesSection } from '../components/help/HelpGuidesSection'
+import { LaunchScopeSection } from '../components/help/LaunchScopeSection'
 import { PageHeader } from '../components/ui/PageHeader'
 import { BRAND_NAME } from '../lib/brand'
 
@@ -11,6 +12,7 @@ export function HelpPage() {
         title="Nápověda a podpora"
         description={`Jednoduché návody a odpovědi, jak používat ${BRAND_NAME}.`}
       />
+      <LaunchScopeSection />
       <HelpGuidesSection />
     </div>
   )

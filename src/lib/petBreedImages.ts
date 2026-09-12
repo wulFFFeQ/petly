@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 9
+export const BREED_IMAGE_SYNC_GENERATION = 11
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -90,9 +90,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Black and Tan Coonhound': '/breeds/black-and-tan-coonhound.jpg?v=1',
   'Bloodhound': '/breeds/bloodhound.jpg?v=1',
   'Bobtail': '/breeds/bobtail.jpg?v=1',
-  'Boloňský psík': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Bordeauxská doga': 'https://images.dog.ceo/breeds/dane-great/n02109047_31830.jpg',
-  'Border kolie': 'https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?auto=format&fit=crop&w=1200&q=90',
+  'Boloňský psík': '/breeds/bolonsky-psik.jpg?v=1',
+  'Bordeauxská doga': '/breeds/bordeauxska-doga.jpg?v=1',
+  'Border kolie': '/breeds/border-kolie.jpg?v=1',
   'Border terier': 'https://images.dog.ceo/breeds/terrier-border/n02093754_7788.jpg',
   'Bosensko - hercegovinský - chorvatský ovčák': 'https://images.dog.ceo/breeds/german-shepherd/n02106662_13599.jpg',
   'Bosenský hrubosrstý honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
@@ -563,9 +563,14 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/black-and-tan-coonhound',
   'breeds/bloodhound',
   'breeds/bobtail',
+  'breeds/bolonsky-psik',
+  'breeds/bordeauxska-doga',
+  'breeds/border-kolie',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
+  'n02109047_31830',
+  'photo-1503256207526-0d5d80fa2f47',
   'akita_hiking_in_shpella',
   'n02089973_2300',
   'n02102318_2971',
