@@ -41,6 +41,7 @@ import { getEventCategory } from '../lib/calendarEventTypes'
 import {
   getDefaultBreedImage,
   isBreedDefaultImage,
+  BREED_IMAGE_SYNC_GENERATION,
   syncPetBreedDefaultImage,
 } from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
@@ -992,6 +993,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }
+
+  // Re-apply curated breed photo URLs after generation bumps (no manual hard refresh).
+  useEffect(() => {
+    setPets((prev) => {
+      let changed = false
+      const next = prev.map((pet) => {
+        const synced = syncPetBreedDefaultImage(pet)
+        if (synced.image !== pet.image) changed = true
+        return synced
+      })
+      return changed ? next : prev
+    })
+  }, [BREED_IMAGE_SYNC_GENERATION])
 
   useEffect(() => {
     if (!shouldPersistSensitiveLocalStorage()) return

@@ -1,7 +1,10 @@
-# LAUNCH 02 — Backend Migration
+# LAUNCH 02 — Backend Migration (HISTORICAL)
+
+> **Superseded.** Production backend is Node + PostgreSQL + Prisma — see [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md).
+> This document remains as the domain entity→table mapping reference used for the Prisma schema.
 
 **Product:** LOVED & KNOWN  
-**Scope:** Production backend foundation (Supabase Auth + PostgreSQL + Storage + Edge Functions)  
+**Original scope (abandoned):** Supabase Auth + PostgreSQL + Storage + Edge Functions  
 **Rule:** Existing TypeScript domain + K47–K63 contracts are SSOT. No parallel models.
 
 **Environment status:** `PRODUCTION CONNECTION NOT CONFIGURED` until `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (client) and server secrets are present. Missing credentials ⇒ DEMO path remains; no fake backend.
