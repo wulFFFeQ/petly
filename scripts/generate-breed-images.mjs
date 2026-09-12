@@ -38,7 +38,8 @@ const DOG_CURATED_IMAGES = {
   'Francouzský buldoček': UNSPLASH('photo-1583511655857-d19b40a7a54e'),
   'Německý ovčák': UNSPLASH('photo-1589941013453-ec89f33b5e95'),
   'Sibiřský husky': UNSPLASH('photo-1605568427561-40dd23c2acea'),
-  'Aljašský malamut': UNSPLASH('photo-1605568427561-40dd23c2acea'),
+  // Distinct from husky — landscape snow Malamute, full head, brown eyes.
+  'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=1',
   'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
   'Australský honácký pes': UNSPLASH('photo-1769117086709-7507034281fa'),
   'Australský honácký pes s krátkým ocasem': UNSPLASH('photo-1769117086709-7507034281fa'),
@@ -50,6 +51,10 @@ const DOG_CURATED_IMAGES = {
   Rotvajler: UNSPLASH('photo-1567752881298-894bb81f9379'),
   'Welsh Corgi Pembroke': UNSPLASH('photo-1546975490-e8b92a360b24'),
   'Welsh Corgi Cardigan': UNSPLASH('photo-1546975490-e8b92a360b24'),
+  // Japanese Akita Inu — landscape HQ portrait, full head (not dog.ceo hiking snap).
+  Akita: '/breeds/akita.jpg?v=1',
+  // American Akita — full-body landscape stack, head fully in frame (not hiking snap).
+  'Americká akita': '/breeds/americka-akita.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */
