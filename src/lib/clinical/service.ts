@@ -1,7 +1,8 @@
 /**
- * K56/K57/K58/K59/K60 — ClinicalService authority boundary.
+ * K56/K57/K58/K59/K60/K63 — ClinicalService authority boundary.
  *
  * request → trusted SecurityContext → actor → pet → authorize()
+ *   → (K63 idempotency for create side-effects)
  *   → expectedVersion CAS → immutable history → mutate → provenance
  *   → (audit via authorize + optional version metadata)
  *
@@ -9,6 +10,7 @@
  * Uses existing authorize() + clinicalGate helpers — no parallel ACL.
  * K59: PetDocument mutations use documents.read / documents.write.
  * K60: WeightMeasurement list/get + hardened create via health.read/write.
+ * K63: unified idempotency AFTER authorize for duplicate side-effect mutations.
  *
  * DEMO authority simulates versioning; DEMO ≠ production concurrency.
  */
@@ -32,6 +34,12 @@ import {
   stampWeightCreate,
   stripClinicalClientUpdates,
 } from '../health/clinicalProvenance'
+import {
+  createDemoIdempotencyStore,
+  createServerIdempotencyStoreStub,
+  executeIdempotent,
+  type IdempotencyStore,
+} from '../idempotency'
 import {
   assertAuthorized,
   type AuthorizeDeps,
@@ -400,12 +408,18 @@ export class ClinicalService {
   readonly authority: ClinicalAuthority
   private readonly adapter: ClinicalPersistenceAdapter
   private readonly baseDeps: AuthorizeDeps
+  private readonly idempotencyStore: IdempotencyStore
 
   constructor(options: ClinicalServiceOptions) {
     this.authority = options.authority
     this.adapter = options.adapter
     this.baseDeps = options.deps ?? {}
     assertAdapterAuthority(options.authority, options.adapter)
+    this.idempotencyStore =
+      options.idempotencyStore ??
+      (options.authority === 'server'
+        ? createServerIdempotencyStoreStub()
+        : createDemoIdempotencyStore())
   }
 
   private deps(pets?: Pet[]): AuthorizeDeps {
@@ -413,6 +427,39 @@ export class ClinicalService {
       pets,
       deps: this.baseDeps,
     })
+  }
+
+  /**
+   * K63 — after authorize only. Without client key → passthrough.
+   * Never returns another actor's stored result (store key includes actor).
+   */
+  private runIdempotentMutation<T>(input: {
+    context: SecurityContext
+    operation: string
+    resourceRef: string
+    clientKey?: string
+    fingerprintPayload: unknown
+    run: () => T
+  }): T {
+    const actorId = actorAccountId(input.context)
+    if (!actorId) {
+      throw new ClinicalError('UNAUTHENTICATED', 'Authentication required', 'unauthenticated')
+    }
+    try {
+      return executeIdempotent({
+        store: this.idempotencyStore,
+        scope: {
+          actorAccountId: actorId,
+          operation: input.operation,
+          resourceRef: input.resourceRef,
+        },
+        clientKey: input.clientKey,
+        fingerprintPayload: input.fingerprintPayload,
+        run: input.run,
+      }).value
+    } catch (err) {
+      rethrowAsClinical(err)
+    }
   }
 
   private ensureDemoOrServerReady(operation: string): void {
@@ -631,57 +678,83 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
 
-    const provenance = stampNewClinicalRecord(req.context, pet)
-    const typeTitle: Record<HealthRecord['type'], string> = {
-      vaccination: 'Očkování',
-      vet: 'Návštěva veterináře',
-      medication: 'Léky',
-      examination: 'Vyšetření',
-      assessment: 'Zdravotní přehled',
-    }
+    return this.runIdempotentMutation({
+      context: req.context,
+      operation: 'clinical.createRecord',
+      resourceRef: `pet:${input.petId.trim()}`,
+      clientKey: req.idempotencyKey,
+      fingerprintPayload: {
+        petId: input.petId.trim(),
+        type: input.type,
+        title: input.title.trim(),
+        subtitle: input.subtitle?.trim() || undefined,
+        date: input.date,
+        doctor: input.doctor?.trim() || undefined,
+        clinic: input.clinic?.trim() || undefined,
+        status: input.status,
+        vaccineName: input.vaccineName,
+        dosage: input.dosage,
+        scheduleTime: input.scheduleTime,
+        reminderDays: input.reminderDays,
+        reminderEnabled: input.reminderEnabled,
+        notes: input.notes,
+        encounterId: input.encounterId?.trim() || undefined,
+        recordId: req.recordId,
+      },
+      run: () => {
+        const provenance = stampNewClinicalRecord(req.context, pet)
+        const typeTitle: Record<HealthRecord['type'], string> = {
+          vaccination: 'Očkování',
+          vet: 'Návštěva veterináře',
+          medication: 'Léky',
+          examination: 'Vyšetření',
+          assessment: 'Zdravotní přehled',
+        }
 
-    let encounterId: string | undefined
-    if (input.encounterId?.trim()) {
-      const enc = this.adapter.findEncounter(input.encounterId.trim())
-      if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
-        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
-      }
-      encounterId = enc.id
-    }
+        let encounterId: string | undefined
+        if (input.encounterId?.trim()) {
+          const enc = this.adapter.findEncounter(input.encounterId.trim())
+          if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
+            throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+          }
+          encounterId = enc.id
+        }
 
-    const record: HealthRecord = {
-      id: req.recordId ?? `hr_${Date.now()}`,
-      petId: input.petId,
-      type: input.type,
-      title: typeTitle[input.type],
-      subtitle: input.subtitle?.trim() || input.title.trim(),
-      date: input.date,
-      doctor: input.doctor?.trim() || undefined,
-      clinic: input.clinic?.trim() || undefined,
-      status: input.status,
-      vaccineName: input.vaccineName,
-      dosage: input.dosage,
-      scheduleTime: input.scheduleTime,
-      reminderDays: input.reminderDays,
-      reminderEnabled: input.reminderEnabled,
-      notes: input.notes,
-      encounterId,
-      ...provenance,
-      version: 1,
-    }
+        const record: HealthRecord = {
+          id: req.recordId ?? `hr_${Date.now()}`,
+          petId: input.petId,
+          type: input.type,
+          title: typeTitle[input.type],
+          subtitle: input.subtitle?.trim() || input.title.trim(),
+          date: input.date,
+          doctor: input.doctor?.trim() || undefined,
+          clinic: input.clinic?.trim() || undefined,
+          status: input.status,
+          vaccineName: input.vaccineName,
+          dosage: input.dosage,
+          scheduleTime: input.scheduleTime,
+          reminderDays: input.reminderDays,
+          reminderEnabled: input.reminderEnabled,
+          notes: input.notes,
+          encounterId,
+          ...provenance,
+          version: 1,
+        }
 
-    this.adapter.setHealthRecords([record, ...this.adapter.getHealthRecords()])
-    this.adapter.appendHealthRecordVersion(freezeSnapshot(record, 'create'))
-    emitVersionTransitionAudit(req.context, writeAction, input.petId, 0, 1)
+        this.adapter.setHealthRecords([record, ...this.adapter.getHealthRecords()])
+        this.adapter.appendHealthRecordVersion(freezeSnapshot(record, 'create'))
+        emitVersionTransitionAudit(req.context, writeAction, input.petId, 0, 1)
 
-    return {
-      ok: true,
-      authority: this.authority,
-      data: record,
-      authorizationAction: writeAction,
-      previousVersion: 0,
-      newVersion: 1,
-    }
+        return {
+          ok: true as const,
+          authority: this.authority,
+          data: record,
+          authorizationAction: writeAction,
+          previousVersion: 0,
+          newVersion: 1,
+        }
+      },
+    })
   }
 
   updateRecord(
@@ -964,34 +1037,50 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
 
-    // Provenance / version / recordSource come only from stampWeightCreate (trusted actor).
-    // Never accept client-supplied createdBy* / recordSource / version.
-    const entry = stampWeightCreate(req.context, pet, {
-      id: req.input.id.trim(),
-      petId: req.input.petId.trim(),
-      date: req.input.date.trim(),
-      weight: req.input.weight,
-      note: req.input.note,
+    return this.runIdempotentMutation({
+      context: req.context,
+      operation: 'clinical.createWeightMeasurement',
+      resourceRef: `pet:${req.input.petId.trim()}`,
+      clientKey: req.idempotencyKey,
+      fingerprintPayload: {
+        petId: req.input.petId.trim(),
+        id: req.input.id.trim(),
+        date: req.input.date.trim(),
+        weight: req.input.weight,
+        note: req.input.note,
+        encounterId: req.input.encounterId?.trim() || undefined,
+      },
+      run: () => {
+        // Provenance / version / recordSource come only from stampWeightCreate (trusted actor).
+        // Never accept client-supplied createdBy* / recordSource / version.
+        const entry = stampWeightCreate(req.context, pet, {
+          id: req.input.id.trim(),
+          petId: req.input.petId.trim(),
+          date: req.input.date.trim(),
+          weight: req.input.weight,
+          note: req.input.note,
+        })
+
+        if (req.input.encounterId?.trim()) {
+          const enc = this.adapter.findEncounter(req.input.encounterId.trim())
+          if (!enc || enc.petId !== req.input.petId || isEncounterWithdrawn(enc)) {
+            throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+          }
+          entry.encounterId = enc.id
+        }
+
+        this.adapter.persistWeightMeasurement(entry)
+
+        return {
+          ok: true as const,
+          authority: this.authority,
+          data: entry,
+          authorizationAction: 'health.write' as SecurityAction,
+          previousVersion: 0,
+          newVersion: 1,
+        }
+      },
     })
-
-    if (req.input.encounterId?.trim()) {
-      const enc = this.adapter.findEncounter(req.input.encounterId.trim())
-      if (!enc || enc.petId !== req.input.petId || isEncounterWithdrawn(enc)) {
-        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
-      }
-      entry.encounterId = enc.id
-    }
-
-    this.adapter.persistWeightMeasurement(entry)
-
-    return {
-      ok: true,
-      authority: this.authority,
-      data: entry,
-      authorizationAction: 'health.write',
-      previousVersion: 0,
-      newVersion: 1,
-    }
   }
 
   /** Contract only — never fake finalize success. */
@@ -1091,37 +1180,49 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
 
-    const emergencyCard = applyEmergencyWritePatch(pet, patch)
-    const provenance = stampEmergencyWriteProvenance(req.context)
+    return this.runIdempotentMutation({
+      context: req.context,
+      operation: 'clinical.emergencyWrite',
+      resourceRef: `pet:${req.input.petId.trim()}`,
+      clientKey: req.idempotencyKey,
+      fingerprintPayload: {
+        petId: req.input.petId.trim(),
+        patch,
+      },
+      run: () => {
+        const emergencyCard = applyEmergencyWritePatch(pet, patch)
+        const provenance = stampEmergencyWriteProvenance(req.context)
 
-    // Extra scrubbed audit for workflow phase (K48 only — not EmergencyAudit).
-    emitAuthorizationAudit({
-      actorAccountId: actorId,
-      actorKind: req.context.actor.kind,
-      resourceType: 'pet',
-      resourceId: pet.id,
-      organizationId: req.context.organization?.organizationId,
-      professionalId: req.context.professional?.professionalProfileId,
-      membershipId: req.context.organization?.membershipId,
-      action: 'clinical.emergency.write',
-      authorizationResult: 'allow',
-      permission: 'clinical.emergency.write',
-      correlationId: req.context.correlationId,
-      channel: req.context.channel,
-      authority: req.context.authority,
-      metadata: {
-        workflow: 'clinical_emergency_write',
-        phase: 'mutated',
-        updatedAt: provenance.updatedAt,
+        // Extra scrubbed audit for workflow phase (K48 only — not EmergencyAudit).
+        emitAuthorizationAudit({
+          actorAccountId: actorId,
+          actorKind: req.context.actor.kind,
+          resourceType: 'pet',
+          resourceId: pet.id,
+          organizationId: req.context.organization?.organizationId,
+          professionalId: req.context.professional?.professionalProfileId,
+          membershipId: req.context.organization?.membershipId,
+          action: 'clinical.emergency.write',
+          authorizationResult: 'allow',
+          permission: 'clinical.emergency.write',
+          correlationId: req.context.correlationId,
+          channel: req.context.channel,
+          authority: req.context.authority,
+          metadata: {
+            workflow: 'clinical_emergency_write',
+            phase: 'mutated',
+            updatedAt: provenance.updatedAt,
+          },
+        })
+
+        return {
+          ok: true as const,
+          authority: this.authority,
+          data: emergencyCard,
+          authorizationAction: 'clinical.emergency.write' as SecurityAction,
+        }
       },
     })
-
-    return {
-      ok: true,
-      authority: this.authority,
-      data: emergencyCard,
-      authorizationAction: 'clinical.emergency.write',
-    }
   }
 
   // ─── K58 Clinical Encounter ─────────────────────────────────────────────
@@ -1927,70 +2028,97 @@ export class ClinicalService {
       req.claimedActorAccountId,
     )
 
-    let encounterId: string | undefined
-    if (input.encounterId?.trim()) {
-      const enc = this.adapter.findEncounter(input.encounterId.trim())
-      if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
-        throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
-      }
-      encounterId = enc.id
-    }
+    return this.runIdempotentMutation({
+      context: req.context,
+      operation: 'clinical.createDocument',
+      resourceRef: `pet:${input.petId.trim()}`,
+      clientKey: req.idempotencyKey,
+      fingerprintPayload: {
+        petId: input.petId.trim(),
+        name: input.name.trim(),
+        category: input.category,
+        documentType: input.documentType,
+        fileName: input.fileName.trim(),
+        fileSizeBytes: input.fileSizeBytes,
+        size: input.size,
+        mimeType: input.mimeType,
+        storageKey: input.storageKey,
+        url: input.storageKey ? undefined : input.url,
+        issuedAt: input.issuedAt,
+        expiresAt: input.expiresAt,
+        notes: input.notes?.trim() || undefined,
+        reminderEnabled: input.reminderEnabled,
+        reminderOffsetsDays: input.reminderOffsetsDays,
+        encounterId: input.encounterId?.trim() || undefined,
+        documentId: req.documentId,
+      },
+      run: () => {
+        let encounterId: string | undefined
+        if (input.encounterId?.trim()) {
+          const enc = this.adapter.findEncounter(input.encounterId.trim())
+          if (!enc || enc.petId !== input.petId || isEncounterWithdrawn(enc)) {
+            throw new ClinicalError('NOT_FOUND', 'Resource not found', 'not_found')
+          }
+          encounterId = enc.id
+        }
 
-    const provenance = stampNewClinicalRecord(req.context, pet)
-    const id =
-      req.documentId ?? `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const provenance = stampNewClinicalRecord(req.context, pet)
+        const id =
+          req.documentId ?? `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-    const document: PetDocument = {
-      id,
-      petId: input.petId,
-      name: input.name.trim(),
-      category: input.category,
-      documentType: input.documentType,
-      fileName: input.fileName.trim(),
-      fileSizeBytes: input.fileSizeBytes,
-      size: input.size,
-      mimeType: input.mimeType,
-      uploadedAt: provenance.createdAt,
-      updatedAt: provenance.updatedAt,
-      uploadedByAccountId: provenance.createdByAccountId,
-      updatedByAccountId: provenance.updatedByAccountId,
-      recordSource: provenance.recordSource,
-      lifecycleStatus: 'active',
-      version: 1,
-      encounterId,
-      issuedAt: input.issuedAt || undefined,
-      expiresAt: input.expiresAt || undefined,
-      notes: input.notes?.trim() || undefined,
-      storageKey: input.storageKey,
-      url: input.storageKey ? undefined : input.url,
-      isPublic: false,
-      reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
-      reminderOffsetsDays:
-        input.reminderEnabled && input.expiresAt
-          ? input.reminderOffsetsDays?.filter((d) => d > 0)
-          : undefined,
-    }
+        const document: PetDocument = {
+          id,
+          petId: input.petId,
+          name: input.name.trim(),
+          category: input.category,
+          documentType: input.documentType,
+          fileName: input.fileName.trim(),
+          fileSizeBytes: input.fileSizeBytes,
+          size: input.size,
+          mimeType: input.mimeType,
+          uploadedAt: provenance.createdAt,
+          updatedAt: provenance.updatedAt,
+          uploadedByAccountId: provenance.createdByAccountId,
+          updatedByAccountId: provenance.updatedByAccountId,
+          recordSource: provenance.recordSource,
+          lifecycleStatus: 'active',
+          version: 1,
+          encounterId,
+          issuedAt: input.issuedAt || undefined,
+          expiresAt: input.expiresAt || undefined,
+          notes: input.notes?.trim() || undefined,
+          storageKey: input.storageKey,
+          url: input.storageKey ? undefined : input.url,
+          isPublic: false,
+          reminderEnabled: Boolean(input.reminderEnabled && input.expiresAt),
+          reminderOffsetsDays:
+            input.reminderEnabled && input.expiresAt
+              ? input.reminderOffsetsDays?.filter((d) => d > 0)
+              : undefined,
+        }
 
-    this.adapter.setDocuments([document, ...this.adapter.getDocuments()])
-    this.adapter.appendDocumentVersion(freezeDocumentSnapshot(document, 'create'))
-    emitVersionTransitionAudit(
-      req.context,
-      'documents.write',
-      input.petId,
-      0,
-      1,
-      'document',
-      document.id,
-    )
+        this.adapter.setDocuments([document, ...this.adapter.getDocuments()])
+        this.adapter.appendDocumentVersion(freezeDocumentSnapshot(document, 'create'))
+        emitVersionTransitionAudit(
+          req.context,
+          'documents.write',
+          input.petId,
+          0,
+          1,
+          'document',
+          document.id,
+        )
 
-    return {
-      ok: true,
-      authority: this.authority,
-      data: document,
-      authorizationAction: 'documents.write',
-      previousVersion: 0,
-      newVersion: 1,
-    }
+        return {
+          ok: true as const,
+          authority: this.authority,
+          data: document,
+          authorizationAction: 'documents.write' as SecurityAction,
+          previousVersion: 0,
+          newVersion: 1,
+        }
+      },
+    })
   }
 
   updateDocument(

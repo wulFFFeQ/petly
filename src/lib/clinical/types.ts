@@ -122,6 +122,11 @@ export type ClinicalRequestBase = {
    */
   expectedVersion?: number
   /**
+   * K63 — optional client idempotency key for duplicate side-effect mutations.
+   * Scoped by trusted actor + operation + resource. Never bypasses authorize().
+   */
+  idempotencyKey?: string
+  /**
    * Forbidden auth shortcuts — if set, service DENY (not used as access).
    */
   bookingId?: string
@@ -289,6 +294,11 @@ export type ClinicalServiceOptions = {
    * if caller passes incomplete session — prefer explicit context.
    */
   allowDemoSession?: boolean
+  /**
+   * K63 — unified idempotency store.
+   * DEMO default when omitted; server stub throws SERVER_REQUIRED.
+   */
+  idempotencyStore?: import('../idempotency').IdempotencyStore
 }
 
 export type ClinicalAudit = {

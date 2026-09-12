@@ -63,10 +63,12 @@ const DOG_CURATED_IMAGES = {
   'Americká akita': '/breeds/americka-akita.jpg?v=2',
   // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).
   'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
-  // American Foxhound — outdoor head portrait (HQ bokeh; not indoor show-floor).
-  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=2',
-  // American Hairless Terrier — HQ portrait, full head (not Yorkshire mislabel).
-  'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
+  // American Foxhound — tricolor editorial on golden bokeh.
+  'Americký foxhound': '/breeds/americky-foxhound.jpg?v=4',
+  // American Hairless Terrier — dark skin on golden bokeh (not Yorkshire mislabel).
+  'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=2',
+  // American Bulldog — patched athletic bulldog on dark bokeh (distinct from Dogo).
+  'Americký buldok': '/breeds/americky-buldok.jpg?v=2',
   // American Water Spaniel — editorial portrait (not Welsh Springer dog.ceo).
   'Americký vodní španěl': '/breeds/americky-vodni-spanel.jpg?v=1',
   // American Staffordshire Terrier — outdoor HQ portrait (not puppy gate snap).
@@ -96,7 +98,7 @@ const DOG_CURATED_IMAGES = {
   // Basset artésien normand — editorial basset portrait (not nose crop).
   'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
   // Chien d'Artois — tricolor French hound portrait (not basset nose crop).
-  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=2',
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=3',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

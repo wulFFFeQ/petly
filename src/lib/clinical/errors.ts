@@ -5,6 +5,10 @@
  */
 
 import {
+  IdempotencyError,
+  isIdempotencyError,
+} from '../idempotency'
+import {
   AuthorizationError,
   isAuthorizationError,
 } from '../security/errors'
@@ -21,6 +25,8 @@ export type ClinicalErrorCode =
   | 'INVALID_RESOURCE'
   | 'INVALID_DOCUMENT'
   | 'INVALID_ENCOUNTER_TRANSITION'
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'IDEMPOTENCY_IN_PROGRESS'
   | 'SERVER_REQUIRED'
   | 'NOT_IMPLEMENTED'
 
@@ -79,9 +85,24 @@ export function clinicalErrorFromAuthorization(err: AuthorizationError): Clinica
   return new ClinicalError('FORBIDDEN', 'Not authorized', err.denyClass ?? 'forbidden')
 }
 
+/** Map K63 IdempotencyError → ClinicalError (no data leak expansion). */
+export function clinicalErrorFromIdempotency(err: IdempotencyError): ClinicalError {
+  if (err.code === 'IDEMPOTENCY_CONFLICT') {
+    return new ClinicalError('IDEMPOTENCY_CONFLICT', err.message)
+  }
+  if (err.code === 'IDEMPOTENCY_IN_PROGRESS') {
+    return new ClinicalError('IDEMPOTENCY_IN_PROGRESS', err.message)
+  }
+  if (err.code === 'SERVER_REQUIRED') {
+    return new ClinicalError('SERVER_REQUIRED', err.message)
+  }
+  return new ClinicalError('INVALID_RESOURCE', err.message)
+}
+
 export function rethrowAsClinical(err: unknown): never {
   if (isClinicalError(err)) throw err
   if (isAuthorizationError(err)) throw clinicalErrorFromAuthorization(err)
+  if (isIdempotencyError(err)) throw clinicalErrorFromIdempotency(err)
   throw err
 }
 
