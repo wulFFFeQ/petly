@@ -53,12 +53,12 @@ Správcem osobních údajů je:
 ## 5. DEMO vs produkční uložení
 
 - **DEMO (současný stav):** údaje mohou být uloženy lokálně v prohlížeči (localStorage / IndexedDB). Nejde o produkční multi-user autoritu.  
-- **Produkce (plán):** server (Fastify), PostgreSQL, privátní object storage; session přes HTTP-only cookies. Hosting: Railway.  
+- **Produkce (plán):** server (Fastify), PostgreSQL, privátní object storage; session přes HTTP-only cookies. Hosting: **Vedos VPS**.  
 Podrobnosti: `docs/NODE-PRISMA-BACKEND.md`, `docs/LAUNCH-04-OPS-LEGAL.md`.
 
 ## 6. Příjemci a zpracovatelé
 
-- Hosting a infrastruktura: **Railway** (a případní sub-processoři).  
+- Hosting a infrastruktura: **Vedos VPS** (a případní sub-processoři / object storage).  
 - Úložiště dokumentů: S3-compatible poskytovatel `[TODO: název]`.  
 - Platby (po zapnutí): **Stripe** — platební údaje dle podmínek Stripe.  
 - Profesionálové a členové domácnosti: jen v rozsahu **explicitních grantů** uživatele.  

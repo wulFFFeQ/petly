@@ -2,10 +2,10 @@
 
 **Produkt:** LOVED & KNOWN  
 **Účel:** Ops / business checklist před produkcí (ne technický audit).  
-**Hosting rozhodnutí:** Railway  
+**Hosting rozhodnutí:** Vedos VPS (Railway ne)  
 **V aplikaci (draft):** [`/privacy`](/privacy), [`/terms`](/terms) — Nápověda → odkazy  
 **Šablony pro counsel:** [`docs/legal/`](./legal/) (brief + Privacy + Terms CZ)  
-**Související:** [LAUNCH-01-SCOPE.md](./LAUNCH-01-SCOPE.md) · [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md) · [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md)
+**Související:** [LAUNCH-01-SCOPE.md](./LAUNCH-01-SCOPE.md) · [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md) · [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md) · [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md)
 
 ---
 
@@ -16,30 +16,31 @@
 | Produkční URL (apex) | `[TODO: např. lovedandknown.cz]` |
 | WWW / redirect | `[TODO: www → apex nebo naopak]` |
 | Registrátor DNS | `[TODO]` |
-| DNS záznamy (CNAME/A → Railway) | `[TODO po vytvoření Railway projektu]` |
+| DNS záznamy (A/AAAA → Vedos VPS) | `[TODO po přidělení IP]` |
 | Support e-mail na doméně | `[TODO: např. support@…]` |
 
 **Poznámka:** GitHub Pages (`/petly/`) zůstává jen **DEMO / marketing**. Produkční app + API neběží na Pages.
 
 ---
 
-## 2. Hosting — Railway
+## 2. Hosting — Vedos VPS
 
-**Rozhodnutí:** produkční stack na **Railway** (web + Fastify API + Postgres).
+**Rozhodnutí:** produkční stack na **Vedos VPS** (web + Fastify API + Postgres na VPS). **Railway nepoužíváme.**
 
 | Služba | Stav |
 |--------|------|
-| Web (Vite build / static nebo Node serve) | `[TODO: Railway service]` |
-| API (Fastify, `server/`) | `[TODO: Railway service]` |
-| PostgreSQL | Runbook [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md); plugin `[TODO: Railway project URL]` |
-| Object storage (S3-compatible, dokumenty) | `[TODO: bucket + klíče; upload disabled do malware scanneru]` |
+| Web (Vite build / Node + reverse proxy) | `[TODO: Vedos VPS]` |
+| API (Fastify, `server/`) | `[TODO: stejný VPS]` |
+| PostgreSQL | Self-hosted na VPS — [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md); `[TODO: hostname]` |
+| Zálohy | Vedos interní denní / externí týdenní (doplňková služba) + `pg_dump` |
+| Object storage (S3-compatible, dokumenty) | `[TODO: bucket nebo disk na VPS; upload disabled do malware scanneru]` |
 | `ALLOWED_ORIGINS` | `[TODO: produkční URL]` |
-| `DATABASE_URL` / `SESSION_SECRET` | `[TODO: Railway secrets — nikdy VITE_]` |
+| `DATABASE_URL` / `SESSION_SECRET` | `[TODO: env na VPS — nikdy VITE_]` |
 
 **Proč ne GitHub Pages pro produkci:** žádné serverové auth, DB, cookies, webhooks.  
-**Proč ne teď Fly/VPS:** Railway = nejrychlejší shoda s Node+Prisma plánem; změna později možná, ale jedna cesta teď.
+**Proč ne Railway:** provoz na vlastním Vedos VPS se provider zálohami (ověřeno v [VEDOS KB](https://kb.vedos.cz/vps-ssd-doplnkove-sluzby/)).
 
-Živé Stripe / Connect = **post-launch** (viz LAUNCH-01). Deploy Railway ≠ zapnutí plateb.
+Živé Stripe / Connect = **post-launch** (viz LAUNCH-01). Deploy VPS ≠ zapnutí plateb.
 
 ---
 
@@ -83,6 +84,6 @@ Vyplň před Stripe Account / Connect onboarding. Agent **nevymýšlí** IČO.
 ## 5. Pořadí prací (stručně)
 
 1. Vyplnit doménu + firmu (tabulky výše).  
-2. Railway: Postgres + API + web + secrets (Postgres: LAUNCH-06).  
+2. Vedos VPS: Postgres + API + web + secrets + Vedos zálohy (Postgres: LAUNCH-06).  
 3. Schválit Privacy/Terms (šablony v `docs/legal/` → nahradit placeholdery, counsel sign-off, pak sundat NÁVRH v app).  
 4. Až potom: Stripe live + webhooks (ne dřív).

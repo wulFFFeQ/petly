@@ -40,7 +40,8 @@ Typ „klinika“ / „útulek“ v katalogu = **označení profilu**, ne instit
 ## 4. Technický stav (relevantní pro Privacy)
 
 - Dnes: **high-fidelity DEMO** — většina dat v prohlížeči (localStorage / IndexedDB).
-- Cíl produkce: Node (Fastify) + PostgreSQL + session cookies; hosting **Railway**; dokumenty v private S3-compatible storage.
+- Cíl produkce: Node (Fastify) + PostgreSQL + session cookies; hosting **Vedos VPS** (Railway ne); dokumenty v private S3-compatible storage nebo disk na VPS.  
+- Zálohy: Vedos interní denní / externí týdenní (doplňková služba) + aplikace `pg_dump`.
 - Auth, serverová autorita a GDPR export/erase enginy = před ostrým multi-user provozem.
 - Cookie banner / marketing cookies = **mimo** aktuální šablonu (jen zmínka nezbytných session cookies).
 
@@ -48,5 +49,5 @@ Typ „klinika“ / „útulek“ v katalogu = **označení profilu**, ne instit
 
 1. Firemní identifikace ve všech `[TODO]`.
 2. Právní základy GDPR (čl. 6) u jednotlivých účelů.
-3. Retence, mezinárodní předání (pokud Railway/Stripe/US), DPO ano/ne.
+3. Retence, mezinárodní předání (pokud Stripe/US sub-processoři; Vedos = CZ/EU), DPO ano/ne.
 4. Finální znění Privacy + Terms; až pak odstranit badge NÁVRH v app (`/privacy`, `/terms`).

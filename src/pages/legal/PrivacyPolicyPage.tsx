@@ -19,11 +19,11 @@ const SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: '4. DEMO vs produkce',
-    body: `V DEMO režimu ${BRAND_NAME} ukládá většinu dat lokálně v prohlížeči (localStorage / IndexedDB). Produkční plán: server, PostgreSQL, privátní úložiště dokumentů, session cookies (Railway).`,
+    body: `V DEMO režimu ${BRAND_NAME} ukládá většinu dat lokálně v prohlížeči (localStorage / IndexedDB). Produkční plán: server, PostgreSQL, privátní úložiště dokumentů, session cookies (Vedos VPS).`,
   },
   {
     title: '5. Příjemci',
-    body: 'Hosting (Railway), úložiště dokumentů, později Stripe. Profesionálové a domácnost jen po explicitním grantu. Ne EMR klinik/útulků. Ne P2P převody mezi lidmi.',
+    body: 'Hosting (Vedos VPS), úložiště dokumentů, později Stripe. Profesionálové a domácnost jen po explicitním grantu. Ne EMR klinik/útulků. Ne P2P převody mezi lidmi.',
   },
   {
     title: '6. Předání mimo EHP',

@@ -27,15 +27,15 @@ npm run dev
 
 Client: set `VITE_API_BASE_URL=http://localhost:3001` in `.env.local`.
 
-## Production Postgres (Railway)
+## Production Postgres (Vedos VPS)
 
-Managed PostgreSQL + backups runbook: [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md).
+Self-hosted PostgreSQL + Vedos provider backups + `pg_dump`: [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md). Railway is not used.
 
 ```bash
-# Against Railway DATABASE_URL (never commit secrets)
+# Against VPS DATABASE_URL (never commit secrets)
 cd server && npx prisma migrate deploy
 
-# Weekly offsite dump (pg_dump on PATH)
+# Weekly/daily dump (pg_dump on PATH)
 DATABASE_URL=postgresql://... npm run db:backup
 ```
 
