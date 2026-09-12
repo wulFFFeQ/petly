@@ -5,9 +5,9 @@ import { petPlaceholderImages } from './petTypes'
 
 export const DOG_BREED_IMAGES: Record<string, string> = {
   'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=3',
-  'Aidi': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Airedale terier': 'https://images.dog.ceo/breeds/airedale/n02096051_3796.jpg',
-  'Akita': '/breeds/akita.jpg?v=1',
+  'Aidi': '/breeds/aidi.jpg?v=1',
+  'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
+  'Akita': '/breeds/akita.jpg?v=2',
   'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=1',
   'Alpský jezevčíkovitý brakýř': 'https://images.dog.ceo/breeds/dachshund/dog-495122_640.jpg',
   'Americká akita': '/breeds/americka-akita.jpg?v=1',
@@ -468,6 +468,8 @@ const managedBreedDefaultUrls = new Set<string>([
 const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'images.dog.ceo/',
   'breeds/afgansky-chrt',
+  'breeds/aidi',
+  'breeds/airedale-terier',
   'breeds/akita',
   'breeds/americka-akita',
   'breeds/aljasky-malamut',
@@ -517,6 +519,7 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'n02106382_4034',
   'n02109047_31830',
   'n02100236_5146',
+  'n02096051_3796',
 ] as const
 
 const managedUnsplashPhotoIds = new Set(

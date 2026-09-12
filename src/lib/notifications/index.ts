@@ -82,6 +82,13 @@ export {
   type MessageReceivedContext,
 } from './fromMessaging'
 export {
+  buildClinicalShareReceivedNotification,
+  emitClinicalShareReceivedNotification,
+  isSafeClinicalShareNotificationPayload,
+  clinicalShareDedupeKey,
+  type ClinicalShareReceivedContext,
+} from './fromClinicalShare'
+export {
   buildPaymentNotification,
   emitPaymentNotification,
   isSafePaymentNotificationPayload,

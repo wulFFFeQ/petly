@@ -7,6 +7,8 @@ export {
 export {
   isSafeMessagingPayload,
   assertMessagingPayloadSafe,
+  assertClinicalShareAttachmentSafe,
+  isClinicalShareAttachment,
 } from './privacy'
 
 export {
@@ -45,6 +47,7 @@ export {
   openBookingConversationRequest,
   openProfessionalConversationRequest,
   sendMessageRequest,
+  sendClinicalShareRequest,
   markConversationReadRequest,
   accessConversationRequest,
   type MessagingUpsertNotification,

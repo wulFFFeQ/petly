@@ -3,9 +3,15 @@
  */
 
 import {
+  emitClinicalShareReceivedNotification,
   emitMessageReceivedNotification,
   type NotificationDraft,
 } from '../notifications'
+import {
+  createClinicalShare,
+  type CreateClinicalShareInput,
+  type ClinicalShareResult,
+} from '../clinical/share'
 import {
   getOrCreateBookingConversation,
   getOrCreateProfessionalConversation,
@@ -35,6 +41,23 @@ export function openProfessionalConversationRequest(
     callerAccountId,
     preferActiveBooking: true,
   })
+}
+
+function resolveShareNotificationMeta(
+  conversation: Conversation,
+  senderAccountId: string,
+  recipientAccountId: string,
+): {
+  recipientIsProfessional: boolean
+} {
+  const professional = conversation.professionalId
+    ? loadProfessionalProfiles().find((p) => p.id === conversation.professionalId)
+    : null
+  return {
+    recipientIsProfessional: Boolean(
+      professional && professional.accountId === recipientAccountId,
+    ),
+  }
 }
 
 export function sendMessageRequest(
@@ -78,6 +101,37 @@ export function sendMessageRequest(
       recipientIsProfessional: Boolean(
         professional && professional.accountId === recipientAccountId,
       ),
+    })
+  }
+
+  return result
+}
+
+/**
+ * K61 — clinical share via existing Messages transport.
+ * Notification contains no clinical payload.
+ */
+export function sendClinicalShareRequest(
+  input: CreateClinicalShareInput,
+  opts?: { upsertNotification?: MessagingUpsertNotification },
+): MessagingResult<ClinicalShareResult> {
+  const result = createClinicalShare(input)
+  if (!result.ok) return result
+
+  const { conversation, message, recipientAccountId } = result.data
+  if (opts?.upsertNotification && recipientAccountId) {
+    const meta = resolveShareNotificationMeta(
+      conversation,
+      input.context.actor.kind === 'account' ? input.context.actor.accountId : '',
+      recipientAccountId,
+    )
+    emitClinicalShareReceivedNotification(opts.upsertNotification, {
+      messageId: message.id,
+      conversationId: conversation.id,
+      recipientAccountId,
+      bookingId: conversation.bookingId,
+      professionalId: conversation.professionalId,
+      recipientIsProfessional: meta.recipientIsProfessional,
     })
   }
 

@@ -51,8 +51,12 @@ const DOG_CURATED_IMAGES = {
   Rotvajler: UNSPLASH('photo-1567752881298-894bb81f9379'),
   'Welsh Corgi Pembroke': UNSPLASH('photo-1546975490-e8b92a360b24'),
   'Welsh Corgi Cardigan': UNSPLASH('photo-1546975490-e8b92a360b24'),
-  // Japanese Akita Inu — landscape HQ portrait, full head (not dog.ceo hiking snap).
-  Akita: '/breeds/akita.jpg?v=1',
+  // Aidi — white Atlas dog on dark bokeh (not fluffy mix snap).
+  Aidi: '/breeds/aidi.jpg?v=1',
+  // Airedale — wiry terrier on golden bokeh (not couch duo snap).
+  'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
+  // Japanese Akita Inu — editorial portrait on dark bokeh (not beach full-body).
+  Akita: '/breeds/akita.jpg?v=2',
   // American Akita — full-body landscape stack, head fully in frame (not hiking snap).
   'Americká akita': '/breeds/americka-akita.jpg?v=1',
   // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).

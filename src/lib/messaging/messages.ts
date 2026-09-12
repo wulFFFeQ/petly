@@ -1,5 +1,9 @@
-import type { Conversation, Message } from '../../types'
-import { assertMessagingPayloadSafe } from './privacy'
+import type { ClinicalShareAttachment, Conversation, Message } from '../../types'
+import {
+  assertClinicalShareAttachmentSafe,
+  assertMessagingPayloadSafe,
+  isClinicalShareAttachment,
+} from './privacy'
 import {
   canAccessConversation,
   type MessagingErrorCode,
@@ -24,16 +28,31 @@ export type SendMessageResult = {
 }
 
 /**
- * Send a text message in an account-based conversation.
- * Does not mutate booking state.
+ * Send a text message (optional clinical_share attachment) in an account conversation.
+ * Does not mutate booking state. Does not grant clinical access.
  */
 export function sendMessage(input: {
   conversationId: string
   senderAccountId: string
   text: string
+  attachment?: ClinicalShareAttachment
 }): MessagingResult<SendMessageResult> {
   const text = input.text.trim()
-  if (!text) return fail('invalid', 'Zpráva nesmí být prázdná')
+  const hasAttachment = Boolean(input.attachment)
+  if (!text && !hasAttachment) {
+    return fail('invalid', 'Zpráva nesmí být prázdná')
+  }
+
+  if (input.attachment) {
+    try {
+      assertClinicalShareAttachmentSafe(input.attachment)
+    } catch (err) {
+      return fail(
+        'invalid',
+        err instanceof Error ? err.message : 'Neplatná příloha',
+      )
+    }
+  }
 
   const list = loadInboxConversations()
   const idx = list.findIndex((c) => c.id === input.conversationId)
@@ -51,10 +70,11 @@ export function sendMessage(input: {
   const message: Message = {
     id: createMessagingId('msg'),
     sender: 'me',
-    text,
+    text: text || 'Sdílen klinický záznam',
     time: formatMessageClock(now),
     senderAccountId: input.senderAccountId,
     createdAt: now,
+    ...(input.attachment ? { attachment: input.attachment } : {}),
   }
   assertMessagingPayloadSafe(message)
 
@@ -69,10 +89,12 @@ export function sendMessage(input: {
       ).length
     : 0
 
+  const lastMessage = input.attachment ? 'Sdílen klinický záznam' : text
+
   const updated: Conversation = {
     ...conversation,
     messages,
-    lastMessage: text,
+    lastMessage,
     time: 'Právě teď',
     updatedAt: now,
     unread: unreadForRecipient,
@@ -160,3 +182,5 @@ export function countUnreadMessagesInConversation(
     (m) => m.senderAccountId && m.senderAccountId !== accountId && !m.readAt,
   ).length
 }
+
+export { isClinicalShareAttachment }
