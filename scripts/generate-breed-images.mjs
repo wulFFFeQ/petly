@@ -90,7 +90,7 @@ const DOG_CURATED_IMAGES = {
   // Basset artésien normand — editorial basset portrait (not nose crop).
   'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
   // Chien d'Artois — tricolor French hound portrait (not basset nose crop).
-  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=1',
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=2',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

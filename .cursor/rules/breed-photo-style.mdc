@@ -1,40 +1,55 @@
 ---
-description: Styl výchozích fotek plemen (HQ editorial portréty s božím bokehem)
+description: Styl výchozích fotek plemen (HQ editorial + dvě střídaná pozadí)
 globs: scripts/generate-breed-images.mjs,src/lib/petBreedImages.ts,public/breeds/**,src/components/ui/PetPhotoCard.tsx
 alwaysApply: true
 ---
 
 # Styl fotek plemen
 
-**Zlatý standard (schválený uživatelem):** Ariégois / Argentinská doga / Ardenský bouvier
-(`public/breeds/ariegois.jpg`, `argentinska-doga.jpg`, `ardensky-bouvier.jpg`).
+**Zlatý standard (schválený uživatelem):**
+- Tmavé pozadí: Argentinská doga (`public/breeds/argentinska-doga.jpg`)
+- Zlaté pozadí: Artésko-normandský basset / Ariégois (`artesko-normandsky-basset.jpg`, `ariegois.jpg`)
+- Hrubosrstý subjekt: Ardenský bouvier (`ardensky-bouvier.jpg`)
 
-Tohle je přesně to, co mají všechna další kurátorovaná plemena vypadat. Afgánský chrt zůstává starší referencí; **nové fotky vždy srovnávej s těmito třemi**.
+## Dvě povolená pozadí — povinná volba podle barvy srsti
+
+Počítej **jen s těmito dvěma**. Žádné jiné (studio šedé, flat park, show ring, pastel, …).
+
+| Barva plemene | Pozadí | Reference |
+|---|---|---|
+| **Světlé** (bílá, krémová, světle šedá, převážně bílá) | **Tmavé / chladné** — moody dusk/urban bokeh, tmavé tóny + jantarová světýlka | `argentinska-doga.jpg` |
+| **Tmavší / teplé** (černá, hnědá, tricolor, oranžová, brindle, tmavě šedá, …) | **Zlaté / teplé** — golden-hour les/park, krémový zeleno-hnědý bokeh | `ariegois.jpg` / basset |
+
+**Proč:** pozadí se střídá, aby **vynikla barva plemene** (světlý pes na tmavém, tmavší pes na zlatém).
+
+Při GenerateImage vždy přidej do promptu **přesně jedno** z těchto pozadí + referenční JPG výše. U světlých plemen referuj dogu; u tmavších/teplých referuj Ariégois/basset.
 
 ## Vizuální bar
 
-1. **Hlava + horní hruď** — editorial bust portrét, ne full-body show stack.
-2. **Hlava vždy celá** — uši i temeno vidět; prostor nad korunou. Karty: `object-center` (`PetPhotoCard`).
-3. **Pozadí = silný bokeh („boží“)** — velmi mělká hloubka ostrosti; rozmazané přírodní (zeleno-hnědé, golden hour) nebo náladové městské/parkové světýlka. Žádný ostrý clutter, žádné show ringy, žádné nohy handlerů.
-4. **Měkké cinematic světlo** — ostrý subjekt (oči!), bez flat flash snapu.
-5. **Plemeno musí sedět** — ověřit očima vůči českému názvu před zápisem do mapy.
-6. **4:3 @ 1200×900** do `public/breeds/*.jpg` + cache-bust `?v=N`.
+1. **Hlava + horní hruď** — editorial bust, ne full-body show stack.
+2. **Hlava vždy celá** — uši i temeno; prostor nad korunou. Karty: `object-center` (`PetPhotoCard`).
+3. **Silný bokeh** — jen jedno ze dvou pozadí výše. Žádný clutter, show ringy, handlery.
+4. **Měkké cinematic světlo** — ostré oči.
+5. **Plemeno musí sedět** — ověřit očima vůči českému názvu.
+6. **Sousední podobná plemena** musí být **vizuálně odlišitelná** (ne dvojčata — jiná maska/barva/stavba).
+7. **4:3 @ 1200×900** do `public/breeds/*.jpg` + cache-bust `?v=N`.
 
 ## Workflow při „Tyhle taky“ / screenshotu
 
 1. Najdi české klíče v `petBreedImages.ts` / `petBreeds.ts`.
-2. Preferuj lokální HQ / Unsplash **jen pokud** sedí plemeno **a** dosahuje stejného bokeh/editorial baru.
-3. Jinak **GenerateImage** s referencemi na zlatý standard (`ariegois.jpg` / `argentinska-doga.jpg` / `ardensky-bouvier.jpg`) + správný popis plemene.
-4. Prompt vždy: head/upper-chest, full head visible, soft light, **heavy creamy/moody bokeh**, no people/leash/collar/watermark/text, 4:3.
-5. Ulož JPG → aktualizuj `DOG_CURATED_IMAGES` v `scripts/generate-breed-images.mjs` **a** `src/lib/petBreedImages.ts` → legacy fragmenty (staré dog.ceo + cesta `breeds/...`).
+2. Urči barvu srsti → zvol **tmavé** nebo **zlaté** pozadí (tabulka výše).
+3. Preferuj lokální HQ / Unsplash **jen pokud** sedí plemeno, bar + **správné pozadí**.
+4. Jinak **GenerateImage** s referencí na správné pozadí + popis plemene.
+5. Prompt: head/upper-chest, full head, soft light, **chosen background only**, no people/leash/collar/watermark/text, 4:3.
+6. Ulož JPG → `DOG_CURATED_IMAGES` + `petBreedImages.ts` + legacy fragmenty.
 
 ## Zakázané
 
-- Dog.ceo `img_*` snapy, show-floor fotky s handlery, těsné ořezy čumáku
-- Špatné plemeno (Sphynx ≠ chlupatá kočka, …)
-- Unsplash `h=900&crop=entropy` (ničí framing)
-- Ostré / rušivé pozadí bez bokehu (i když je „technicky HQ“)
-- `object-top` jako globální default na kartách
+- Třetí typ pozadí (cokoli mimo tmavé a zlaté)
+- Světlé plemeno na zlatém / tmavé plemeno na tmavém (slabý kontrast)
+- Dog.ceo snapy, show-floor, ořezy čumáku, špatné plemeno
+- Unsplash `h=900&crop=entropy`
+- `object-top` jako globální default
 
 ## Kde měnit
 

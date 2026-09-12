@@ -31,7 +31,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Ariégois': '/breeds/ariegois.jpg?v=1',
   'Ariegský ohař krátkosrstý': '/breeds/ariegsky-ohar-kratkosrsty.jpg?v=1',
   'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
-  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=1',
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=2',
   'Australská kelpie': 'https://images.dog.ceo/breeds/australian-kelpie/resized_20200303_233358_108952253645051.jpg',
   'Australský honácký pes': 'https://images.unsplash.com/photo-1769117086709-7507034281fa?auto=format&fit=crop&w=1200&q=90',
   'Australský honácký pes s krátkým ocasem': 'https://images.unsplash.com/photo-1769117086709-7507034281fa?auto=format&fit=crop&w=1200&q=90',

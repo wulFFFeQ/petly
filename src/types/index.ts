@@ -844,6 +844,8 @@ export type NotificationType =
   | 'payment_failed'
   | 'payment_cancelled'
   | 'payment_refunded'
+  /** K61 — clinical share received (no clinical payload in notification). */
+  | 'clinical_share_received'
 
 export type NotificationPriority = 'normal' | 'important' | 'urgent'
 
@@ -896,14 +898,49 @@ export interface Message {
   createdAt?: string
   /** Set when the other participant has read the message. */
   readAt?: string
-  attachment?: {
-    kind: 'health_record'
-    recordId: string
-    title: string
-    subtitle: string
-    date: string
-    category?: 'vaccination' | 'medication' | 'visit' | 'results'
-  }
+  /**
+   * Optional structured attachment.
+   * Legacy `health_record` cards remain for old UI seeds.
+   * K61 clinical share uses `clinical_share` — reference + safe display only.
+   */
+  attachment?:
+    | {
+        kind: 'health_record'
+        recordId: string
+        title: string
+        subtitle: string
+        date: string
+        category?: 'vaccination' | 'medication' | 'visit' | 'results'
+      }
+    | ClinicalShareAttachment
+}
+
+/** K61 — safe clinical share card (Messages transport only; not clinical SSOT). */
+export type ClinicalShareType =
+  | 'health_record'
+  | 'measurement'
+  | 'document'
+  | 'encounter'
+
+export type ClinicalShareDisplayKind =
+  | 'vax'
+  | 'med'
+  | 'visit'
+  | 'labs'
+  | 'weight'
+  | 'doc'
+  | 'encounter'
+
+export interface ClinicalShareAttachment {
+  kind: 'clinical_share'
+  shareType: ClinicalShareType
+  sourceId: string
+  petId: string
+  title: string
+  subtitle?: string
+  occurredOn?: string
+  /** Opaque display code — avoids embedding clinical vocabulary keys in payloads. */
+  displayKind?: ClinicalShareDisplayKind
 }
 
 export type ConversationContactType =
