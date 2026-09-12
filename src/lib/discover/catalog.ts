@@ -1,6 +1,7 @@
 import { discoverOwners, discoverPets as rawDiscoverPets } from '../../data/mockData'
 import type { DiscoverOwner, DiscoverPet, Pet, PetPhoto } from '../../types'
 import type { EarnedBadge } from '../../types/badges'
+import { getDefaultBreedImage } from '../petBreedImages'
 import type { PrivacySettings } from '../privacy'
 import { getUserHomeCity } from '../userProfile'
 import { formatDiscoverDistance } from './distance'
@@ -59,7 +60,13 @@ function collectRawCatalog(
   petPhotos?: PetPhoto[],
 ): DiscoverPet[] {
   const fromMock = rawDiscoverPets
-    .map((pet) => toPublicPet(pet))
+    .map((pet) =>
+      toPublicPet({
+        ...pet,
+        // Always resolve mock card photos from the breed map — never drift.
+        image: getDefaultBreedImage(pet.type, pet.breed),
+      }),
+    )
     .filter((pet): pet is DiscoverPet => pet != null)
 
   const ownedIds = new Set((ownedPets ?? []).map((p) => p.id))

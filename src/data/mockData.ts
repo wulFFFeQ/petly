@@ -17,6 +17,7 @@ import type {
   WeightMeasurement,
   WeightDataPoint,
 } from '../types'
+import { getDefaultBreedImage } from '../lib/petBreedImages'
 
 export const myPets: Pet[] = [
   {
@@ -25,7 +26,7 @@ export const myPets: Pet[] = [
     type: 'dog',
     breed: 'Zlatý retriever',
     age: 4,
-    image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=85',
+    image: getDefaultBreedImage('dog', 'Zlatý retriever'),
     coverColor: '#2C4A3E',
     healthStatus: 'excellent',
     dateOfBirth: '12. 8. 2022',
@@ -88,7 +89,7 @@ export const myPets: Pet[] = [
     type: 'cat',
     breed: 'Britská krátkosrstá kočka',
     age: 2,
-    image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=800&q=85',
+    image: getDefaultBreedImage('cat', 'Britská krátkosrstá kočka'),
     coverColor: '#234B54',
     healthStatus: 'good',
     dateOfBirth: '15. 3. 2024',
@@ -112,7 +113,7 @@ export const myPets: Pet[] = [
     type: 'dog',
     breed: 'Border kolie',
     age: 6,
-    image: 'https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?auto=format&fit=crop&w=800&q=85',
+    image: getDefaultBreedImage('dog', 'Border kolie'),
     coverColor: '#B8934A',
     healthStatus: 'good',
     dateOfBirth: '5. 1. 2020',
@@ -450,14 +451,14 @@ export const petDocuments: PetDocument[] = [
 ]
 
 export const petPhotos: PetPhoto[] = [
-  { id: 'ph_luna_1', petId: 'luna', url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
-  { id: 'ph_luna_2', petId: 'luna', url: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=800&q=85', caption: 'Procházka v parku' },
-  { id: 'ph_luna_3', petId: 'luna', url: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=800&q=85', caption: 'Agility trénink' },
-  { id: 'ph_luna_4', petId: 'luna', url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=800&q=85', caption: 'Odpočinek doma' },
-  { id: 'ph_milo_1', petId: 'milo', url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
-  { id: 'ph_milo_2', petId: 'milo', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85', caption: 'Okno a sluníčko' },
-  { id: 'ph_bella_1', petId: 'bella', url: 'https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?auto=format&fit=crop&w=800&q=85', caption: 'Profilová fotografie' },
-  { id: 'ph_bella_2', petId: 'bella', url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=85', caption: 'Frisbee na louce' },
+  { id: 'ph_luna_1', petId: 'luna', url: getDefaultBreedImage('dog', 'Zlatý retriever'), caption: 'Profilová fotografie' },
+  { id: 'ph_luna_2', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/n02099601_5876.jpg', caption: 'Procházka v parku' },
+  { id: 'ph_luna_3', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/n02099601_9504.jpg', caption: 'Agility trénink' },
+  { id: 'ph_luna_4', petId: 'luna', url: 'https://images.dog.ceo/breeds/retriever-golden/z6a_3963_200731.jpg', caption: 'Odpočinek doma' },
+  { id: 'ph_milo_1', petId: 'milo', url: getDefaultBreedImage('cat', 'Britská krátkosrstá kočka'), caption: 'Profilová fotografie' },
+  { id: 'ph_milo_2', petId: 'milo', url: 'https://images.unsplash.com/photo-1548247417-ec67f20cf625?auto=format&fit=crop&w=800&q=85', caption: 'Okno a sluníčko' },
+  { id: 'ph_bella_1', petId: 'bella', url: getDefaultBreedImage('dog', 'Border kolie'), caption: 'Profilová fotografie' },
+  { id: 'ph_bella_2', petId: 'bella', url: 'https://images.dog.ceo/breeds/collie-border/n02106166_615.jpg', caption: 'Frisbee na louce' },
 ]
 
 export const weightMeasurements: WeightMeasurement[] = [
@@ -532,7 +533,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 3,
     gender: 'Pes',
     location: 'Kolín',
-    image: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('dog', 'Labradorský retriever'),
     engagement: { profileViews: 180, favorites: 14, connections: 5, communityInteractions: 22 },
     ownerId: 'owner_sarah',
     ownerName: 'Sarah K.',
@@ -589,32 +590,32 @@ export const discoverPets: DiscoverPet[] = [
     gallery: [
       {
         id: 'd1g1',
-        url: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=800&q=85',
+        url: getDefaultBreedImage('dog', 'Labradorský retriever'),
         caption: 'Ranní aport',
       },
       {
         id: 'd1g2',
-        url: 'https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/labrador/n02099712_5021.jpg',
         caption: 'U jezera',
       },
       {
         id: 'd1g3',
-        url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cd?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/labrador/n02099712_610.jpg',
         caption: 'Výlet do lesa',
       },
       {
         id: 'd1g4',
-        url: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/labrador/n02099712_4428.jpg',
         caption: 'S kamarády',
       },
       {
         id: 'd1g5',
-        url: 'https://images.unsplash.com/photo-1477884213360-7e9d7dcc1e48?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/labrador/n02099712_6426.jpg',
         caption: 'Podzimní procházka',
       },
       {
         id: 'd1g6',
-        url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/labrador/n02099712_4965.jpg',
         caption: 'Běh v trávě',
       },
     ],
@@ -664,7 +665,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 2,
     gender: 'Kočka',
     location: 'Praha',
-    image: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('cat', 'Britská krátkosrstá kočka'),
     engagement: { profileViews: 95, favorites: 9, connections: 3, communityInteractions: 12 },
     ownerId: 'owner_eliska',
     ownerName: 'Eliška T.',
@@ -700,17 +701,17 @@ export const discoverPets: DiscoverPet[] = [
     gallery: [
       {
         id: 'd2g1',
-        url: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?auto=format&fit=crop&w=800&q=85',
+        url: getDefaultBreedImage('cat', 'Britská krátkosrstá kočka'),
         caption: 'Na slunci',
       },
       {
         id: 'd2g2',
-        url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.unsplash.com/photo-1766495487287-5b95e89850d9?auto=format&fit=crop&w=800&q=85',
         caption: 'Odpolední šlofík',
       },
       {
         id: 'd2g3',
-        url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.unsplash.com/photo-1512873897628-eea05c840147?auto=format&fit=crop&w=800&q=85',
         caption: 'Zvědavý pohled',
       },
     ],
@@ -738,7 +739,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 5,
     gender: 'Pes',
     location: 'Kutná Hora',
-    image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('dog', 'Border kolie'),
     ownerId: 'owner_emma',
     ownerName: 'Emma L.',
     bio: 'Mistr agility, soustředěný a miluje hlavolamy a lesní procházky.',
@@ -787,21 +788,21 @@ export const discoverPets: DiscoverPet[] = [
     gallery: [
       {
         id: 'd3g1',
-        url: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=800&q=85',
+        url: getDefaultBreedImage('dog', 'Border kolie'),
       },
       {
         id: 'd3g2',
-        url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cd?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_6512.jpg',
         caption: 'Lesní běh',
       },
       {
         id: 'd3g3',
-        url: 'https://images.unsplash.com/photo-1507146426996-ef05306b995a?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_855.jpg',
         caption: 'Soustředění',
       },
       {
         id: 'd3g4',
-        url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.dog.ceo/breeds/collie-border/n02106166_924.jpg',
       },
     ],
     publicTimeline: [
@@ -849,7 +850,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 4,
     gender: 'Kočka',
     location: 'Praha',
-    image: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('cat', 'Mainská kočka mývalí'),
     engagement: { profileViews: 110, favorites: 11, connections: 4, communityInteractions: 16 },
     ownerId: 'owner_karolina',
     ownerName: 'Karolína N.',
@@ -877,11 +878,11 @@ export const discoverPets: DiscoverPet[] = [
     gallery: [
       {
         id: 'd4g1',
-        url: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?auto=format&fit=crop&w=800&q=85',
+        url: getDefaultBreedImage('cat', 'Mainská kočka mývalí'),
       },
       {
         id: 'd4g2',
-        url: 'https://images.unsplash.com/photo-1511044568932-338bbba0a778?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.unsplash.com/photo-1685271286659-c83faa4f5cb1?auto=format&fit=crop&w=800&q=85',
       },
     ],
     publicTimeline: [
@@ -901,7 +902,7 @@ export const discoverPets: DiscoverPet[] = [
     breed: 'Beagle',
     age: 2,
     location: 'Kolín',
-    image: 'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('dog', 'Beagle'),
     ownerId: 'owner_matej',
     ownerName: 'Matěj K.',
     bio: 'Zvědavý lovec stop vždy na stopě. Skvělý s dětmi a štěňaty.',
@@ -924,7 +925,7 @@ export const discoverPets: DiscoverPet[] = [
     age: 1,
     gender: 'Kočka',
     location: 'Kutná Hora',
-    image: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1200&q=85',
+    image: getDefaultBreedImage('cat', 'Siamská kočka'),
     ownerId: 'owner_lucie',
     ownerName: 'Lucie R.',
     bio: 'Hlasitá, mazlivá a zvědavá slečna milující vyhřívané deky.',
@@ -939,11 +940,11 @@ export const discoverPets: DiscoverPet[] = [
     gallery: [
       {
         id: 'd6g1',
-        url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=85',
+        url: getDefaultBreedImage('cat', 'Siamská kočka'),
       },
       {
         id: 'd6g2',
-        url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=800&q=85',
+        url: 'https://images.unsplash.com/photo-1757956288643-7f3f7f7878ca?auto=format&fit=crop&w=800&q=85',
         caption: 'Na dece',
       },
     ],

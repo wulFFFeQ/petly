@@ -38,7 +38,11 @@ import {
   saveVerifications,
 } from '../lib/verification'
 import { getEventCategory } from '../lib/calendarEventTypes'
-import { getDefaultBreedImage } from '../lib/petBreedImages'
+import {
+  getDefaultBreedImage,
+  isBreedDefaultImage,
+  syncPetBreedDefaultImage,
+} from '../lib/petBreedImages'
 import { localizeBreedName } from '../lib/petBreeds'
 import { normalizeGenderForType } from '../lib/petTypes'
 import { pickRandomCoverColor } from '../lib/petCoverColors'
@@ -271,7 +275,10 @@ function loadPets(): Pet[] {
             : seed?.profileUpdatedAt,
       }
       // Ownership migration: only from existing implicit store→owner_self rule.
-      return ensurePetOwnerAccountId(sanitizePetBreedingProfile(merged))
+      // Also refresh wrong breed-default stock photos (e.g. fluffy cat for Sphynx).
+      return syncPetBreedDefaultImage(
+        ensurePetOwnerAccountId(sanitizePetBreedingProfile(merged)),
+      )
     }).map((pet) =>
       ensurePetEmergencyCard({
         ...pet,
@@ -1432,6 +1439,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (!('profileUpdatedAt' in safeUpdates)) {
           next.profileUpdatedAt = new Date().toISOString()
+        }
+
+        // When breed changes and photo is still a stock breed default, swap to the new breed image.
+        if (
+          'breed' in safeUpdates &&
+          typeof safeUpdates.breed === 'string' &&
+          safeUpdates.breed !== pet.breed &&
+          isBreedDefaultImage(next.image) &&
+          !('image' in safeUpdates)
+        ) {
+          next.image = getDefaultBreedImage(next.type, next.breed)
         }
 
         if (breedingJustEnabled && canAutoGenerateHeat(next)) {
