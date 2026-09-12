@@ -75,10 +75,12 @@ const DOG_CURATED_IMAGES = {
   'Americký stafordširský terier': '/breeds/americky-stafordsirsky-terier.jpg?v=2',
   // Appenzeller — Swiss tricolor on golden bokeh (not dog.ceo snap).
   'Appenzellský salašnický pes': '/breeds/appenzellsky-salasnicky-pes.jpg?v=1',
-  // English Cocker — studio HQ portrait (not couch dog.ceo snap).
-  'Anglický kokršpaněl': '/breeds/anglicky-kokrspanel.jpg?v=1',
-  // English Greyhound — editorial head portrait (not sleeping whippet puppy).
-  'Anglický chrt (Greyhound)': '/breeds/anglicky-chrt.jpg?v=1',
+  // English Cocker — solid black editorial on golden bokeh.
+  'Anglický kokršpaněl': '/breeds/anglicky-kokrspanel.jpg?v=3',
+  // English Greyhound — brindle editorial on golden bokeh.
+  'Anglický chrt (Greyhound)': '/breeds/anglicky-chrt.jpg?v=2',
+  // English Bulldog — wrinkled classic on dark bokeh (not autumn leaves snap).
+  'Anglický buldok': '/breeds/anglicky-buldok.jpg?v=1',
   // English Mastiff — HQ profile portrait (not bed dog.ceo snap).
   'Anglický mastif': '/breeds/anglicky-mastif.jpg?v=1',
   // Anglo-Français de Petite Vénerie — editorial portrait (not basset nose crop).
