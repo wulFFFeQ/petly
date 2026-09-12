@@ -1090,7 +1090,7 @@ export class ClinicalService {
 
     // Client must never authoritatively set createdBy / version / id provenance.
     const encounter: ClinicalEncounter = {
-      id: req.encounterId ?? `enc_${Date.now()}`,
+      id: req.encounterId ?? `enc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       petId: input.petId,
       status,
       encounterType: input.encounterType,

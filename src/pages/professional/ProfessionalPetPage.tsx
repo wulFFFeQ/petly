@@ -27,6 +27,7 @@ import {
   tryAssertPetClinical,
   writeActionForHealthRecordType,
 } from '../../lib/security'
+import { ClinicalEncounterSection } from '../../components/health/ClinicalEncounterSection'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -224,23 +225,36 @@ export function ProfessionalPetPage() {
       </Card>
 
       {view.healthRecords ? (
-        <Card variant="elevated" data-testid="pro-dash-pet-health">
-          <h2 className="text-sm font-bold text-[#191E1B]">Zdraví</h2>
-          {view.healthRecords.length === 0 ? (
-            <p className="mt-2 text-xs text-[#7D8B82]">Žádné záznamy</p>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {view.healthRecords.map((r) => (
-                <li key={r.id} className="rounded-lg border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2">
-                  <p className="text-xs font-bold text-[#191E1B]">{r.title}</p>
-                  <p className="text-[11px] text-[#7D8B82]">
-                    {r.subtitle} · {r.date}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <>
+          <ClinicalEncounterSection
+            petIds={[petId]}
+            lockedPetId={petId}
+            canWrite={() =>
+              Boolean(
+                access &&
+                  isAccessEffective(access) &&
+                  canProfessionalAddHealthRecord(access),
+              )
+            }
+          />
+          <Card variant="elevated" data-testid="pro-dash-pet-health">
+            <h2 className="text-sm font-bold text-[#191E1B]">Zdraví</h2>
+            {view.healthRecords.length === 0 ? (
+              <p className="mt-2 text-xs text-[#7D8B82]">Žádné záznamy</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {view.healthRecords.map((r) => (
+                  <li key={r.id} className="rounded-lg border border-[#E8E4DC] bg-[#FAF8F5] px-3 py-2">
+                    <p className="text-xs font-bold text-[#191E1B]">{r.title}</p>
+                    <p className="text-[11px] text-[#7D8B82]">
+                      {r.subtitle} · {r.date}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </>
       ) : (
         <Card data-testid="pro-dash-health-hidden">
           <p className="text-xs text-[#7D8B82]">

@@ -65,6 +65,12 @@ const DOG_CURATED_IMAGES = {
   'Americký vodní španěl': '/breeds/americky-vodni-spanel.jpg?v=1',
   // American Staffordshire Terrier — outdoor HQ portrait (not puppy gate snap).
   'Americký stafordširský terier': '/breeds/americky-stafordsirsky-terier.jpg?v=1',
+  // English Cocker — studio HQ portrait (not couch dog.ceo snap).
+  'Anglický kokršpaněl': '/breeds/anglicky-kokrspanel.jpg?v=1',
+  // English Greyhound — editorial head portrait (not sleeping whippet puppy).
+  'Anglický chrt (Greyhound)': '/breeds/anglicky-chrt.jpg?v=1',
+  // Anglo-Français de Petite Vénerie — outdoor head portrait (not basset nose crop).
+  'Angl.-franc.honič de Petite Venerie': '/breeds/angl-franc-honic-petite-venerie.jpg?v=1',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

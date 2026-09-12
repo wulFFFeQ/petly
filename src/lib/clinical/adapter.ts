@@ -239,15 +239,18 @@ export class DemoClinicalPersistenceAdapter implements ClinicalPersistenceAdapte
       .filter((s) => s.encounterId === encounterId)
       .slice()
       .sort((a, b) => a.version - b.version)
+      .map((s) => ({ ...s, encounter: { ...s.encounter } }))
   }
 
   getEncounterVersion(
     encounterId: string,
     version: number,
   ): ClinicalEncounterVersionSnapshot | undefined {
-    return this.readEncounterVersions().find(
+    const found = this.readEncounterVersions().find(
       (s) => s.encounterId === encounterId && s.version === version,
     )
+    if (!found) return undefined
+    return { ...found, encounter: { ...found.encounter } }
   }
 }
 
