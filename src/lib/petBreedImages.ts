@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 33
+export const BREED_IMAGE_SYNC_GENERATION = 34
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -126,7 +126,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Čivava dlouhosrstá': '/breeds/civava-dlouhosrsta.jpg?v=1',
   'Čivava krátkosrstá': '/breeds/civava-kratkosrsta.jpg?v=2',
   'Dalmatin': '/breeds/dalmatin.jpg?v=1',
-  'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=1',
+  'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=2',
   'Dánská doga': '/breeds/danska-doga.jpg?v=1',
   'Dánsko-švédský farmářský pes': '/breeds/dansko-svedsky-farmarsky-pes.jpg?v=1',
   'Dánský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',

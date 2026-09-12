@@ -109,7 +109,7 @@ const DOG_CURATED_IMAGES = {
   'Čivava dlouhosrstá': '/breeds/civava-dlouhosrsta.jpg?v=1',
   'Čivava krátkosrstá': '/breeds/civava-kratkosrsta.jpg?v=2',
   'Dalmatin': '/breeds/dalmatin.jpg?v=1',
-  'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=1',
+  'Dandie Dinmont terier': '/breeds/dandie-dinmont-terier.jpg?v=2',
   'Dánská doga': '/breeds/danska-doga.jpg?v=1',
   'Dánsko-švédský farmářský pes': '/breeds/dansko-svedsky-farmarsky-pes.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
