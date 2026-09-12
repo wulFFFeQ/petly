@@ -1,9 +1,18 @@
 # Production security notes (Node API)
 
+**HTTPS / CORS / Secure cookies (Vedos):** [LAUNCH-07-HTTPS-CORS-COOKIES.md](./LAUNCH-07-HTTPS-CORS-COOKIES.md)
+
 ## CORS
 
 Server uses `ALLOWED_ORIGINS` (comma-separated). Default: `http://localhost:5173`.
 Credentials (cookies) are enabled; never use `Access-Control-Allow-Origin: *` with credentials.
+Production: exact `https://your-domain.cz` (no trailing slash).
+
+## Cookies / session
+
+- Name: `lk_session` — `HttpOnly`, `SameSite=Lax`
+- `Secure`: `COOKIE_SECURE=true`, or default **on** when `NODE_ENV=production` (explicit `false` logs a warning)
+- Fastify `trustProxy: true` behind Caddy/Nginx
 
 ## CSRF
 

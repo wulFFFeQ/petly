@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 19
+export const BREED_IMAGE_SYNC_GENERATION = 20
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -105,9 +105,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Bretaňský ohař dlouhosrstý': '/breeds/bretansky-ohar-dlouhosrsty.jpg?v=1',
   'Briard': '/breeds/briard.jpg?v=1',
   'Briquet Griffon Vendéen': '/breeds/briquet-griffon-vendeen.jpg?v=1',
-  'Bruselský grifonek': 'https://images.dog.ceo/breeds/brabancon/n02112706_1688.jpg',
-  'Bullmastif': 'https://images.dog.ceo/breeds/mastiff-english/4.jpg',
-  'Bulteriér': 'https://images.dog.ceo/breeds/bullterrier-staffordshire/n02093256_3113.jpg',
+  'Bruselský grifonek': '/breeds/bruselsky-grifonek.jpg?v=1',
+  'Bullmastif': '/breeds/bullmastif.jpg?v=1',
+  'Bulteriér': '/breeds/bulterier.jpg?v=1',
   'Burgoský perdiquero': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Búrský buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
   'Cairn Terier': 'https://images.dog.ceo/breeds/terrier-cairn/n02096177_5147.jpg',
@@ -578,6 +578,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/bretansky-ohar-dlouhosrsty',
   'breeds/briard',
   'breeds/briquet-griffon-vendeen',
+  'breeds/bruselsky-grifonek',
+  'breeds/bullmastif',
+  'breeds/bulterier',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',

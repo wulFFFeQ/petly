@@ -41,7 +41,7 @@ export function setSessionCookie(
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: Boolean(env.COOKIE_SECURE),
+    secure: Boolean(env.secureCookie),
     expires: expiresAt,
   })
 }
@@ -51,7 +51,7 @@ export function clearSessionCookie(reply: FastifyReply, env: ServerEnv) {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: Boolean(env.COOKIE_SECURE),
+    secure: Boolean(env.secureCookie),
   })
 }
 

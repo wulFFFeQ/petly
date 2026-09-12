@@ -5,7 +5,7 @@
 **Hosting rozhodnutí:** Vedos VPS (Railway ne)  
 **V aplikaci (draft):** [`/privacy`](/privacy), [`/terms`](/terms) — Nápověda → odkazy  
 **Šablony pro counsel:** [`docs/legal/`](./legal/) (brief + Privacy + Terms CZ)  
-**Související:** [LAUNCH-01-SCOPE.md](./LAUNCH-01-SCOPE.md) · [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md) · [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md) · [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md)
+**Související:** [LAUNCH-01-SCOPE.md](./LAUNCH-01-SCOPE.md) · [LAUNCH-READINESS-AUDIT.md](./LAUNCH-READINESS-AUDIT.md) · [NODE-PRISMA-BACKEND.md](./NODE-PRISMA-BACKEND.md) · [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md) · [LAUNCH-07-HTTPS-CORS-COOKIES.md](./LAUNCH-07-HTTPS-CORS-COOKIES.md)
 
 ---
 
@@ -34,8 +34,9 @@
 | PostgreSQL | Self-hosted na VPS — [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md); `[TODO: hostname]` |
 | Zálohy | Vedos interní denní / externí týdenní (doplňková služba) + `pg_dump` |
 | Object storage (S3-compatible, dokumenty) | `[TODO: bucket nebo disk na VPS; upload disabled do malware scanneru]` |
-| `ALLOWED_ORIGINS` | `[TODO: produkční URL]` |
-| `DATABASE_URL` / `SESSION_SECRET` | `[TODO: env na VPS — nikdy VITE_]` |
+| `ALLOWED_ORIGINS` | `[TODO: https://produkční-doména — viz LAUNCH-07]` |
+| `DATABASE_URL` / `SESSION_SECRET` / `COOKIE_SECURE` | `[TODO: env na VPS — nikdy VITE_; Secure v produkci]` |
+| HTTPS (Caddy) | [LAUNCH-07-HTTPS-CORS-COOKIES.md](./LAUNCH-07-HTTPS-CORS-COOKIES.md) — `[TODO: nasadit]` |
 
 **Proč ne GitHub Pages pro produkci:** žádné serverové auth, DB, cookies, webhooks.  
 **Proč ne Railway:** provoz na vlastním Vedos VPS se provider zálohami (ověřeno v [VEDOS KB](https://kb.vedos.cz/vps-ssd-doplnkove-sluzby/)).
@@ -84,6 +85,6 @@ Vyplň před Stripe Account / Connect onboarding. Agent **nevymýšlí** IČO.
 ## 5. Pořadí prací (stručně)
 
 1. Vyplnit doménu + firmu (tabulky výše).  
-2. Vedos VPS: Postgres + API + web + secrets + Vedos zálohy (Postgres: LAUNCH-06).  
+2. Vedos VPS: Postgres + API + web + secrets + Vedos zálohy (Postgres: LAUNCH-06; HTTPS/CORS/cookies: LAUNCH-07).  
 3. Schválit Privacy/Terms (šablony v `docs/legal/` → nahradit placeholdery, counsel sign-off, pak sundat NÁVRH v app).  
 4. Až potom: Stripe live + webhooks (ne dřív).

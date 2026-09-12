@@ -15,7 +15,13 @@ import { registerPublicRoutes } from './routes/public.js'
 
 async function main() {
   const env = loadEnv()
-  const app = Fastify({ logger: true })
+  const app = Fastify({ logger: true, trustProxy: true })
+
+  if (env.cookieSecureForcedOff) {
+    app.log.warn(
+      'COOKIE_SECURE=false while NODE_ENV=production — session cookies will not be Secure. Prefer HTTPS + COOKIE_SECURE=true.',
+    )
+  }
 
   await app.register(cookie)
   await app.register(cors, {
