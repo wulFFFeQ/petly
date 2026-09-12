@@ -2435,11 +2435,13 @@ export function createClinicalService(options: ClinicalServiceOptions): Clinical
 export function createDemoClinicalService(
   adapter: ClinicalPersistenceAdapter,
   deps?: AuthorizeDeps,
+  idempotencyStore?: IdempotencyStore,
 ): ClinicalService {
   return createClinicalService({
     authority: 'demo',
     adapter,
     deps,
+    idempotencyStore,
   })
 }
 
@@ -2451,5 +2453,6 @@ export function createServerClinicalServiceStub(
     authority: 'server',
     adapter,
     deps,
+    idempotencyStore: createServerIdempotencyStoreStub(),
   })
 }

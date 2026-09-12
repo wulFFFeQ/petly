@@ -1,5 +1,5 @@
 /**
- * K56/K57/K58/K59/K60/K61 — Server clinical vertical (service / authority boundary).
+ * K56/K57/K58/K59/K60/K61/K62/K63 — Server clinical vertical (service / authority boundary).
  *
  * Not a parallel Health / Access / Permission / Audit system.
  * HealthRecord / PetDocument / WeightMeasurement remain SSOT.
@@ -11,6 +11,7 @@
  * K60: WeightMeasurement clinical boundary (health.read/write; no parallel ACL).
  * K61: Clinical Share = workflow over authorize + Messages (not access grant).
  * K62: clinical.emergency.write = Emergency Card only (≠ health.write).
+ * K63: unified idempotency AFTER authorize for create side-effects (DEMO store ≠ production).
  */
 
 export type {
@@ -58,6 +59,7 @@ export type {
 export {
   ClinicalError,
   clinicalErrorFromAuthorization,
+  clinicalErrorFromIdempotency,
   immutableVersion,
   invalidDocument,
   invalidEncounterTransition,

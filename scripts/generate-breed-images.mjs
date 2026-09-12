@@ -61,8 +61,8 @@ const DOG_CURATED_IMAGES = {
   Akita: '/breeds/akita.jpg?v=2',
   // American Akita — black-mask editorial on golden bokeh (not dry-grass full-body).
   'Americká akita': '/breeds/americka-akita.jpg?v=2',
-  // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).
-  'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
+  // American Cocker — buff silky editorial on dark bokeh (not merle Aussie mislabel).
+  'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=2',
   // American Foxhound — tricolor editorial on golden bokeh.
   'Americký foxhound': '/breeds/americky-foxhound.jpg?v=4',
   // American Hairless Terrier — dark skin on golden bokeh (not Yorkshire mislabel).
@@ -71,8 +71,10 @@ const DOG_CURATED_IMAGES = {
   'Americký buldok': '/breeds/americky-buldok.jpg?v=2',
   // American Water Spaniel — editorial portrait (not Welsh Springer dog.ceo).
   'Americký vodní španěl': '/breeds/americky-vodni-spanel.jpg?v=1',
-  // American Staffordshire Terrier — outdoor HQ portrait (not puppy gate snap).
-  'Americký stafordširský terier': '/breeds/americky-stafordsirsky-terier.jpg?v=1',
+  // American Staffordshire Terrier — blue AmStaff on golden bokeh (not snow collar snap).
+  'Americký stafordširský terier': '/breeds/americky-stafordsirsky-terier.jpg?v=2',
+  // Appenzeller — Swiss tricolor on golden bokeh (not dog.ceo snap).
+  'Appenzellský salašnický pes': '/breeds/appenzellsky-salasnicky-pes.jpg?v=1',
   // English Cocker — studio HQ portrait (not couch dog.ceo snap).
   'Anglický kokršpaněl': '/breeds/anglicky-kokrspanel.jpg?v=1',
   // English Greyhound — editorial head portrait (not sleeping whippet puppy).

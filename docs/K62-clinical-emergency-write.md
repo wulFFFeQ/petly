@@ -169,7 +169,7 @@ Helpers in `src/lib/notifications/fromClinicalEmergency.ts` — event + deep-lin
 | Production server-authoritative emergency write adapter | **SERVER_REQUIRED** |
 | Emergency Card immutable history (K57-style) | **DOCUMENT GAP** |
 | Encounter + minimal clinical facts under emergency | **DEFERRED** |
-| Unified idempotency / GDPR hardening | **K63 only — not implemented here** |
+| Unified idempotency / GDPR hardening | **K63 done** — `docs/K63-idempotency-gdpr.md` |
 
 ---
 
@@ -183,6 +183,6 @@ Helpers in `src/lib/notifications/fromClinicalEmergency.ts` — event + deep-lin
 
 ## K63
 
-**K63 = UNIFIED IDEMPOTENCY + GDPR/PRIVACY HARDENING ONLY.**
+**K63 = UNIFIED IDEMPOTENCY + GDPR/PRIVACY HARDENING** — implemented in `docs/K63-idempotency-gdpr.md`.
 
-Not implemented in this step.
+**NEXT STEP after K63:** Launch Readiness Audit (no K64).

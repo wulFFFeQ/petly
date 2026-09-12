@@ -18,6 +18,12 @@ import type {
   Pet,
 } from '../../types'
 import {
+  createDemoIdempotencyStore,
+  executeIdempotent,
+  isIdempotencyError,
+  type IdempotencyStore,
+} from '../idempotency'
+import {
   canAccessConversation,
   type MessagingErrorCode,
   type MessagingResult,
@@ -52,6 +58,12 @@ export type CreateClinicalShareInput = {
    * Recipient is always derived from conversation.participantAccountIds.
    */
   claimedRecipientAccountId?: string
+  /**
+   * K63 — optional idempotency key (after authorize). Prevents duplicate share messages.
+   */
+  idempotencyKey?: string
+  /** Optional DEMO store injection (tests). Defaults to demo localStorage store. */
+  idempotencyStore?: IdempotencyStore
 }
 
 function failShare<T>(
@@ -250,37 +262,70 @@ export function createClinicalShare(
     rethrowAsClinical(err)
   }
 
-  const sendResult = sendMessage({
-    conversationId: input.conversationId,
-    senderAccountId,
-    text: 'Sdílen klinický záznam',
-    attachment,
-  })
+  // K63 — idempotency AFTER source authorize; never before conversation/clinical checks.
+  const store = input.idempotencyStore ?? createDemoIdempotencyStore()
+  try {
+    const outcome = executeIdempotent({
+      store,
+      scope: {
+        actorAccountId: senderAccountId,
+        operation: 'clinical.createShare',
+        resourceRef: `conversation:${input.conversationId}|pet:${input.petId.trim()}`,
+      },
+      clientKey: input.idempotencyKey,
+      fingerprintPayload: {
+        conversationId: input.conversationId,
+        petId: input.petId.trim(),
+        shareType: input.shareType,
+        sourceId: input.sourceId.trim(),
+      },
+      run: () => {
+        const sendResult = sendMessage({
+          conversationId: input.conversationId,
+          senderAccountId,
+          text: 'Sdílen klinický záznam',
+          attachment,
+        })
 
-  if (!sendResult.ok) {
-    emitShareAudit(input.context, {
-      resourceId: conversation.id,
-      result: 'deny',
-      shareType: input.shareType,
-      phase: 'created',
+        if (!sendResult.ok) {
+          emitShareAudit(input.context, {
+            resourceId: conversation.id,
+            result: 'deny',
+            shareType: input.shareType,
+            phase: 'created',
+          })
+          return sendResult as MessagingResult<ClinicalShareResult>
+        }
+
+        emitShareAudit(input.context, {
+          resourceId: conversation.id,
+          result: 'allow',
+          shareType: input.shareType,
+          phase: 'created',
+        })
+
+        return {
+          ok: true as const,
+          data: {
+            ...sendResult.data,
+            recipientAccountId,
+            attachment,
+          },
+        } satisfies MessagingResult<ClinicalShareResult>
+      },
     })
-    return sendResult
-  }
-
-  emitShareAudit(input.context, {
-    resourceId: conversation.id,
-    result: 'allow',
-    shareType: input.shareType,
-    phase: 'created',
-  })
-
-  return {
-    ok: true,
-    data: {
-      ...sendResult.data,
-      recipientAccountId,
-      attachment,
-    },
+    return outcome.value
+  } catch (err) {
+    if (isIdempotencyError(err)) {
+      if (err.code === 'IDEMPOTENCY_CONFLICT') {
+        return failShare('invalid', err.message)
+      }
+      if (err.code === 'IDEMPOTENCY_IN_PROGRESS') {
+        return failShare('invalid', err.message)
+      }
+      return failShare('forbidden', err.message)
+    }
+    rethrowAsClinical(err)
   }
 }
 

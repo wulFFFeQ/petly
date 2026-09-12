@@ -75,9 +75,9 @@ Recipient may see a **safe snapshot** in the message. Opening the original Clini
 - Share expiry scheduler
 - Message retract / revoke lifecycle (no delete API today → **DOCUMENT GAP**)
 - Production server authority for messages + clinical persistence
-- Unified idempotency (**K63**)
+- Unified idempotency (**K63** — done: `docs/K63-idempotency-gdpr.md`)
 
-Duplicate shares: each call creates a new message (deterministic; no share-specific idempotency store).
+Duplicate shares without `idempotencyKey`: each call creates a new message. With `idempotencyKey`: deterministic replay (one share).
 
 ---
 

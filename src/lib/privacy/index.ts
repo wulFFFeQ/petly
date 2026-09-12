@@ -56,3 +56,15 @@ export {
   type ConnectionPetProjection,
   type ProjectPetOptions,
 } from './project'
+
+export {
+  assertStorageKeysForbiddenInPublicPayload,
+  CLINICAL_PUBLIC_FORBIDDEN_KEYS,
+  getPrivacyDataClass,
+  PRIVACY_DATA_CLASSES,
+  RETENTION_CLASS_NOTES,
+  STORAGE_INTERNAL_FORBIDDEN_KEYS,
+  type PrivacyDataClass,
+  type PrivacyDataClassMeta,
+  type RetentionClass,
+} from './classification'

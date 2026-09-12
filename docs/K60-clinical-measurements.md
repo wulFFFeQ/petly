@@ -126,7 +126,7 @@ UI create path jde přes `ClinicalService`. UI nesmí být zdrojem authorization
 
 ## 10. Idempotence
 
-Žádný measurement-specific idempotency systém. **K63** = jednotná idempotency vrstva.
+Žádný measurement-specific idempotency systém. **K63** = jednotná idempotency vrstva — viz [`docs/K63-idempotency-gdpr.md`](K63-idempotency-gdpr.md).
 
 ---
 
@@ -168,4 +168,4 @@ Tests 21–23 = documented N/A (versioning/withdraw gaps).
 3. `Pet.weight` denorm merge/derive (K49)  
 4. Explicit `unit` field (implicit kg)  
 5. Wired production server persistence  
-6. Unified idempotency (K63)
+6. Unified idempotency (K63) — **done** (`docs/K63-idempotency-gdpr.md`)

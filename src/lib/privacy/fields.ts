@@ -250,6 +250,21 @@ export const PUBLIC_PAYLOAD_FORBIDDEN_KEYS = [
   'organizationId',
   'startedAt',
   'endedAt',
+  // K63 — storage / provider / internal metadata never public
+  'storageKey',
+  'objectPath',
+  'signedUrl',
+  'providerUrl',
+  'providerAccountId',
+  'rawUrl',
+  'blobUrl',
+  'downloadUrl',
+  'ownerContacts',
+  'ownerPhoneForPrint',
+  'exactLocation',
+  'latitude',
+  'longitude',
+  'gps',
 ] as const
 
 export type PublicPayloadForbiddenKey = (typeof PUBLIC_PAYLOAD_FORBIDDEN_KEYS)[number]
