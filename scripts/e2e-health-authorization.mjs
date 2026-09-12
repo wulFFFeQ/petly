@@ -60,22 +60,22 @@ async function uiSmoke() {
       console.log('SKIP: health-page testid not found (route may differ)')
     }
 
-    // K) Messages health-share → DEMO placeholder (no mock clinical share)
+    // K) Messages clinical share menu (K61 — not DEMO placeholder)
     await page.goto(`${BASE}/messages`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(400)
-    const toggle = page.locator('[data-testid="messages-health-share-toggle"]')
+    const toggle = page.locator('[data-testid="messages-clinical-share-toggle"]')
     if (await toggle.count()) {
       await toggle.first().click()
       await page.waitForTimeout(200)
-      const demo = page.locator('[data-testid="messages-health-share-demo"]')
-      if (!(await demo.isVisible())) {
-        console.error('FAIL: Messages health-share DEMO placeholder missing')
+      const menu = page.locator('[data-testid="messages-clinical-share-menu"]')
+      if (!(await menu.isVisible())) {
+        console.error('FAIL: Messages clinical share menu missing')
         process.exit(1)
       }
-      console.log('OK  : K) Messages health-share is DEMO placeholder')
+      console.log('OK  : K) Messages clinical share menu visible')
     } else {
       console.log(
-        'SKIP: health-share toggle not visible (needs vet+pet conversation) — assert covers isolation',
+        'SKIP: clinical-share toggle not visible (needs account ACL + pet) — assert covers share',
       )
     }
 

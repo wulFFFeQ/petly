@@ -5,15 +5,24 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { cn } from '../../lib/utils'
-import type { ClinicalShareType, Conversation, Pet } from '../../types'
+import type {
+  ClinicalShareType,
+  Conversation,
+  ClinicalEncounter,
+  HealthRecord,
+  Pet,
+  PetDocument,
+  WeightMeasurement,
+} from '../../types'
 import {
   createDemoClinicalService,
-  createInMemoryDemoClinicalAdapter,
+  DemoClinicalPersistenceAdapter,
   type ClinicalService,
 } from '../../lib/clinical'
 import { createDemoSecurityContext } from '../../lib/security'
 import { sendClinicalShareRequest } from '../../lib/messaging'
 import { useApp } from '../../context/AppContext'
+import { getWeightMeasurementsForPet } from '../../lib/badges/badgeData'
 
 type SharePickItem = {
   shareType: ClinicalShareType
@@ -28,57 +37,46 @@ interface HealthShareMenuProps {
   onShared?: () => void
 }
 
-function buildService(pets: Pet[]): ClinicalService {
-  const adapter = createInMemoryDemoClinicalAdapter({
-    getHealthRecords: () => {
-      try {
-        const raw = localStorage.getItem('lovedandknown.healthRecords')
-        return raw ? JSON.parse(raw) : []
-      } catch {
-        return []
-      }
-    },
-    getDocuments: () => {
-      try {
-        const raw = localStorage.getItem('lovedandknown.petDocuments')
-        return raw ? JSON.parse(raw) : []
-      } catch {
-        return []
-      }
-    },
-    getWeightMeasurements: () => {
-      try {
-        const raw = localStorage.getItem('lovedandknown.weightMeasurements')
-        return raw ? JSON.parse(raw) : []
-      } catch {
-        return []
-      }
-    },
-    getEncounters: () => {
-      try {
-        const raw = localStorage.getItem('lovedandknown.clinicalEncounters')
-        return raw ? JSON.parse(raw) : []
-      } catch {
-        return []
-      }
-    },
+function buildService(
+  pets: Pet[],
+  healthRecords: HealthRecord[],
+  documents: PetDocument[],
+  clinicalEncounters: ClinicalEncounter[],
+  weights: WeightMeasurement[],
+): ClinicalService {
+  const adapter = new DemoClinicalPersistenceAdapter({
+    getHealthRecords: () => healthRecords,
+    setHealthRecords: () => undefined,
+    getDocuments: () => documents,
+    setDocuments: () => undefined,
+    getEncounters: () => clinicalEncounters,
+    setEncounters: () => undefined,
+    getWeightMeasurements: () => weights,
+    persistWeightMeasurement: () => undefined,
   })
   return createDemoClinicalService(adapter, { store: { pets } })
 }
 
 export function HealthShareMenu({ conversation, onClose, onShared }: HealthShareMenuProps) {
-  const { pets, upsertNotification, showToast } = useApp()
+  const { pets, healthRecords, documents, clinicalEncounters, upsertNotification, showToast } =
+    useApp()
   const petId = conversation.petId
   const [tab, setTab] = useState<ClinicalShareType>('health_record')
   const [items, setItems] = useState<SharePickItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const canShare = Boolean(
-    petId && conversation.participantAccountIds?.length,
+  const weights = useMemo(
+    () => (petId ? getWeightMeasurementsForPet(petId) : []),
+    [petId, tab],
   )
 
-  const service = useMemo(() => buildService(pets), [pets])
+  const canShare = Boolean(petId && conversation.participantAccountIds?.length)
+
+  const service = useMemo(
+    () => buildService(pets, healthRecords, documents, clinicalEncounters, weights),
+    [pets, healthRecords, documents, clinicalEncounters, weights],
+  )
 
   useEffect(() => {
     if (!canShare || !petId) {
@@ -211,9 +209,7 @@ export function HealthShareMenu({ conversation, onClose, onShared }: HealthShare
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#5A6660]">
           Clinical Share
         </p>
-        <p className="mt-1 text-xs font-bold text-[#191E1B]">
-          Sdílet vybraný záznam
-        </p>
+        <p className="mt-1 text-xs font-bold text-[#191E1B]">Sdílet vybraný záznam</p>
         <p className="mt-1 text-[11px] leading-relaxed text-[#5A6660]">
           Příjemce nezíská dlouhodobý přístup. Dokumenty = pouze metadata.
         </p>

@@ -70,22 +70,22 @@ async function uiSmoke() {
     }
     console.log('OK  : I) Discover HTML has no clinical provenance keys')
 
-    // J) Messages health-share DEMO
+    // J) Messages clinical share (K61)
     await page.goto(`${BASE}/messages`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(400)
-    const toggle = page.locator('[data-testid="messages-health-share-toggle"]')
+    const toggle = page.locator('[data-testid="messages-clinical-share-toggle"]')
     if (await toggle.count()) {
       await toggle.first().click()
       await page.waitForTimeout(200)
-      const demo = page.locator('[data-testid="messages-health-share-demo"]')
-      if (!(await demo.isVisible())) {
-        console.error('FAIL: J) Messages health-share DEMO placeholder missing')
+      const menu = page.locator('[data-testid="messages-clinical-share-menu"]')
+      if (!(await menu.isVisible())) {
+        console.error('FAIL: J) Messages clinical share menu missing')
         process.exit(1)
       }
-      console.log('OK  : J) Messages health-share is DEMO placeholder')
+      console.log('OK  : J) Messages clinical share menu visible')
     } else {
       console.log(
-        'SKIP: J) health-share toggle not visible — assert covers isolation',
+        'SKIP: J) clinical-share toggle not visible — assert covers share',
       )
     }
 

@@ -1,28 +1,72 @@
-import { Send } from 'lucide-react'
+import { Send, ClipboardPlus } from 'lucide-react'
+import type { Conversation } from '../../types'
+import { cn } from '../../lib/utils'
+import { HealthShareMenu } from './HealthShareMenu'
 
 interface BookingMessageComposerProps {
+  conversation: Conversation
   message: string
   onMessageChange: (value: string) => void
   onSubmit: (e: React.FormEvent) => void
   disabled?: boolean
+  shareMenuOpen?: boolean
+  onShareMenuToggle?: () => void
+  shareMenuRef?: React.RefObject<HTMLDivElement | null>
+  onShared?: () => void
 }
 
 /**
- * Simple booking/professional compose UX.
- * Extension point: attachments / media / AI — not wired yet.
+ * Booking/professional compose UX with K61 clinical share when petId + ACL exist.
  */
 export function BookingMessageComposer({
+  conversation,
   message,
   onMessageChange,
   onSubmit,
   disabled,
+  shareMenuOpen,
+  onShareMenuToggle,
+  shareMenuRef,
+  onShared,
 }: BookingMessageComposerProps) {
+  const showShare =
+    Boolean(conversation.petId && conversation.participantAccountIds?.length) &&
+    Boolean(onShareMenuToggle)
+
   return (
     <form
       onSubmit={onSubmit}
-      className="flex items-end gap-2 border-t border-[#E8E4DC] bg-white p-3 sm:p-4"
+      className="relative flex items-end gap-2 border-t border-[#E8E4DC] bg-white p-3 sm:p-4"
       data-testid="booking-message-composer"
     >
+      {showShare && (
+        <div className="relative" ref={shareMenuRef}>
+          <button
+            type="button"
+            onClick={onShareMenuToggle}
+            disabled={disabled}
+            className={cn(
+              'rounded-xl p-2 transition-colors cursor-pointer',
+              shareMenuOpen
+                ? 'bg-[#E0EAEC] text-[#234B54]'
+                : 'text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#234B54]',
+            )}
+            aria-label="Sdílet klinický záznam"
+            aria-expanded={shareMenuOpen}
+            data-testid="messages-clinical-share-toggle"
+          >
+            <ClipboardPlus size={18} />
+          </button>
+          {shareMenuOpen && (
+            <HealthShareMenu
+              conversation={conversation}
+              onClose={() => onShareMenuToggle?.()}
+              onShared={onShared}
+            />
+          )}
+        </div>
+      )}
+
       <textarea
         rows={1}
         placeholder="Napište zprávu…"

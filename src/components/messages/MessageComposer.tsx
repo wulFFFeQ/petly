@@ -12,6 +12,7 @@ interface MessageComposerProps {
   onShareMenuToggle: () => void
   shareMenuRef: React.RefObject<HTMLDivElement | null>
   onAttachFile: () => void
+  onShared?: () => void
 }
 
 export function MessageComposer({
@@ -23,13 +24,16 @@ export function MessageComposer({
   onShareMenuToggle,
   shareMenuRef,
   onAttachFile,
+  onShared,
 }: MessageComposerProps) {
+  const showShare = Boolean(active.petId && active.participantAccountIds?.length)
+
   return (
     <form
       onSubmit={onSubmit}
       className="relative flex items-center gap-2 border-t border-[#E8E4DC] bg-white p-3 sm:p-4"
     >
-      {active.contactType === 'vet' && active.petId && (
+      {showShare && (
         <div className="relative" ref={shareMenuRef}>
           <button
             type="button"
@@ -40,14 +44,18 @@ export function MessageComposer({
                 ? 'bg-[#E0EAEC] text-[#234B54]'
                 : 'text-[#7D8B82] hover:bg-[#FAF8F5] hover:text-[#234B54]',
             )}
-            aria-label="Sdílet zdravotní záznamy (DEMO)"
+            aria-label="Sdílet klinický záznam"
             aria-expanded={shareMenuOpen}
-            data-testid="messages-health-share-toggle"
+            data-testid="messages-clinical-share-toggle"
           >
             <ClipboardPlus size={18} />
           </button>
           {shareMenuOpen && (
-            <HealthShareMenu onClose={() => onShareMenuToggle()} />
+            <HealthShareMenu
+              conversation={active}
+              onClose={() => onShareMenuToggle()}
+              onShared={onShared}
+            />
           )}
         </div>
       )}

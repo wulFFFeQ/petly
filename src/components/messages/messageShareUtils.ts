@@ -1,3 +1,8 @@
+/**
+ * Legacy share display helpers.
+ * K61 production share path is createClinicalShare / sendClinicalShareRequest —
+ * do not use buildHealthShareMessage as a clinical SSOT bypass.
+ */
 import { conversations as initialConversations } from '../../data/mockData'
 import { loadConversationPrefs } from '../../lib/archivedConversations'
 import {

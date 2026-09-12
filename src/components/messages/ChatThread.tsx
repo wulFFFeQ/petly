@@ -25,6 +25,7 @@ interface ChatThreadProps {
   onShareMenuToggle: () => void
   shareMenuRef: React.RefObject<HTMLDivElement | null>
   onAttachFile: () => void
+  onClinicalShared?: () => void
 }
 
 function isAccountThread(c: Conversation): boolean {
@@ -49,6 +50,7 @@ export function ChatThread({
   onShareMenuToggle,
   shareMenuRef,
   onAttachFile,
+  onClinicalShared,
 }: ChatThreadProps) {
   const accountThread = active ? isAccountThread(active) : false
 
@@ -76,9 +78,14 @@ export function ChatThread({
           <MessageThread conversation={active} chatEndRef={chatEndRef} />
           {accountThread ? (
             <BookingMessageComposer
+              conversation={active}
               message={message}
               onMessageChange={onMessageChange}
               onSubmit={onSubmitMessage}
+              shareMenuOpen={shareMenuOpen}
+              onShareMenuToggle={onShareMenuToggle}
+              shareMenuRef={shareMenuRef}
+              onShared={onClinicalShared}
             />
           ) : (
             <MessageComposer

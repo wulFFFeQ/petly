@@ -52,7 +52,7 @@ const DOG_CURATED_IMAGES = {
   'Welsh Corgi Pembroke': UNSPLASH('photo-1546975490-e8b92a360b24'),
   'Welsh Corgi Cardigan': UNSPLASH('photo-1546975490-e8b92a360b24'),
   // Aidi — white Atlas dog on dark bokeh (not fluffy mix snap).
-  Aidi: '/breeds/aidi.jpg?v=1',
+  Aidi: '/breeds/aidi.jpg?v=2',
   // Airedale — wiry terrier on golden bokeh (not couch duo snap).
   'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
   // Japanese Akita Inu — editorial portrait on dark bokeh (not beach full-body).

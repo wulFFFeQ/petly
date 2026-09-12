@@ -357,7 +357,7 @@ export function MessagesPageContent({
 
   const archivedCount = conversations.filter((c) => c.archived).length
 
-  // K50: Messages health-share is DEMO placeholder only — no clinical SSOT / mock read.
+  // K61: Clinical Share via authorize + Messages (not access grant).
 
   const selectConversation = (id: string) => {
     setAccessDenied(false)
@@ -619,6 +619,10 @@ export function MessagesPageContent({
             onAttachFile={() =>
               showToast('Příloha souboru', 'Vyberte veterinární PDF nebo fotografii.', 'info')
             }
+            onClinicalShared={() => {
+              refreshAccountThreads()
+              setShareMenuOpen(false)
+            }}
           />
         )}
       </Card>
