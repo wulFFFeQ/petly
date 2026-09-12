@@ -31,7 +31,7 @@
 |--------|------|
 | Web (Vite build / static nebo Node serve) | `[TODO: Railway service]` |
 | API (Fastify, `server/`) | `[TODO: Railway service]` |
-| PostgreSQL | `[TODO: Railway Postgres plugin]` |
+| PostgreSQL | Runbook [LAUNCH-06-POSTGRES-BACKUPS.md](./LAUNCH-06-POSTGRES-BACKUPS.md); plugin `[TODO: Railway project URL]` |
 | Object storage (S3-compatible, dokumenty) | `[TODO: bucket + klíče; upload disabled do malware scanneru]` |
 | `ALLOWED_ORIGINS` | `[TODO: produkční URL]` |
 | `DATABASE_URL` / `SESSION_SECRET` | `[TODO: Railway secrets — nikdy VITE_]` |
@@ -83,6 +83,6 @@ Vyplň před Stripe Account / Connect onboarding. Agent **nevymýšlí** IČO.
 ## 5. Pořadí prací (stručně)
 
 1. Vyplnit doménu + firmu (tabulky výše).  
-2. Railway: Postgres + API + web + secrets.  
+2. Railway: Postgres + API + web + secrets (Postgres: LAUNCH-06).  
 3. Schválit Privacy/Terms (šablony v `docs/legal/` → nahradit placeholdery, counsel sign-off, pak sundat NÁVRH v app).  
 4. Až potom: Stripe live + webhooks (ne dřív).

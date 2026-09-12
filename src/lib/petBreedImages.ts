@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 16
+export const BREED_IMAGE_SYNC_GENERATION = 18
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -99,9 +99,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Bostonský terier': '/breeds/bostonsky-terier.jpg?v=1',
   'Bourbonský ohař krátkosrstý': '/breeds/bourbonsky-ohar-kratkosrsty.jpg?v=2',
   'Brabantík': '/breeds/brabantik.jpg?v=1',
-  'Brazilská fila': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
-  'Brazilský buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
-  'Brazilský terier': 'https://images.dog.ceo/breeds/terrier-yorkshire/n02094433_10184.jpg',
+  'Brazilská fila': '/breeds/brazilska-fila.jpg?v=1',
+  'Brazilský buldok': '/breeds/brazilsky-buldok.jpg?v=2',
+  'Brazilský terier': '/breeds/brazilsky-terier.jpg?v=1',
   'Bretaňský ohař dlouhosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
   'Briard': 'https://images.dog.ceo/breeds/briard/n02105251_6883.jpg',
   'Briquet Griffon Vendéen': 'https://images.dog.ceo/breeds/brabancon/n02112706_1688.jpg',
@@ -572,6 +572,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/bostonsky-terier',
   'breeds/bourbonsky-ohar-kratkosrsty',
   'breeds/brabantik',
+  'breeds/brazilska-fila',
+  'breeds/brazilsky-buldok',
+  'breeds/brazilsky-terier',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',

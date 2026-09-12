@@ -11,7 +11,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test:assert": "node scripts/run-assert-all.mjs",
-    "test:e2e": "node scripts/run-e2e-all.mjs"
+    "test:e2e": "node scripts/run-e2e-all.mjs",
+    "db:backup": "node scripts/pg-dump-backup.mjs",
+    "db:migrate:deploy": "npm --prefix server run prisma:deploy"
   },
   "dependencies": {
     "@lucide/lab": "^0.2.0",
