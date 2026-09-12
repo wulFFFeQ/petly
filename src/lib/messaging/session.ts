@@ -22,6 +22,7 @@ import { markConversationRead, sendMessage, type SendMessageResult } from './mes
 import type { Conversation } from '../../types'
 import { loadProfessionalProfiles } from '../professional/storage'
 import { getBooking } from '../booking/bookings'
+import { actorAccountId } from '../security/context'
 
 export type MessagingUpsertNotification = (draft: NotificationDraft) => void
 
@@ -122,7 +123,7 @@ export function sendClinicalShareRequest(
   if (opts?.upsertNotification && recipientAccountId) {
     const meta = resolveShareNotificationMeta(
       conversation,
-      input.context.actor.kind === 'account' ? input.context.actor.accountId : '',
+      actorAccountId(input.context) ?? '',
       recipientAccountId,
     )
     emitClinicalShareReceivedNotification(opts.upsertNotification, {

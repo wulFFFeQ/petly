@@ -27,7 +27,7 @@ import { assertClinicalShareAttachmentSafe } from '../messaging/privacy'
 import { loadInboxConversations } from '../messaging/storage'
 import { emitAuthorizationAudit } from '../security/auditHook'
 import { actorAccountId, isAuthenticatedAccount } from '../security/context'
-import type { SecurityContext } from '../security/types'
+import type { AuthorizationDenyClass, SecurityContext } from '../security/types'
 import { ClinicalError, isClinicalError, rethrowAsClinical } from './errors'
 import type { ClinicalService } from './service'
 
@@ -66,7 +66,7 @@ function emitShareAudit(
   input: {
     resourceId: string
     result: 'allow' | 'deny'
-    denyClass?: string
+    denyClass?: AuthorizationDenyClass
     shareType: ClinicalShareType
     phase: 'recipient' | 'created' | 'source'
   },
@@ -83,10 +83,7 @@ function emitShareAudit(
     channel: ctx.channel,
     authority: ctx.authority,
     denyCode: input.result === 'deny' ? 'unauthorized' : undefined,
-    denyClass:
-      input.result === 'deny'
-        ? ((input.denyClass as 'forbidden' | 'not_found' | undefined) ?? 'forbidden')
-        : undefined,
+    denyClass: input.result === 'deny' ? (input.denyClass ?? 'forbidden') : undefined,
     // Scrub-safe keys only (avoid medication / healthRecord key names).
     metadata: {
       workflow: 'clinical_share',

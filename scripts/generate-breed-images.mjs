@@ -38,8 +38,10 @@ const DOG_CURATED_IMAGES = {
   'Francouzský buldoček': UNSPLASH('photo-1583511655857-d19b40a7a54e'),
   'Německý ovčák': UNSPLASH('photo-1589941013453-ec89f33b5e95'),
   'Sibiřský husky': UNSPLASH('photo-1605568427561-40dd23c2acea'),
-  // Distinct from husky — landscape snow Malamute, full head, brown eyes.
-  'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=1',
+  // Distinct from husky — Malamute editorial on dark bokeh (not snow full-body).
+  'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=2',
+  // Alpine Dachsbracke — dark short-coat hound on golden bokeh (not dachshund snap).
+  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=1',
   'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
   'Australský honácký pes': UNSPLASH('photo-1769117086709-7507034281fa'),
   'Australský honácký pes s krátkým ocasem': UNSPLASH('photo-1769117086709-7507034281fa'),
@@ -57,8 +59,8 @@ const DOG_CURATED_IMAGES = {
   'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
   // Japanese Akita Inu — editorial portrait on dark bokeh (not beach full-body).
   Akita: '/breeds/akita.jpg?v=2',
-  // American Akita — full-body landscape stack, head fully in frame (not hiking snap).
-  'Americká akita': '/breeds/americka-akita.jpg?v=1',
+  // American Akita — black-mask editorial on golden bokeh (not dry-grass full-body).
+  'Americká akita': '/breeds/americka-akita.jpg?v=2',
   // American Cocker — outdoor HQ, full head (not couch/dog.ceo snap).
   'Americký kokršpaněl': '/breeds/americky-kokrspanel.jpg?v=1',
   // American Foxhound — outdoor head portrait (HQ bokeh; not indoor show-floor).

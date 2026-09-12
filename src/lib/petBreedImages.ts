@@ -8,9 +8,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Aidi': '/breeds/aidi.jpg?v=2',
   'Airedale terier': '/breeds/airedale-terier.jpg?v=1',
   'Akita': '/breeds/akita.jpg?v=2',
-  'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=1',
-  'Alpský jezevčíkovitý brakýř': 'https://images.dog.ceo/breeds/dachshund/dog-495122_640.jpg',
-  'Americká akita': '/breeds/americka-akita.jpg?v=1',
+  'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=2',
+  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=1',
+  'Americká akita': '/breeds/americka-akita.jpg?v=2',
   'Americký bezsrstý terier': '/breeds/americky-bezsrsty-terier.jpg?v=1',
   'Americký buldok': 'https://images.dog.ceo/breeds/bulldog-english/bunz.jpg',
   'Americký foxhound': '/breeds/americky-foxhound.jpg?v=2',
@@ -471,8 +471,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/aidi',
   'breeds/airedale-terier',
   'breeds/akita',
-  'breeds/americka-akita',
   'breeds/aljasky-malamut',
+  'breeds/alpsky-jezevcikovity-brakyr',
+  'breeds/americka-akita',
   'breeds/americky-kokrspanel',
   'breeds/americky-foxhound',
   'breeds/americky-bezsrsty-terier',
@@ -520,6 +521,7 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'n02109047_31830',
   'n02100236_5146',
   'n02096051_3796',
+  'dog-495122_640',
 ] as const
 
 const managedUnsplashPhotoIds = new Set(
