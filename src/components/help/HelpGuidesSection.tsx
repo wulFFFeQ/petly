@@ -37,6 +37,10 @@ const HELP_TOPICS: {
         a: 'Nahoře na této stránce Nápověda je sekce „Co umíme na startu / co ne“. Stručně: majitelé a solo profesionálové ano; plný provoz klinik a útulků ne; platby mezi lidmi ne (jen DEMO checkout rezervace).',
       },
       {
+        q: 'Kde jsou obchodní podmínky a ochrana údajů?',
+        a: 'Na Nápovědě jsou karty Právní texty, nebo přímo /privacy a /terms. Jde o návrh (NÁVRH) s placeholdery firmy — není to schválená právní rada.',
+      },
+      {
         q: 'Jak přidám nového mazlíčka?',
         a: 'V sekci Moji mazlíčci klikněte na „Přidat mazlíčka“, vyplňte základní údaje a uložte profil. Poté můžete doplnit fotografie, dokumenty a zdravotní záznamy.',
       },

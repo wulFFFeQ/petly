@@ -209,7 +209,15 @@ export function MembershipPage() {
           <option value="clear">Vymazat DEMO → Free</option>
         </select>
         <p className="text-[11px] text-[#7D8B82]">
-          Skutečné platby budou dostupné později. Zpět do{' '}
+          Skutečné platby budou dostupné později. Návrh:{' '}
+          <Link to="/terms" className="text-[#B8934A] underline-offset-2 hover:underline">
+            Obchodní podmínky
+          </Link>
+          {' · '}
+          <Link to="/privacy" className="text-[#B8934A] underline-offset-2 hover:underline">
+            Ochrana údajů
+          </Link>
+          . Zpět do{' '}
           <Link to="/settings#membership" className="text-[#B8934A] underline-offset-2 hover:underline">
             Nastavení → Členství
           </Link>

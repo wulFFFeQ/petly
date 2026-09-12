@@ -1,5 +1,6 @@
 import { HelpGuidesSection } from '../components/help/HelpGuidesSection'
 import { LaunchScopeSection } from '../components/help/LaunchScopeSection'
+import { LegalLinksSection } from '../components/help/LegalLinksSection'
 import { PageHeader } from '../components/ui/PageHeader'
 import { BRAND_NAME } from '../lib/brand'
 
@@ -13,6 +14,7 @@ export function HelpPage() {
         description={`Jednoduché návody a odpovědi, jak používat ${BRAND_NAME}.`}
       />
       <LaunchScopeSection />
+      <LegalLinksSection />
       <HelpGuidesSection />
     </div>
   )

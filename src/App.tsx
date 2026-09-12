@@ -29,6 +29,8 @@ import { LostPetPage } from './pages/LostPetPage'
 import { EmergencyPetPage } from './pages/EmergencyPetPage'
 import { HealthPage } from './pages/HealthPage'
 import { HelpPage } from './pages/HelpPage'
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage'
+import { TermsOfServicePage } from './pages/legal/TermsOfServicePage'
 import { LoginPage } from './pages/LoginPage'
 import { MessagesPage } from './pages/MessagesPage'
 import { MyPetsPage } from './pages/MyPetsPage'
@@ -197,6 +199,8 @@ function App() {
               <Route path="payment/success" element={<PaymentSuccessPage />} />
               <Route path="payment/cancel" element={<PaymentCancelPage />} />
               <Route path="help" element={<HelpPage />} />
+              <Route path="privacy" element={<PrivacyPolicyPage />} />
+              <Route path="terms" element={<TermsOfServicePage />} />
             </Route>
           </Route>
           <Route

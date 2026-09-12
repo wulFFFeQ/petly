@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 11
+export const BREED_IMAGE_SYNC_GENERATION = 14
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -93,9 +93,9 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Boloňský psík': '/breeds/bolonsky-psik.jpg?v=1',
   'Bordeauxská doga': '/breeds/bordeauxska-doga.jpg?v=1',
   'Border kolie': '/breeds/border-kolie.jpg?v=1',
-  'Border terier': 'https://images.dog.ceo/breeds/terrier-border/n02093754_7788.jpg',
-  'Bosensko - hercegovinský - chorvatský ovčák': 'https://images.dog.ceo/breeds/german-shepherd/n02106662_13599.jpg',
-  'Bosenský hrubosrstý honič': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
+  'Border terier': '/breeds/border-terier.jpg?v=1',
+  'Bosensko - hercegovinský - chorvatský ovčák': '/breeds/bosensko-hercegovinsky-chorvatsky-ovcak.jpg?v=3',
+  'Bosenský hrubosrstý honič': '/breeds/bosensky-hrubosrsty-honic.jpg?v=2',
   'Bostonský terier': 'https://images.dog.ceo/breeds/bulldog-boston/n02096585_772.jpg',
   'Bourbonský ohař krátkosrstý': 'https://images.dog.ceo/breeds/pointer-german/n02100236_5146.jpg',
   'Brabantík': 'https://images.dog.ceo/breeds/brabancon/n02112706_1688.jpg',
@@ -566,11 +566,15 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/bolonsky-psik',
   'breeds/bordeauxska-doga',
   'breeds/border-kolie',
+  'breeds/border-terier',
+  'breeds/bosensko-hercegovinsky-chorvatsky-ovcak',
+  'breeds/bosensky-hrubosrsty-honic',
   'frise-bichon/h-1',
   'hound-blood/n02088466_6974',
   'sheepdog-english/n02105641_6875',
   'n02109047_31830',
   'photo-1503256207526-0d5d80fa2f47',
+  'terrier-border/n02093754_7788',
   'akita_hiking_in_shpella',
   'n02089973_2300',
   'n02102318_2971',
