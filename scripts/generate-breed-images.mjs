@@ -13,8 +13,13 @@ function extractBreeds(constName) {
 const DOG_BREEDS = extractBreeds('DOG_BREEDS')
 const CAT_BREEDS = extractBreeds('CAT_BREEDS')
 
+/**
+ * Editorial stock URL helper.
+ * Style bar (match Afgánský chrt): sharp subject, head fully visible, soft light / bokeh,
+ * breed-accurate, no phone-snap clutter. Prefer this over dog.ceo.
+ */
 const UNSPLASH = (id) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=90`
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&h=900&q=90&crop=entropy`
 
 const DOG_TYPE_FALLBACK = UNSPLASH('photo-1543466835-00a7907e9de1')
 const CAT_TYPE_FALLBACK = UNSPLASH('photo-1514888286974-6c03e2ca1dba')
@@ -22,12 +27,13 @@ const DOG_DEFAULT_COVER = UNSPLASH('photo-1548767797-d8c844163c4c')
 const CAT_DEFAULT_COVER = UNSPLASH('photo-1518791841217-8f162f1e1131')
 
 /**
- * Curated high-quality Unsplash portraits for popular breeds.
- * Prefer these over dog.ceo (often low-res phone snaps).
- * Only include breeds when the photo was visually verified for that breed.
+ * Curated HQ portraits (Unsplash or local). Visually verified breed match only.
+ * dog.ceo is last-resort fallback for unlisted breeds — do not treat it as the style target.
  * @type {Record<string, string>}
  */
 const DOG_CURATED_IMAGES = {
+  // Reference style: local editorial portrait (head visible under object-top cards).
+  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=2',
   'Border kolie': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Beagle: UNSPLASH('photo-1543466835-00a7907e9de1'),
   'Beagle Harrier': UNSPLASH('photo-1543466835-00a7907e9de1'),
@@ -45,8 +51,10 @@ const DOG_CURATED_IMAGES = {
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Šeltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
-  // Local portrait + PetPhotoCard object-top keeps the head on 4:3 cards.
-  'Afgánský chrt': '/breeds/afgansky-chrt.jpg?v=2',
+  Dobrman: UNSPLASH('photo-1757781956803-2efc6921abe9'),
+  Rotvajler: UNSPLASH('photo-1567752881298-894bb81f9379'),
+  'Welsh Corgi Pembroke': UNSPLASH('photo-1546975490-e8b92a360b24'),
+  'Welsh Corgi Cardigan': UNSPLASH('photo-1546975490-e8b92a360b24'),
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */
