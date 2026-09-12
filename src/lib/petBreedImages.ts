@@ -7,7 +7,7 @@ import { petPlaceholderImages } from './petTypes'
  * Bump when replacing files under public/breeds/ so pets + browser pick up new JPGs
  * without a manual hard refresh (appends `&r=N` to local breed URLs).
  */
-export const BREED_IMAGE_SYNC_GENERATION = 38
+export const BREED_IMAGE_SYNC_GENERATION = 39
 
 function withBreedSyncRevision(url: string): string {
   if (!url.startsWith('/breeds/')) return url
@@ -136,8 +136,8 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Dlouhosrstý vipet': '/breeds/dlouhosrsty-vipet.jpg?v=1',
   'Dobrman': '/breeds/dobrman.jpg?v=2',
   'Drentsche Patrisijshond': '/breeds/drentsche-patrijshond.jpg?v=1',
-  'Drever': '/breeds/drever.jpg?v=1',
-  'Dunker': '/breeds/dunker.jpg?v=1',
+  'Drever': '/breeds/drever.jpg?v=2',
+  'Dunker': '/breeds/dunker.jpg?v=2',
   'Entlebuchský salašnický pes': 'https://images.dog.ceo/breeds/entlebucher/n02108000_1690.jpg',
   'Estrelský pastevecký pes': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
   'Eurasier': 'https://images.dog.ceo/breeds/mix/noah01.jpg',
