@@ -18,6 +18,8 @@ import {
   formatWeightKg,
 } from '../../lib/healthDashboard'
 import { parseCzechDate, todayIsoDate, formatIsoDateToCzech } from '../../lib/petProfileUtils'
+import { tryAssertPetClinical } from '../../lib/security'
+import { useAuthorizedHealthScope } from '../../lib/security/useAuthorizedHealthScope'
 import { useApp } from '../../context/AppContext'
 import type { Pet, WeightMeasurement } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -90,8 +92,11 @@ export function WeightChart({
   onSelectPet,
   className,
 }: WeightChartProps) {
-  const { pets, refreshBadges } = useApp()
-  const petId = lockedPetId
+  const { pets: allPets, refreshBadges, showToast } = useApp()
+  const { allowedPets: pets, canWritePet, canReadPet } = useAuthorizedHealthScope()
+  const deniedLocked = Boolean(lockedPetId && !canReadPet(lockedPetId))
+  const petId = lockedPetId && canReadPet(lockedPetId) ? lockedPetId : undefined
+  const writeAllowed = Boolean(petId && canWritePet(petId))
   const { measurements, reload } = usePetMeasurements(petId)
   const [newWeight, setNewWeight] = useState('')
   const [newWeightNote, setNewWeightNote] = useState('')
@@ -130,11 +135,28 @@ export function WeightChart({
     [chartData],
   )
 
+  if (deniedLocked) {
+    return (
+      <p
+        className={cn('text-sm text-[#5A6660]', className)}
+        data-testid="weight-chart-denied"
+      >
+        Nemáte oprávnění zobrazit hmotnost tohoto mazlíčka.
+      </p>
+    )
+  }
+
   const handleAddWeight = () => {
     if (!petId) return
     const normalized = newWeight.trim().replace(',', '.')
     const value = Number(normalized)
     if (!Number.isFinite(value) || value <= 0) return
+
+    const gate = tryAssertPetClinical('health.write', petId, { pets: allPets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
+      return
+    }
 
     const entry: WeightMeasurement = {
       id: `wm_${petId}_${Date.now()}`,
@@ -238,19 +260,20 @@ export function WeightChart({
           <p className="mt-1 text-xs leading-relaxed text-[#5A6660]">
             Přidejte první hodnotu hmotnosti a začněte sledovat vývoj.
           </p>
-          {showAddForm ? (
-            <div className="mt-3">{addForm}</div>
-          ) : (
-            <Button
-              size="sm"
-              variant="primary"
-              className="mt-3"
-              onClick={() => setShowAddForm(true)}
-            >
-              <Plus size={14} />
-              Přidat měření
-            </Button>
-          )}
+          {writeAllowed &&
+            (showAddForm ? (
+              <div className="mt-3">{addForm}</div>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                className="mt-3"
+                onClick={() => setShowAddForm(true)}
+              >
+                <Plus size={14} />
+                Přidat měření
+              </Button>
+            ))}
         </div>
       </>
     )

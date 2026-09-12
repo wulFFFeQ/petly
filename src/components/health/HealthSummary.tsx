@@ -10,6 +10,7 @@ import {
   type HealthDashboardDetail,
   type HealthPetFilter,
 } from '../../lib/healthDashboard'
+import { useAuthorizedHealthScope } from '../../lib/security/useAuthorizedHealthScope'
 import { cn } from '../../lib/utils'
 import type { HealthRecord } from '../../types'
 import { Badge } from '../ui/Badge'
@@ -66,7 +67,7 @@ type HealthSummaryProps = {
 }
 
 export function HealthSummary({ petFilter, onOpenDetail }: HealthSummaryProps) {
-  const { pets, healthRecords } = useApp()
+  const { allowedPets: pets, allowedRecords: healthRecords } = useAuthorizedHealthScope()
 
   const measurementsByPet = useMemo(() => {
     const map = new Map<string, ReturnType<typeof getWeightMeasurementsForPet>>()
@@ -142,7 +143,8 @@ type UpcomingHealthEventsProps = {
 }
 
 export function UpcomingHealthEvents({ petFilter }: UpcomingHealthEventsProps) {
-  const { setActiveModal, pets, calendarEvents, openEditCalendarEvent } = useApp()
+  const { setActiveModal, calendarEvents, openEditCalendarEvent } = useApp()
+  const { allowedPets: pets } = useAuthorizedHealthScope()
 
   const upcoming = useMemo(
     () => buildUpcomingHealthEvents(calendarEvents, pets, petFilter),
@@ -260,14 +262,18 @@ type HealthRecordsListProps = {
 export function HealthRecordsList({ petFilter, onViewFullHistory }: HealthRecordsListProps) {
   const {
     setActiveModal,
-    healthRecords,
-    pets,
     updateHealthRecord,
     deleteHealthRecord,
     toggleMedicationReminder,
     setMedicationReminderTime,
     setMedicationReminderDays,
   } = useApp()
+  const {
+    allowedPets: pets,
+    allowedRecords: healthRecords,
+    canWritePet,
+  } = useAuthorizedHealthScope()
+  const anyWrite = pets.some((p) => canWritePet(p.id))
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
   const liveRecord = selectedRecord
     ? healthRecords.find((r) => r.id === selectedRecord.id) ?? null
@@ -294,15 +300,17 @@ export function HealthRecordsList({ petFilter, onViewFullHistory }: HealthRecord
                 Nedávné klinické záznamy
               </h3>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setActiveModal('addHealthRecord')}
-              className="shrink-0"
-            >
-              <Plus size={15} />
-              <span>Přidat</span>
-            </Button>
+            {anyWrite ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setActiveModal('addHealthRecord')}
+                className="shrink-0"
+              >
+                <Plus size={15} />
+                <span>Přidat</span>
+              </Button>
+            ) : null}
           </div>
         </div>
 

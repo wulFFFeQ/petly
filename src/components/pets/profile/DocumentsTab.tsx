@@ -76,7 +76,19 @@ export function DocumentsTab({
   openEditCalendarEvent,
   updatePetDocument,
   accept,
+  canReadDocuments,
+  canWriteDocuments,
 }: DocumentsTabProps) {
+  if (!canReadDocuments) {
+    return (
+      <Card variant="elevated" data-testid="documents-tab-denied">
+        <p className="text-sm text-[#5A6660]">
+          Nemáte oprávnění zobrazit dokumenty tohoto mazlíčka.
+        </p>
+      </Card>
+    )
+  }
+
   return (
     <Card variant="elevated">
       <div className="mb-6 pb-4 border-b border-[#F0EDE6] flex items-center justify-between gap-3">
@@ -113,15 +125,17 @@ export function DocumentsTab({
             Otevřete, stáhněte, nahraďte nebo nastavte platnost dokumentů
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDocumentUploadOpen(true)}
-          disabled={documentUploading}
-        >
-          <Plus size={15} />
-          {documentUploading ? 'Nahrávám…' : 'Nahrát dokument'}
-        </Button>
+        {canWriteDocuments ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDocumentUploadOpen(true)}
+            disabled={documentUploading}
+          >
+            <Plus size={15} />
+            {documentUploading ? 'Nahrávám…' : 'Nahrát dokument'}
+          </Button>
+        ) : null}
         <input
           ref={replaceDocumentInputRef}
           type="file"
@@ -139,15 +153,17 @@ export function DocumentsTab({
             Uložte si pasy, očkovací dokumenty, zdravotní zprávy, certifikáty a další důležité
             dokumenty na jednom místě.
           </p>
-          <Button
-            variant="primary"
-            size="sm"
-            className="mt-4"
-            onClick={() => setDocumentUploadOpen(true)}
-            disabled={documentUploading}
-          >
-            Nahrát první dokument
-          </Button>
+          {canWriteDocuments ? (
+            <Button
+              variant="primary"
+              size="sm"
+              className="mt-4"
+              onClick={() => setDocumentUploadOpen(true)}
+              disabled={documentUploading}
+            >
+              Nahrát první dokument
+            </Button>
+          ) : null}
         </div>
       ) : (
         <>

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { healthRecords } from '../../data/mockData'
 import { bumpDiscoverEngagement, getDiscoverPetById } from '../../lib/discover'
 import { saveConversationPrefs } from '../../lib/archivedConversations'
 import { savePersistedInboxConversations } from '../../lib/messages/inboxStorage'
@@ -27,7 +26,6 @@ import { SafeContactChat } from '../pets/lost/SafeContactChat'
 import {
   buildConversationFromCommunityAuthor,
   buildConversationFromDiscoverPet,
-  buildHealthShareMessage,
   buildInitialConversations,
 } from './messageShareUtils'
 import { takeConnectMessageDraft } from '../../lib/connections'
@@ -66,7 +64,6 @@ export function MessagesPageContent({
   const [search, setSearch] = useState('')
   const [mobileShowChat, setMobileShowChat] = useState(false)
   const [shareMenuOpen, setShareMenuOpen] = useState(false)
-  const [selectedShareIds, setSelectedShareIds] = useState<string[]>([])
   const [contactProfileOpen, setContactProfileOpen] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -360,49 +357,7 @@ export function MessagesPageContent({
 
   const archivedCount = conversations.filter((c) => c.archived).length
 
-  const shareableRecords = healthRecords.filter((r) => {
-    if (!active?.petId) return false
-    return r.petId === active.petId
-  })
-
-  const toggleShareSelection = (recordId: string) => {
-    setSelectedShareIds((prev) =>
-      prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId],
-    )
-  }
-
-  const handleShareSelectedRecords = () => {
-    if (!activeId || selectedShareIds.length === 0) return
-    const records = healthRecords.filter((r) => selectedShareIds.includes(r.id))
-    const newMsgs = records.map((r, i) => buildHealthShareMessage(r, i))
-    const lastMsg = newMsgs[newMsgs.length - 1]
-    if (!lastMsg) return
-
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === activeId
-          ? {
-              ...c,
-              lastMessage: lastMsg.text,
-              time: 'Právě teď',
-              messages: [...c.messages, ...newMsgs],
-            }
-          : c,
-      ),
-    )
-    setShareMenuOpen(false)
-    setSelectedShareIds([])
-
-    const countLabel =
-      records.length === 1
-        ? '1 zdravotní záznam'
-        : `${records.length} zdravotní záznamy`
-    showToast(
-      'Záznamy sdíleny',
-      `${countLabel} odeslán${records.length > 1 ? 'y' : ''} veterináři.`,
-      'gold',
-    )
-  }
+  // K50: Messages health-share is DEMO placeholder only — no clinical SSOT / mock read.
 
   const selectConversation = (id: string) => {
     setAccessDenied(false)
@@ -661,17 +616,6 @@ export function MessagesPageContent({
             shareMenuOpen={shareMenuOpen}
             onShareMenuToggle={() => setShareMenuOpen((open) => !open)}
             shareMenuRef={shareMenuRef}
-            shareableRecords={shareableRecords}
-            selectedShareIds={selectedShareIds}
-            onToggleShareSelection={toggleShareSelection}
-            onToggleSelectAllShareRecords={() =>
-              setSelectedShareIds(
-                selectedShareIds.length === shareableRecords.length
-                  ? []
-                  : shareableRecords.map((r) => r.id),
-              )
-            }
-            onShareSelectedRecords={handleShareSelectedRecords}
             onAttachFile={() =>
               showToast('Příloha souboru', 'Vyberte veterinární PDF nebo fotografii.', 'info')
             }

@@ -42,7 +42,19 @@ export function HealthTab({
   newWeightNote,
   setNewWeightNote,
   handleAddWeight,
+  canReadHealth,
+  canWriteHealth,
 }: HealthTabProps) {
+  if (!canReadHealth) {
+    return (
+      <Card variant="elevated" data-testid="health-tab-denied">
+        <p className="text-sm text-[#5A6660]">
+          Nemáte oprávnění zobrazit zdravotní údaje tohoto mazlíčka.
+        </p>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {healthCategoryView ? (
@@ -68,15 +80,17 @@ export function HealthTab({
                 {filteredPetRecords.length === 1 ? 'záznam' : 'záznamů'} · chronologicky
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => openNewHealthRecord({ petId: pet.id, type: healthCategoryView })}
-              className="shrink-0"
-            >
-              <Plus size={15} />
-              <span>Přidat záznam</span>
-            </Button>
+            {canWriteHealth ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => openNewHealthRecord({ petId: pet.id, type: healthCategoryView })}
+                className="shrink-0"
+              >
+                <Plus size={15} />
+                <span>Přidat záznam</span>
+              </Button>
+            ) : null}
           </div>
 
           {healthCategoryView === 'medication' && categoryActiveMedications.length > 0 && (
@@ -224,15 +238,17 @@ export function HealthTab({
                         Klepnutím otevřete historii vybrané kategorie
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => setActiveModal('addHealthRecord', pet.id)}
-                      className="shrink-0"
-                    >
-                      <Plus size={15} />
-                      <span>Přidat záznam</span>
-                    </Button>
+                    {canWriteHealth ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => setActiveModal('addHealthRecord', pet.id)}
+                        className="shrink-0"
+                      >
+                        <Plus size={15} />
+                        <span>Přidat záznam</span>
+                      </Button>
+                    ) : null}
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -387,37 +403,39 @@ export function HealthTab({
                   </ResponsiveContainer>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 border-t border-[#F0EDE6] pt-4">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Hmotnost (kg)"
-                  value={newWeight}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^\d.,]/g, '')
-                    const sepMatch = raw.match(/[.,]/)
-                    if (!sepMatch) {
-                      setNewWeight(raw)
-                      return
-                    }
-                    const sep = sepMatch[0]
-                    const [whole, ...fractionParts] = raw.split(/[.,]/)
-                    setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
-                  }}
-                  className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-                />
-                <input
-                  type="text"
-                  placeholder="Poznámka (volitelné)"
-                  value={newWeightNote}
-                  onChange={(e) => setNewWeightNote(e.target.value)}
-                  className="h-9 flex-1 min-w-[140px] rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
-                />
-                <Button size="sm" variant="primary" onClick={handleAddWeight} disabled={!newWeight.trim()}>
-                  <Plus size={14} />
-                  Přidat měření
-                </Button>
-              </div>
+              {canWriteHealth ? (
+                <div className="flex flex-wrap gap-2 border-t border-[#F0EDE6] pt-4">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Hmotnost (kg)"
+                    value={newWeight}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d.,]/g, '')
+                      const sepMatch = raw.match(/[.,]/)
+                      if (!sepMatch) {
+                        setNewWeight(raw)
+                        return
+                      }
+                      const sep = sepMatch[0]
+                      const [whole, ...fractionParts] = raw.split(/[.,]/)
+                      setNewWeight(`${whole}${sep}${fractionParts.join('')}`)
+                    }}
+                    className="h-9 w-28 rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Poznámka (volitelné)"
+                    value={newWeightNote}
+                    onChange={(e) => setNewWeightNote(e.target.value)}
+                    className="h-9 flex-1 min-w-[140px] rounded-xl border border-[#E8E4DC] px-3 text-xs outline-none focus:border-[#234B54]"
+                  />
+                  <Button size="sm" variant="primary" onClick={handleAddWeight} disabled={!newWeight.trim()}>
+                    <Plus size={14} />
+                    Přidat měření
+                  </Button>
+                </div>
+              ) : null}
               <ul className="mt-3 space-y-1.5">
                 {[...weightData]
                   .sort((a, b) => parseCzechDate(b.date) - parseCzechDate(a.date))

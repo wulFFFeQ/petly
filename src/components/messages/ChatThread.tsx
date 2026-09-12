@@ -1,4 +1,4 @@
-import type { Conversation, DiscoverPet, HealthRecord } from '../../types'
+import type { Conversation, DiscoverPet } from '../../types'
 import { cn } from '../../lib/utils'
 import { BookingContextBanner } from './BookingContextBanner'
 import { BookingMessageComposer } from './BookingMessageComposer'
@@ -24,11 +24,6 @@ interface ChatThreadProps {
   shareMenuOpen: boolean
   onShareMenuToggle: () => void
   shareMenuRef: React.RefObject<HTMLDivElement | null>
-  shareableRecords: HealthRecord[]
-  selectedShareIds: string[]
-  onToggleShareSelection: (recordId: string) => void
-  onToggleSelectAllShareRecords: () => void
-  onShareSelectedRecords: () => void
   onAttachFile: () => void
 }
 
@@ -53,11 +48,6 @@ export function ChatThread({
   shareMenuOpen,
   onShareMenuToggle,
   shareMenuRef,
-  shareableRecords,
-  selectedShareIds,
-  onToggleShareSelection,
-  onToggleSelectAllShareRecords,
-  onShareSelectedRecords,
   onAttachFile,
 }: ChatThreadProps) {
   const accountThread = active ? isAccountThread(active) : false
@@ -99,11 +89,6 @@ export function ChatThread({
               shareMenuOpen={shareMenuOpen}
               onShareMenuToggle={onShareMenuToggle}
               shareMenuRef={shareMenuRef}
-              shareableRecords={shareableRecords}
-              selectedShareIds={selectedShareIds}
-              onToggleShareSelection={onToggleShareSelection}
-              onToggleSelectAllShareRecords={onToggleSelectAllShareRecords}
-              onShareSelectedRecords={onShareSelectedRecords}
               onAttachFile={onAttachFile}
             />
           )}

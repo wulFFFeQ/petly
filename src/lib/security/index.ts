@@ -102,6 +102,22 @@ export { projectAfterAuthorize } from './adapters/project'
 export { projectAuthorizedPublicPet } from './adapters/public'
 export { actorHasOrgMembershipOnly } from './adapters/organizationPet'
 
+/** K50 — clinical authorize glue (not a new ACL). */
+export {
+  authorizePetClinical,
+  assertPetClinical,
+  canPetClinical,
+  tryAssertPetClinical,
+  filterPetsWithClinicalAccess,
+  filterHealthRecordsForClinicalAccess,
+  projectPetAfterClinicalAuthorize,
+  buildDemoClinicalAuthorizeDeps,
+  resolveClinicalActiveMode,
+  writeActionForHealthRecordType,
+  type ClinicalGateOptions,
+  type ClinicalProjectOptions,
+} from './clinicalGate'
+
 export type {
   AuditActorType,
   AuditEvent,

@@ -141,6 +141,10 @@ import {
   loadPetHouseholdAccess,
 } from '../lib/household'
 import { getRoleMeta, reconcileExpiredPetProfessionalAccess } from '../lib/professional'
+import {
+  tryAssertPetClinical,
+  writeActionForHealthRecordType,
+} from '../lib/security'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
 import type {
@@ -1598,6 +1602,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reminderEnabled?: boolean
     reminderOffsetsDays?: number[]
   }): Promise<PetDocument | null> => {
+    const gate = tryAssertPetClinical('documents.write', input.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění přidávat dokumenty.', 'info')
+      return null
+    }
     const pet = pets.find((item) => item.id === input.petId)
     const stamp = Date.now()
     const id = `doc_${stamp}_${Math.random().toString(36).slice(2, 8)}`
@@ -1674,6 +1683,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const existing = documents.find((doc) => doc.id === documentId)
     if (!existing) return
 
+    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění upravovat dokumenty.', 'info')
+      return
+    }
+
     const merged: PetDocument = {
       ...existing,
       ...updates,
@@ -1692,6 +1707,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const replacePetDocument = async (documentId: string, file: File): Promise<boolean> => {
     const existing = documents.find((doc) => doc.id === documentId)
     if (!existing) return false
+
+    const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění nahrazovat dokumenty.', 'info')
+      return false
+    }
 
     try {
       assertDocumentFile(file)
@@ -1735,6 +1756,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const deletePetDocument = async (documentId: string) => {
+    const existing = documents.find((doc) => doc.id === documentId)
+    if (existing) {
+      const gate = tryAssertPetClinical('documents.write', existing.petId, { pets })
+      if (!gate.ok) {
+        showToast('Bez oprávnění', 'Nemáte oprávnění mazat dokumenty.', 'info')
+        return
+      }
+    }
     await deleteDocumentBlob(documentId).catch(() => undefined)
     setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
     setCalendarEvents((prev) => removeDocumentReminderEvents(prev, documentId))
@@ -1778,6 +1807,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addHealthRecord = (input: NewHealthRecordInput) => {
     const pet = pets.find((item) => item.id === input.petId)
     if (!pet || !input.title.trim() || !input.date) return
+
+    const writeAction = writeActionForHealthRecordType(input.type)
+    const gate = tryAssertPetClinical(writeAction, input.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění přidávat zdravotní záznamy.', 'info')
+      return
+    }
 
     const czechDate = formatIsoDateToCzech(input.date)
     const today = new Date()
@@ -1831,6 +1867,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
+    const writeAction = writeActionForHealthRecordType(updates.type ?? record.type)
+    const gate = tryAssertPetClinical(writeAction, record.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění upravovat zdravotní záznamy.', 'info')
+      return
+    }
+
     const updated: HealthRecord = { ...record, ...updates }
     setHealthRecords((prev) =>
       prev.map((item) => (item.id === recordId ? updated : item)),
@@ -1849,6 +1892,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record) return
 
+    const writeAction = writeActionForHealthRecordType(record.type)
+    const gate = tryAssertPetClinical(writeAction, record.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění mazat zdravotní záznamy.', 'info')
+      return
+    }
+
     disableMedicationReminder(recordId)
     setHealthRecords((prev) => prev.filter((item) => item.id !== recordId))
     showToast('Záznam smazán', record.subtitle || record.title, 'info')
@@ -1857,6 +1907,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleMedicationReminder = (recordId: string) => {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
+
+    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
+      return
+    }
 
     const nextEnabled = !record.reminderEnabled
     const updated: HealthRecord = {
@@ -1890,6 +1946,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
 
+    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
+      return
+    }
+
     const normalized = /^\d{1,2}:\d{2}$/.test(time.trim()) ? time.trim() : '09:00'
     const updated: HealthRecord = { ...record, scheduleTime: normalized }
     setHealthRecords((prev) =>
@@ -1904,6 +1966,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setMedicationReminderDays = (recordId: string, days: number) => {
     const record = healthRecords.find((item) => item.id === recordId)
     if (!record || record.type !== 'medication') return
+
+    const gate = tryAssertPetClinical('medication.write', record.petId, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění měnit připomínky léků.', 'info')
+      return
+    }
 
     const updated: HealthRecord = {
       ...record,

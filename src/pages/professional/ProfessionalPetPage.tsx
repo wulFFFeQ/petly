@@ -22,6 +22,11 @@ import {
   saveProfessionalAccessLogs,
 } from '../../lib/professional'
 import { getActiveSelfProfessionalProfile } from '../../lib/professional/dashboard'
+import {
+  authorizePetClinical,
+  tryAssertPetClinical,
+  writeActionForHealthRecordType,
+} from '../../lib/security'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -53,6 +58,16 @@ export function ProfessionalPetPage() {
     if (!pet || !access || !isAccessEffective(access)) {
       return { view: null, denied: true as const }
     }
+
+    // K50: central authorize() before domain projection (domain assert alone is not enough).
+    const decision = authorizePetClinical('health.read', pet.id, {
+      activeMode: 'professional',
+      pets,
+    })
+    if (!decision.allowed) {
+      return { view: null, denied: true as const }
+    }
+
     const { logs: existingLogs } = loadAccessState()
     const result = projectPetForProfessional(pet, {
       access,
@@ -66,7 +81,7 @@ export function ProfessionalPetPage() {
       saveProfessionalAccessLogs(result.logs)
     }
     return { view: result.view, denied: false as const }
-  }, [pet, access, healthRecords, documents, refreshKey])
+  }, [pet, access, healthRecords, documents, refreshKey, pets])
 
   const logWrite = (action: 'record_added' | 'vaccination_added') => {
     if (!access || !professionalId) return
@@ -90,6 +105,24 @@ export function ProfessionalPetPage() {
   ) => {
     if (!access || !pet) return
     try {
+      const writeAction =
+        writeKind === 'vaccination'
+          ? 'vaccination.write'
+          : writeKind === 'note'
+            ? 'health.write'
+            : writeKind === 'visit'
+              ? 'health.write'
+              : writeActionForHealthRecordType(type)
+
+      const gate = tryAssertPetClinical(writeAction, pet.id, {
+        activeMode: 'professional',
+        pets,
+      })
+      if (!gate.ok) {
+        showToast('Bez oprávnění', 'Tuto akci nemáte povolenou.', 'info')
+        return
+      }
+
       if (writeKind === 'visit') assertCanAddVisit(access)
       if (writeKind === 'vaccination') assertCanAddVaccination(access)
       if (writeKind === 'health') assertCanAddHealthRecord(access)

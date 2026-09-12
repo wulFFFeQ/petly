@@ -14,6 +14,8 @@ import {
 } from '../../../lib/dailyCareChecklist'
 import { persistWeightMeasurement, getWeightMeasurementsForPet } from '../../../lib/badges/badgeData'
 import { APP_TODAY } from '../../../lib/dashboardDates'
+import { tryAssertPetClinical } from '../../../lib/security'
+import { usePetClinicalFlags } from '../../../lib/security/useAuthorizedHealthScope'
 import type {
   HealthRecord,
   Pet,
@@ -80,6 +82,15 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     updatePet,
   } = useApp()
 
+  const clinical = usePetClinicalFlags(pet.id)
+  const healthRecordsForPet = clinical.canRead
+    ? allRecords.filter((r) => r.petId === pet.id)
+    : []
+  const documents = clinical.canReadDocuments
+    ? allDocuments.filter((d) => d.petId === pet.id)
+    : []
+  const photos = allPhotos.filter((p) => p.petId === pet.id)
+
   const galleryFileInputRef = useRef<HTMLInputElement>(null)
   const replaceDocumentInputRef = useRef<HTMLInputElement>(null)
 
@@ -130,9 +141,6 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   const [dailyCareDone, setDailyCareDone] = useState<string[]>(() =>
     loadDailyCareCompleted(pet.id),
   )
-
-  const documents = allDocuments.filter((d) => d.petId === pet.id)
-  const photos = allPhotos.filter((p) => p.petId === pet.id)
 
   useEffect(() => {
     setDailyCareDone(loadDailyCareCompleted(pet.id))
@@ -191,7 +199,7 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
     if (event) openEditCalendarEvent(event.id)
   }
 
-  const petRecords = allRecords.filter((r) => r.petId === pet.id)
+  const petRecords = healthRecordsForPet
   const vaccinations = petRecords.filter((r) => r.type === 'vaccination')
   const medications = petRecords.filter((r) => r.type === 'medication')
   const vetVisits = petRecords.filter((r) => r.type === 'vet')
@@ -352,6 +360,13 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
   const handleAddWeight = () => {
     const weight = parseFloat(newWeight.replace(',', '.'))
     if (!weight || Number.isNaN(weight)) return
+
+    const gate = tryAssertPetClinical('health.write', pet.id, { pets })
+    if (!gate.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění zapisovat hmotnost.', 'info')
+      return
+    }
+
     const today = new Date()
     const dateStr = `${today.getDate()}. ${today.getMonth() + 1}. ${today.getFullYear()}`
     const entry: WeightMeasurement = {
@@ -753,6 +768,8 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       newWeightNote,
       setNewWeightNote,
       handleAddWeight,
+      canReadHealth: clinical.canRead,
+      canWriteHealth: clinical.canWrite,
     },
     timeline: {
       mergedTimeline,
@@ -792,6 +809,8 @@ export function usePetProfileTabState({ pet, onTabChange }: UsePetProfileTabStat
       openEditCalendarEvent,
       updatePetDocument,
       accept: PET_DOCUMENT_ACCEPT,
+      canReadDocuments: clinical.canReadDocuments,
+      canWriteDocuments: clinical.canWriteDocuments,
     },
     photos: {
       pet,

@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, ClipboardList } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import { tryAssertPetClinical } from '../../lib/security'
 import {
   ASSESSMENT_SECTIONS,
   buildPreventionDefaults,
@@ -36,7 +37,17 @@ export function HealthAssessmentModal({
   pet,
   startOnResult = false,
 }: HealthAssessmentModalProps) {
-  const { healthRecords, updatePet, addHealthRecord } = useApp()
+  const { healthRecords, updatePet, addHealthRecord, pets, showToast } = useApp()
+
+  // Gate assessment mutations — UI hide is not enough.
+  const canWrite = useMemo(
+    () => tryAssertPetClinical('health.write', pet.id, { pets }).ok,
+    [pet.id, pets],
+  )
+  const canRead = useMemo(
+    () => tryAssertPetClinical('health.read', pet.id, { pets }).ok,
+    [pet.id, pets],
+  )
   const [step, setStep] = useState<Step>('form')
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<EvaluationResult | null>(null)
@@ -101,6 +112,10 @@ export function HealthAssessmentModal({
 
   const handleSave = () => {
     if (!result) return
+    if (!canWrite) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění uložit zdravotní přehled.', 'info')
+      return
+    }
 
     updatePet(pet.id, {
       healthStatus: result.status,
@@ -123,6 +138,22 @@ export function HealthAssessmentModal({
     })
 
     onClose()
+  }
+
+  if (!canRead) {
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Zdravotní přehled"
+        subtitle={pet.name}
+        maxWidth="md"
+      >
+        <p className="text-sm text-[#5A6660]" data-testid="health-assessment-denied">
+          Nemáte oprávnění zobrazit zdravotní údaje tohoto mazlíčka.
+        </p>
+      </Modal>
+    )
   }
 
   return (

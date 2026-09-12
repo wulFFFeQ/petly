@@ -10,6 +10,7 @@ import {
   type HealthDashboardDetail,
   type HealthPetFilter,
 } from '../../lib/healthDashboard'
+import { useAuthorizedHealthScope } from '../../lib/security/useAuthorizedHealthScope'
 import { cn } from '../../lib/utils'
 import { recordTypeMeta } from '../pets/profile/healthHelpers'
 import type { HealthRecord } from '../../types'
@@ -34,8 +35,6 @@ export function HealthCategoryPanel({
   onPetFilterChange,
 }: HealthCategoryPanelProps) {
   const {
-    pets,
-    healthRecords,
     openNewHealthRecord,
     toggleMedicationReminder,
     updateHealthRecord,
@@ -43,12 +42,22 @@ export function HealthCategoryPanel({
     setMedicationReminderTime,
     setMedicationReminderDays,
   } = useApp()
+  const {
+    allowedPets: pets,
+    allowedRecords: healthRecords,
+    canWritePet,
+  } = useAuthorizedHealthScope()
   const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null)
 
   const scopedRecords = useMemo(
     () => filterRecordsByPet(healthRecords, petFilter),
     [healthRecords, petFilter],
   )
+
+  const canWriteScoped =
+    petFilter === 'all'
+      ? pets.some((p) => canWritePet(p.id))
+      : canWritePet(petFilter)
 
   const listRecords = useMemo(() => {
     if (detail === 'weight') return []
@@ -93,7 +102,7 @@ export function HealthCategoryPanel({
               </p>
             )}
           </div>
-          {detail !== 'weight' && (
+          {detail !== 'weight' && canWriteScoped && (
             <Button
               size="sm"
               variant="primary"
