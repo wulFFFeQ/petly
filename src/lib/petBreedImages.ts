@@ -58,7 +58,7 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Bergamský ovčák': '/breeds/bergamsky-ovcak.jpg?v=2',
   'Bernský salašnický pes': '/breeds/bernsky-salasnicky-pes.jpg?v=1',
   'Biewer teriér': '/breeds/biewer-terier.jpg?v=1',
-  'Billy': '/breeds/billy.jpg?v=3',
+  'Billy': '/breeds/billy.jpg?v=5',
   'Bílý švýcarský ovčák': '/breeds/bily-svycarsky-ovcak.jpg?v=1',
   'Bišonek': '/breeds/bisonek.jpg?v=1',
   'Black and Tan Coonhound': 'https://images.dog.ceo/breeds/hound-basset/n02088238_9960.jpg',
