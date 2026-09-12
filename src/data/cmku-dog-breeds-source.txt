@@ -65,7 +65,6 @@ Na této stránce naleznete seznam všech plemen - standardů. Časem bude u ka�
 | 044 | Beauceron | Berger de Beauce |
 | 009 | Bedlington terier | Bedlington Terrier |
 | 081 | Belgický grifonek | Griffon Belge |
-| 015 | Belgický ovčák | Chien de Berger Belge |
 | 015 | Belgický ovčák - Groenendael | Chien de Berger Belge - Groenendael |
 | 015 | Belgický ovčák - Laekenois | Chien de Berger Belge - Laekenois |
 | 015 | Belgický ovčák - Malinois | Chien de Berger Belge - Malinois |

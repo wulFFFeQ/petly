@@ -50,7 +50,6 @@ export const DOG_IDEAL_WEIGHTS: Record<string, BreedIdealWeight> = {
   "Beauceron": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },
   "Bedlington terier": { female: { min: 14, max: 25 }, male: { min: 18, max: 32 } },
   "Belgický grifonek": { female: { min: 12, max: 22 }, male: { min: 15, max: 28 } },
-  "Belgický ovčák": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },
   "Belgický ovčák - Groenendael": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },
   "Belgický ovčák - Laekenois": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },
   "Belgický ovčák - Malinois": { female: { min: 16, max: 28 }, male: { min: 20, max: 35 } },

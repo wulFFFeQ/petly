@@ -36,6 +36,8 @@ export function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
@@ -44,7 +46,7 @@ export function Modal({
       document.activeElement instanceof HTMLElement ? document.activeElement : null
 
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
 
     const handleTab = (e: KeyboardEvent) => {
@@ -72,7 +74,7 @@ export function Modal({
     document.addEventListener('keydown', handleTab)
     document.body.style.overflow = 'hidden'
 
-    // Initial focus: close button, else first focusable, else panel.
+    // Initial focus only when the modal opens — not on every parent re-render.
     requestAnimationFrame(() => {
       const panel = panelRef.current
       if (!panel) return
@@ -88,7 +90,7 @@ export function Modal({
       restoreFocusRef.current?.focus()
       restoreFocusRef.current = null
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

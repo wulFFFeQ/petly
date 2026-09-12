@@ -51,11 +51,10 @@ export const DOG_BREED_IMAGES: Record<string, string> = {
   'Beauceron': '/breeds/beauceron.jpg?v=1',
   'Bedlington terier': '/breeds/bedlington-terier.jpg?v=1',
   'Belgický grifonek': '/breeds/belgicky-grifonek.jpg?v=1',
-  'Belgický ovčák': '/breeds/belgicky-ovcak.jpg?v=1',
   'Belgický ovčák - Groenendael': '/breeds/belgicky-ovcak-groenendael.jpg?v=1',
-  'Belgický ovčák - Laekenois': 'https://images.dog.ceo/breeds/groenendael/n02105056_6600.jpg',
-  'Belgický ovčák - Malinois': 'https://images.dog.ceo/breeds/groenendael/n02105056_6600.jpg',
-  'Belgický ovčák - Tervueren': 'https://images.dog.ceo/breeds/groenendael/n02105056_6600.jpg',
+  'Belgický ovčák - Laekenois': '/breeds/belgicky-ovcak-laekenois.jpg?v=1',
+  'Belgický ovčák - Malinois': '/breeds/belgicky-ovcak-malinois.jpg?v=1',
+  'Belgický ovčák - Tervueren': '/breeds/belgicky-ovcak-tervueren.jpg?v=1',
   'Bergamský ovčák': 'https://images.dog.ceo/breeds/german-shepherd/n02106662_13599.jpg',
   'Bernský salašnický pes': 'https://images.dog.ceo/breeds/mountain-bernese/n02107683_454.jpg',
   'Biewer teriér': 'https://images.dog.ceo/breeds/terrier-yorkshire/n02094433_10184.jpg',
@@ -455,7 +454,9 @@ export const CAT_BREED_IMAGES: Record<string, string> = {
 
 export function getDefaultBreedImage(type: PetType, breed: string): string {
   const map = type === 'dog' ? DOG_BREED_IMAGES : CAT_BREED_IMAGES
-  return map[breed] ?? petPlaceholderImages[type]
+  // Legacy: unsuffixed Belgický ovčák was the same as Malinois — keep image sync working.
+  const key = type === 'dog' && breed === 'Belgický ovčák' ? 'Belgický ovčák - Malinois' : breed
+  return map[key] ?? petPlaceholderImages[type]
 }
 
 const managedBreedDefaultUrls = new Set<string>([
@@ -516,6 +517,9 @@ const LEGACY_BREED_DEFAULT_URL_FRAGMENTS = [
   'breeds/belgicky-grifonek',
   'breeds/belgicky-ovcak',
   'breeds/belgicky-ovcak-groenendael',
+  'breeds/belgicky-ovcak-laekenois',
+  'breeds/belgicky-ovcak-malinois',
+  'breeds/belgicky-ovcak-tervueren',
   'akita_hiking_in_shpella',
   'n02089973_2300',
   'n02102318_2971',

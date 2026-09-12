@@ -48,7 +48,6 @@ export const DOG_BREEDS = [
   'Beauceron',
   'Bedlington terier',
   'Belgický grifonek',
-  'Belgický ovčák',
   'Belgický ovčák - Groenendael',
   'Belgický ovčák - Laekenois',
   'Belgický ovčák - Malinois',
