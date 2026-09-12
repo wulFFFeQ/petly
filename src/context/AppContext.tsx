@@ -155,6 +155,7 @@ import {
   type HealthRecordVersionSnapshot,
   type PetDocumentVersionSnapshot,
 } from '../lib/clinical'
+import { tryAssertPetClinical } from '../lib/security'
 import type { EmergencyCardSettings } from '../types/emergencyCard'
 import { SELF_OWNER_ID } from '../lib/discover/owner'
 import type { EarnedBadge } from '../types/badges'
@@ -1448,8 +1449,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const resolveActorAccountId = () => getSelfAccount()?.id ?? SELF_OWNER_ID
 
   const updatePet = (petId: string, updates: Partial<Pet>) => {
-    let breedingJustEnabledPet: Pet | null = null
-    let petForVerification: Pet | null = null
+    // Object capture: TS control-flow ignores assignments inside setState updaters.
+    const heatCapture: { pet: Pet | null } = { pet: null }
+    const verificationCapture: { pet: Pet | null } = { pet: null }
 
     // K62 — Emergency Card write must pass ClinicalService + clinical.emergency.write.
     // UI is not the authorization boundary.
@@ -1637,24 +1639,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         if (breedingJustEnabled && canAutoGenerateHeat(next)) {
-          breedingJustEnabledPet = next
+          heatCapture.pet = next
         }
 
-        petForVerification = next
+        verificationCapture.pet = next
         return next
       }),
     )
 
-    if (petForVerification) {
+    if (verificationCapture.pet) {
       try {
-        saveVerifications(applyBreedingEvaluation(loadVerifications(), petForVerification))
+        saveVerifications(applyBreedingEvaluation(loadVerifications(), verificationCapture.pet))
       } catch {
         // ignore storage errors
       }
     }
 
-    if (breedingJustEnabledPet) {
-      const petForHeat = breedingJustEnabledPet
+    if (heatCapture.pet) {
+      const petForHeat = heatCapture.pet
       setCalendarEvents((prev) => {
         if (hasActiveHeatForPet(prev, petForHeat)) return prev
         if (!canAutoGenerateHeat(petForHeat)) return prev
@@ -1789,10 +1791,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       assertDocumentFile(input.file)
-      await saveDocumentBlob(id, input.file, {
-        mimeType: input.file.type || undefined,
-        fileName: input.file.name,
-      })
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'read_failed'
       if (reason === 'unsupported_type') {
@@ -1802,7 +1800,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         showToast(
           'Nahrání selhalo',
-          'Soubor se nepodařilo uložit. Zkuste to znovu.',
+          'Soubor se nepodařilo ověřit. Zkuste to znovu.',
           'info',
         )
       }
@@ -1811,7 +1809,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const adapter = buildHealthClinicalAdapter()
     const service = createDemoClinicalService(adapter, { store: { pets } })
+    let doc: PetDocument
     try {
+      // Authorize + metadata BEFORE any blob write (no orphan blobs on deny).
       const result = service.createDocument({
         context: resolveClinicalStampContext(),
         pets,
@@ -1837,16 +1837,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           encounterId: input.encounterId,
         },
       })
-      const doc = result.data
-      setCalendarEvents((prev) => syncDocumentReminderEvents(prev, doc, pet))
-      showToast(
-        'Dokument nahrán',
-        pet ? `Uloženo v sekci Dokumenty u ${pet.name}.` : 'Uloženo v sekci Dokumenty.',
-        'gold',
-      )
-      return doc
+      doc = result.data
     } catch (err) {
-      await deleteDocumentBlob(id).catch(() => undefined)
       if (handleClinicalMutationError(err, 'Nemáte oprávnění přidávat dokumenty.')) {
         return null
       }
@@ -1861,6 +1853,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       throw err
     }
+
+    try {
+      await saveDocumentBlob(id, input.file, {
+        mimeType: input.file.type || undefined,
+        fileName: input.file.name,
+      })
+    } catch {
+      try {
+        service.withdrawDocument({
+          context: resolveClinicalStampContext(),
+          pets,
+          expectedVersion: clinicalCurrentVersion(doc),
+          input: { documentId: id },
+        })
+      } catch {
+        // best-effort cleanup of authorized metadata if blob write fails
+      }
+      await deleteDocumentBlob(id).catch(() => undefined)
+      showToast(
+        'Nahrání selhalo',
+        'Soubor se nepodařilo uložit. Zkuste to znovu.',
+        'error',
+      )
+      return null
+    }
+
+    setCalendarEvents((prev) => syncDocumentReminderEvents(prev, doc, pet))
+    showToast(
+      'Dokument nahrán',
+      pet ? `Uloženo v sekci Dokumenty u ${pet.name}.` : 'Uloženo v sekci Dokumenty.',
+      'gold',
+    )
+    return doc
   }
 
   const updatePetDocument = (documentId: string, updates: Partial<PetDocument>) => {
@@ -1900,10 +1925,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       assertDocumentFile(file)
-      await saveDocumentBlob(documentId, file, {
-        mimeType: file.type || undefined,
-        fileName: file.name,
-      })
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'read_failed'
       if (reason === 'unsupported_type') {
@@ -1911,8 +1932,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else if (reason === 'too_large') {
         showToast('Soubor je příliš velký', 'Maximální velikost je 25 MB.', 'info')
       } else {
-        showToast('Nahrazení selhalo', 'Nový soubor se nepodařilo uložit.', 'info')
+        showToast('Nahrazení selhalo', 'Nový soubor se nepodařilo ověřit.', 'info')
       }
+      return false
+    }
+
+    // Authorize BEFORE blob write — documents.write is the ClinicalService boundary.
+    const auth = tryAssertPetClinical('documents.write', existing.petId, { pets })
+    if (!auth.ok) {
+      showToast('Bez oprávnění', 'Nemáte oprávnění nahrazovat dokumenty.', 'error')
+      return false
+    }
+
+    try {
+      await saveDocumentBlob(documentId, file, {
+        mimeType: file.type || undefined,
+        fileName: file.name,
+      })
+    } catch {
+      showToast('Nahrazení selhalo', 'Nový soubor se nepodařilo uložit.', 'error')
       return false
     }
 
@@ -2147,7 +2185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const startClinicalEncounter = (
-    petId: string,
+    _petId: string,
     encounterId: string,
   ): ClinicalEncounter | null => {
     const existing = clinicalEncounters.find((e) => e.id === encounterId)
@@ -2467,9 +2505,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     showToast(
-      'Zpráva odeslána majiteli',
-      'Kontakt probíhá přes LOVED & KNOWN — majitel neuvidí váš telefon ani e-mail automaticky.',
-      'gold',
+      'Demo: zpráva zaznamenána lokálně',
+      'Kontakt probíhá v rámci DEMO LOVED & KNOWN — zpráva není odeslána mimo tento prohlížeč.',
+      'info',
     )
     return true
   }
@@ -3559,7 +3597,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lostAnnouncements])
 
-  // Mark finished medication courses as completed and clear reminders
+  // Mark finished medication courses as completed via ClinicalService (no direct LS bypass).
   useEffect(() => {
     const expired = healthRecords.filter((record) => {
       if (record.type !== 'medication' || record.status !== 'active') return false
@@ -3567,25 +3605,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
     if (expired.length === 0) return
 
-    const expiredIds = new Set(expired.map((record) => record.id))
-    setHealthRecords((prev) =>
-      prev.map((record) =>
-        expiredIds.has(record.id)
-          ? { ...record, status: 'completed', reminderEnabled: false }
-          : record,
-      ),
-    )
+    const adapter = buildHealthClinicalAdapter()
+    const service = createDemoClinicalService(adapter, { store: { pets } })
+    const completedIds = new Set<string>()
+
+    for (const record of expired) {
+      try {
+        service.updateRecord({
+          context: resolveClinicalStampContext(),
+          pets,
+          expectedVersion: clinicalCurrentVersion(record),
+          input: {
+            recordId: record.id,
+            updates: { status: 'completed', reminderEnabled: false },
+          },
+        })
+        completedIds.add(record.id)
+      } catch {
+        // Deny / CAS failure — do not mutate via setHealthRecords bypass.
+      }
+    }
+
+    if (completedIds.size === 0) return
+
     setCalendarEvents((prev) =>
-      prev.filter((event) => !event.sourceRecordId || !expiredIds.has(event.sourceRecordId)),
+      prev.filter((event) => !event.sourceRecordId || !completedIds.has(event.sourceRecordId)),
     )
     setNotifications((prev) => {
       let next = prev
-      for (const id of expiredIds) {
+      for (const id of completedIds) {
         next = removeNotificationsBySourceRecord(next, id)
       }
       return next
     })
-  }, [healthRecords])
+  }, [healthRecords, pets])
 
   // Keep calendar/bell in sync for medications that already have reminderEnabled
   useEffect(() => {

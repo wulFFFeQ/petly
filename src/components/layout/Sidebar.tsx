@@ -28,10 +28,10 @@ export function Sidebar() {
     { to: '/pets', label: 'Moji mazlíčci', icon: PawPrint, badge: pets.length },
     { to: '/discover', label: 'Objevovat', icon: Search },
     { to: '/community', label: 'Komunita', icon: Users },
-    { to: '/health', label: 'Zdraví', icon: Heart, badge: 'Aktivní' },
+    { to: '/health', label: 'Zdraví', icon: Heart },
     { to: '/calendar', label: 'Kalendář', icon: Calendar },
     { to: '/bookings', label: 'Rezervace', icon: CalendarCheck2 },
-    { to: '/messages', label: 'Zprávy', icon: MessageCircle, badge: '2' },
+    { to: '/messages', label: 'Zprávy', icon: MessageCircle },
   ]
 
   const servicesNav = [

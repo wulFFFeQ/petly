@@ -54,9 +54,8 @@ function professionalRoleLabel(type: string): string {
 }
 
 /**
- * Access: participant list only.
- * bookingId alone never grants access. Legacy threads without participants stay open
- * for demo UI (no ACL), but booking/professional threads always have participants.
+ * Access: participantAccountIds is the authoritative boundary.
+ * Missing/empty participants → DENY (fail closed). bookingId alone never grants access.
  */
 export function canAccessConversation(
   accountId: string | null | undefined,
@@ -64,10 +63,7 @@ export function canAccessConversation(
 ): boolean {
   if (!accountId || !conversation) return false
   const participants = conversation.participantAccountIds
-  if (!participants?.length) {
-    // Legacy community/vet seeds — no ACL gate.
-    return conversation.contactType !== 'professional'
-  }
+  if (!participants?.length) return false
   return participants.includes(accountId)
 }
 

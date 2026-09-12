@@ -163,7 +163,7 @@ export function MessageThread({ conversation: active, chatEndRef }: MessageThrea
     <div className="flex-1 space-y-3.5 overflow-y-auto p-5">
       <div className="text-center my-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-[#A3AEA7] bg-[#FAF8F5] px-3 py-1 rounded-full border border-[#E8E4DC]">
-          Šifrovaný kanál péče o mazlíčky
+          Konverzace péče o mazlíčky (DEMO)
         </span>
       </div>
 

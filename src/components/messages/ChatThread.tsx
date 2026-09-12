@@ -29,7 +29,7 @@ interface ChatThreadProps {
 }
 
 function isAccountThread(c: Conversation): boolean {
-  return Boolean(c.participantAccountIds?.length) || c.contactType === 'professional'
+  return Boolean(c.participantAccountIds?.length)
 }
 
 export function ChatThread({

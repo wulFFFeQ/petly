@@ -104,7 +104,7 @@ export function buildCalendarNotificationDrafts(
     if (!bucket) continue
 
     const type = mapEventType(event.type)
-    const name = petName(event.petId)
+    const name = petName(event.petId ?? '')
     drafts.push({
       id: `n_cal_${event.id}_${bucket}`,
       type,

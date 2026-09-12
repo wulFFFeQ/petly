@@ -43,6 +43,8 @@ import {
 } from './resolveResource'
 import type {
   AuthorizationDecision,
+  AuthorizationDenyClass,
+  AuthorizationDenyCode,
   AuthorizationRequest,
   SecurityAction,
   SecurityContext,
@@ -67,11 +69,9 @@ export type AuthorizeDeps = {
 }
 
 function deny(
-  code: AuthorizationDecision extends { allowed: false } ? AuthorizationDecision['code'] : never,
+  code: AuthorizationDenyCode,
   reason: string,
-  denyClass: AuthorizationDecision extends { allowed: false }
-    ? AuthorizationDecision['denyClass']
-    : never,
+  denyClass: AuthorizationDenyClass,
 ): AuthorizationDecision {
   return { allowed: false, code, reason, denyClass }
 }

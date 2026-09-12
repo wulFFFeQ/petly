@@ -24,12 +24,6 @@ export function buildBookingCalendarEvent(
   if (!ACTIVE_CALENDAR_STATUSES.has(booking.status)) return null
   const { date, time } = toDateAndTime(booking.startAt)
   const service = booking.serviceName ?? 'Rezervace'
-  const statusLabel =
-    booking.status === 'requested'
-      ? 'žádost'
-      : booking.status === 'payment_pending'
-        ? 'čeká na platbu'
-        : 'potvrzeno'
   const pro = opts?.professionalLabel ?? booking.professionalName ?? 'Profesionál'
 
   return {

@@ -152,7 +152,7 @@ export const PROFESSIONAL_VIEW_FORBIDDEN_KEYS = [
 ] as const
 
 export function assertProfessionalViewSafe(view: ProfessionalPetView): void {
-  const record = view as Record<string, unknown>
+  const record = view as unknown as Record<string, unknown>
   for (const key of PROFESSIONAL_VIEW_FORBIDDEN_KEYS) {
     if (key in record && record[key] != null) {
       throw new Error(`ProfessionalPetView must not include ${key}`)

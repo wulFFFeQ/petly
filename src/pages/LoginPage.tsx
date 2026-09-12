@@ -39,7 +39,8 @@ export function LoginPage() {
         </h1>
         <p className="mt-2 text-sm tracking-wide text-[#7D8B82]">{BRAND_TAGLINE}</p>
         <p className="mt-6 text-sm leading-relaxed text-[#5A6660]">
-          Přihlaste se ke svému účtu. Vaše mazlíčky a data zůstanou zachována.
+          DEMO přihlášení — obnoví lokální relaci <span className="font-semibold">owner_self</span>.
+          Nejde o serverové ověření identity. Data zůstanou v tomto prohlížeči.
         </p>
         <Button
           variant="primary"
@@ -49,7 +50,7 @@ export function LoginPage() {
           data-testid="login-submit"
           onClick={handleLogin}
         >
-          Přihlásit se
+          Přihlásit se (DEMO)
         </Button>
       </div>
     </div>

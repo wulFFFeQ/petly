@@ -1010,7 +1010,7 @@ export interface ToastMessage {
   id: string
   title: string
   description?: string
-  type?: 'success' | 'info' | 'gold'
+  type?: 'success' | 'info' | 'gold' | 'error'
 }
 
 export type ImportantContactType =

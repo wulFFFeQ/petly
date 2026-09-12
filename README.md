@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# LOVED & KNOWN
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Digitální péče o mazlíčky — React + TypeScript + Vite SPA.
 
-Currently, two official plugins are available:
+**Status:** high-fidelity **DEMO** (browser localStorage / IndexedDB). Not a production multi-user backend. See [docs/LAUNCH-READINESS-AUDIT.md](docs/LAUNCH-READINESS-AUDIT.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Scripts
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev          # Vite dev server
+npm run build        # tsc -b && vite build
+npm run lint         # oxlint
+npm run preview      # preview production build
+npm run test:assert  # domain assert scripts (scripts/assert-*.mts)
+npm run test:e2e     # Playwright e2e (requires running app + BASE_URL)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Assert tests
+
+```bash
+npm run test:assert
+# or one file:
+npx tsx scripts/assert-security-context.mts
+```
+
+### E2E prerequisites
+
+1. `npx playwright install` (first time)
+2. Start the app: `npm run dev`
+3. Run: `npm run test:e2e` (default `BASE_URL=http://localhost:5173`)
+
+## Environment
+
+See [`.env.example`](.env.example). No secrets in the client. Server-only variables are documented for LAUNCH 02.
+
+## Hosting note
+
+GitHub Pages is suitable for a labeled DEMO / marketing SPA only. Production multi-user data requires a real auth + API + database stack (LAUNCH 02).

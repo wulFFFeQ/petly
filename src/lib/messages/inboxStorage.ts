@@ -127,7 +127,7 @@ export function loadPersistedInboxConversations(): Conversation[] {
     if (!Array.isArray(parsed)) return []
     return parsed
       .map(normalizeConversation)
-      .filter((c): c is Conversation => Boolean(c) && isInboxConversation(c))
+      .filter((c): c is Conversation => c != null && isInboxConversation(c))
   } catch {
     return []
   }
@@ -138,7 +138,7 @@ export function savePersistedInboxConversations(conversations: Conversation[]): 
   try {
     const inbox = conversations
       .map(normalizeConversation)
-      .filter((c): c is Conversation => Boolean(c) && isInboxConversation(c))
+      .filter((c): c is Conversation => c != null && isInboxConversation(c))
     localStorage.setItem(INBOX_CONVERSATIONS_KEY, JSON.stringify(inbox))
   } catch {
     // best-effort

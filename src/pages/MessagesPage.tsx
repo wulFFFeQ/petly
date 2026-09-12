@@ -5,10 +5,10 @@ export function MessagesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        badge="Zabezpečené zprávy"
-        meta="Veterináři a ověření majitelé"
+        badge="Zprávy"
+        meta="DEMO komunikace v prohlížeči"
         title="Zprávy"
-        description="Komunikujte s veterináři, trenéry a komunitou."
+        description="Komunikujte s veterináři, trenéry a komunitou (lokální DEMO)."
         hideOnMobile
         className="pb-0"
       />

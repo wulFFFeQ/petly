@@ -22,6 +22,7 @@ import type {
   ProfessionalReviewStatus,
   ProfessionalReviewSummary,
   PublicProfessionalReview,
+  ReviewErrorCode,
   ReviewRating,
   ReviewResult,
 } from './types'
@@ -48,7 +49,7 @@ export type ReportProfessionalReviewInput = {
   reason: ProfessionalReviewReportReason
 }
 
-function fail<T>(error: ReviewResult<T>['error'], message: string): ReviewResult<T> {
+function fail<T>(error: ReviewErrorCode, message: string): ReviewResult<T> {
   return { ok: false, error, message }
 }
 

@@ -339,7 +339,7 @@ function loadArray<T>(
     for (const item of parsed) {
       const n = normalize(item)
       if (!n) continue
-      const id = (n as { id: string }).id
+      const id = (n as unknown as { id: string }).id
       if (seen.has(id)) continue
       seen.add(id)
       out.push(n)

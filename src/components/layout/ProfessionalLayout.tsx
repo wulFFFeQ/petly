@@ -14,6 +14,24 @@ export function ProfessionalLayout() {
     setUiWorkspace('professional')
   }, [])
 
+  useEffect(() => {
+    const existing = document.querySelector('meta[name="robots"]')
+    const previous = existing?.getAttribute('content') ?? null
+    if (existing) existing.setAttribute('content', 'noindex,nofollow')
+    else {
+      const meta = document.createElement('meta')
+      meta.name = 'robots'
+      meta.content = 'noindex,nofollow'
+      document.head.appendChild(meta)
+    }
+    return () => {
+      const meta = document.querySelector('meta[name="robots"]')
+      if (!meta) return
+      if (previous != null) meta.setAttribute('content', previous)
+      else meta.setAttribute('content', 'index,follow')
+    }
+  }, [])
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FAF8F5]" data-testid="professional-layout">
       <ProfessionalSidebar />

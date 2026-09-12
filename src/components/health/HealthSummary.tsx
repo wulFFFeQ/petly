@@ -19,7 +19,12 @@ import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { HealthRecordDetailBody } from './HealthRecordDetailBody'
 
-const upcomingAccent = [
+const upcomingAccent: {
+  types: readonly string[]
+  icon: typeof Syringe
+  iconClass: string
+  rowTint: string
+}[] = [
   {
     types: ['vaccination', 'deworming', 'antiparasitic'],
     icon: Syringe,
@@ -39,12 +44,12 @@ const upcomingAccent = [
     rowTint: 'bg-amber-50/40',
   },
   {
-    types: [] as string[],
+    types: [],
     icon: Heart,
     iconClass: 'text-purple-800 bg-purple-100 border-purple-200/60',
     rowTint: 'bg-purple-50/30',
   },
-] as const
+]
 
 function accentForType(type: string) {
   return (

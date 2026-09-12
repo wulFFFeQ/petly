@@ -10,6 +10,7 @@ const ENDED: BookingStatus[] = [
 
 const STATUS_LABEL: Record<BookingStatus, string> = {
   requested: 'Čeká na potvrzení',
+  payment_pending: 'Čeká na platbu',
   confirmed: 'Potvrzeno',
   declined: 'Odmítnuto',
   cancelled_by_owner: 'Zrušeno',

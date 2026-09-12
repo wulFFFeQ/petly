@@ -1405,5 +1405,30 @@ check('encounterId immutable after create', () => {
   assert.equal(updated.data.encounterId, enc.data.id)
 })
 
+check('LAUNCH01 – createDocument authorize precedes blob (deny without write)', () => {
+  const { service, adapter } = freshService()
+  const before = adapter.getDocuments().length
+  expectClinicalCode(
+    () =>
+      service.createDocument({
+        context: ctxForAccount(viewer.id),
+        pets,
+        documentId: 'doc_launch01_denied',
+        input: {
+          petId: bella.id,
+          name: 'Denied',
+          category: 'health',
+          documentType: 'other',
+          fileName: 'x.pdf',
+          size: '1 KB',
+          storageKey: 'doc_launch01_denied',
+        },
+      }),
+    'FORBIDDEN',
+  )
+  assert.equal(adapter.getDocuments().length, before)
+  assert.equal(adapter.findDocument('doc_launch01_denied'), undefined)
+})
+
 console.log(`\nK59 documents: ${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

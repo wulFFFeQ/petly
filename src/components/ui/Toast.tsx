@@ -1,4 +1,4 @@
-import { CheckCircle2, Sparkles, X, Info } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Sparkles, X, Info } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { cn } from '../../lib/utils'
 
@@ -30,24 +30,30 @@ export function ToastContainer() {
           key={toast.id}
           className={cn(
             'pointer-events-auto flex w-full items-start gap-3 rounded-2xl p-4 shadow-[0_10px_30px_rgba(25,30,27,0.12)] border transition-all duration-300 animate-in slide-in-from-bottom-5',
-            toast.type === 'gold'
-              ? 'bg-[#FCFBF8] border-[#E8D8B5] text-[#191E1B]'
-              : toast.type === 'info'
-                ? 'bg-white border-[#E8E4DC] text-[#191E1B]'
-                : 'bg-[#F3F7F5] border-[#D1E0D8] text-[#191E1B]',
+            toast.type === 'error'
+              ? 'bg-[#FDF6F5] border-[#E8C4C0] text-[#191E1B]'
+              : toast.type === 'gold'
+                ? 'bg-[#FCFBF8] border-[#E8D8B5] text-[#191E1B]'
+                : toast.type === 'info'
+                  ? 'bg-white border-[#E8E4DC] text-[#191E1B]'
+                  : 'bg-[#F3F7F5] border-[#D1E0D8] text-[#191E1B]',
           )}
         >
           <div
             className={cn(
               'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg mt-0.5',
-              toast.type === 'gold'
-                ? 'bg-[#FAF4E6] text-[#B8934A]'
-                : toast.type === 'info'
-                  ? 'bg-[#FAF8F5] text-[#4A564F]'
-                  : 'bg-[#EBF2EE] text-[#2C4A3E]',
+              toast.type === 'error'
+                ? 'bg-[#F8E8E6] text-[#8B3A32]'
+                : toast.type === 'gold'
+                  ? 'bg-[#FAF4E6] text-[#B8934A]'
+                  : toast.type === 'info'
+                    ? 'bg-[#FAF8F5] text-[#4A564F]'
+                    : 'bg-[#EBF2EE] text-[#2C4A3E]',
             )}
           >
-            {toast.type === 'gold' ? (
+            {toast.type === 'error' ? (
+              <AlertCircle size={16} />
+            ) : toast.type === 'gold' ? (
               <Sparkles size={16} />
             ) : toast.type === 'info' ? (
               <Info size={16} />

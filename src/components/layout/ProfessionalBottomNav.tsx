@@ -1,7 +1,6 @@
 import {
   Calendar,
   CalendarCheck2,
-  ClipboardList,
   LayoutDashboard,
   MessageCircle,
   MoreHorizontal,

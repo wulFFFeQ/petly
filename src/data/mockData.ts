@@ -1001,7 +1001,7 @@ export const communityPosts: CommunityPost[] = [
     author: 'David M.',
     authorId: 'community_david',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=85',
-    badge: 'Ověřený vet. technik',
+    badge: 'Vet. technik (DEMO)',
     time: 'před 5 hodinami',
     text: 'Měli jsme skvělou zkušenost v PetCare Central Praha s Nalou. MUDr. Novák byl velmi pečlivý, klidný a bez stresu. Pokud hledáte kočičího zubního specialistu, jejich klinika je špička.',
     likes: 18,

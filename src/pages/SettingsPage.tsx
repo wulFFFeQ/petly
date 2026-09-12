@@ -242,23 +242,29 @@ export function SettingsPage() {
             <span>Připomínky a upozornění</span>
           </h3>
           <div className="space-y-3">
-            {NOTIFICATION_PREF_ITEMS.map((item) => (
+            {NOTIFICATION_PREF_ITEMS.map((item) => {
+              const labelId = `notif-pref-title-${item.id}`
+              const descId = `notif-pref-desc-${item.id}`
+              return (
               <div
                 key={item.id}
                 className="flex items-center justify-between p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E8E4DC]"
               >
                 <div>
-                  <p className="text-xs font-bold text-[#191E1B]">{item.title}</p>
-                  <p className="text-[11px] text-[#7D8B82] mt-0.5">{item.desc}</p>
+                  <p id={labelId} className="text-xs font-bold text-[#191E1B]">{item.title}</p>
+                  <p id={descId} className="text-[11px] text-[#7D8B82] mt-0.5">{item.desc}</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={notificationPrefs[item.id]}
                   onChange={() => toggleNotificationPref(item.id)}
                   className="h-4 w-4 rounded accent-[#2C4A3E] cursor-pointer"
+                  aria-labelledby={labelId}
+                  aria-describedby={descId}
                 />
               </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
 
@@ -277,10 +283,11 @@ export function SettingsPage() {
             <span>Soukromí a přístup k veterinárním datům</span>
           </h3>
           <p className="text-xs text-[#4A564F] mb-5 leading-relaxed">
-            {BRAND_NAME} uchovává zdravotní a klinické záznamy vašich mazlíčků v šifrované podobě.
-            U každého veterináře s přístupem si můžete přesně nastavit, ke kterým údajům má
-            přístup — a tento přístup kdykoliv odebrat. (Přístup ke zdravotním údajům není totéž
-            jako ověření důvěryhodnosti / veterinary verification.)
+            {BRAND_NAME} připravuje produkční šifrování dat v úložišti prostřednictvím
+            serverové storage vrstvy před ostrým provozem. V součém DEMO režimu zůstávají
+            záznamy v prohlížeči. U každého veterináře s přístupem si můžete přesně nastavit,
+            ke kterým údajům má přístup — a tento přístup kdykoliv odebrat. (Přístup ke
+            zdravotním údajům není totéž jako ověření důvěryhodnosti / veterinary verification.)
           </p>
 
           <div className="rounded-xl border border-[#E8E4DC] bg-[#FAF8F5] p-4">

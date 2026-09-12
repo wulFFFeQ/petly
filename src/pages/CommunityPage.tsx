@@ -42,9 +42,9 @@ export function CommunityPage() {
     <div className="space-y-5">
       <PageHeader
         badge="Společenský kruh"
-        meta="Ověřená komunita chovatelů"
+        meta="Komunita chovatelů"
         title="Komunita"
-        description="Spojte se s majiteli mazlíčků ve vašem okolí, sdílejte ověřené tipy a slavte milníky."
+        description="Spojte se s majiteli mazlíčků ve vašem okolí, sdílejte tipy a slavte milníky."
         className="gap-2 pb-0"
       />
 

@@ -123,17 +123,14 @@ export function activateAccess(
   accessId: string,
   nowIso: string = new Date().toISOString(),
 ): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
-  let updated: PetProfessionalAccess | null = null
-  const next = accessList.map((a) => {
-    if (a.id !== accessId) return a
-    updated = {
-      ...a,
-      status: 'active',
-      revokedAt: undefined,
-    }
-    return updated
-  })
-  if (!updated) return { accessList, logs, access: null }
+  const target = accessList.find((a) => a.id === accessId)
+  if (!target) return { accessList, logs, access: null }
+  const updated: PetProfessionalAccess = {
+    ...target,
+    status: 'active',
+    revokedAt: undefined,
+  }
+  const next = accessList.map((a) => (a.id === accessId ? updated : a))
   const entry = createAccessLogEntry({
     petId: updated.petId,
     professionalId: updated.professionalId,
@@ -150,17 +147,14 @@ export function revokeAccess(
   accessId: string,
   nowIso: string = new Date().toISOString(),
 ): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
-  let updated: PetProfessionalAccess | null = null
-  const next = accessList.map((a) => {
-    if (a.id !== accessId) return a
-    updated = {
-      ...a,
-      status: 'revoked',
-      revokedAt: nowIso,
-    }
-    return updated
-  })
-  if (!updated) return { accessList, logs, access: null }
+  const target = accessList.find((a) => a.id === accessId)
+  if (!target) return { accessList, logs, access: null }
+  const updated: PetProfessionalAccess = {
+    ...target,
+    status: 'revoked',
+    revokedAt: nowIso,
+  }
+  const next = accessList.map((a) => (a.id === accessId ? updated : a))
   const entry = createAccessLogEntry({
     petId: updated.petId,
     professionalId: updated.professionalId,
@@ -194,16 +188,11 @@ export function expireAccess(
     return { accessList, logs, access: null }
   }
 
-  let updated: PetProfessionalAccess | null = null
-  const next = accessList.map((a) => {
-    if (a.id !== accessId) return a
-    updated = {
-      ...a,
-      status: 'expired',
-    }
-    return updated
-  })
-  if (!updated) return { accessList, logs, access: null }
+  const updated: PetProfessionalAccess = {
+    ...target,
+    status: 'expired',
+  }
+  const next = accessList.map((a) => (a.id === accessId ? updated : a))
 
   const entry = createAccessLogEntry({
     petId: updated.petId,
@@ -343,18 +332,15 @@ export function updateAccessPermissions(
   permissions: ProfessionalPermission[],
   nowIso: string = new Date().toISOString(),
 ): { accessList: PetProfessionalAccess[]; logs: ProfessionalAccessLog[]; access: PetProfessionalAccess | null } {
-  let updated: PetProfessionalAccess | null = null
-  const next = accessList.map((a) => {
-    if (a.id !== accessId) return a
-    const nextPermissions = normalizePermissions(permissions)
-    assertEmergencyWriteGrantHasExpiry(nextPermissions, a.expiresAt)
-    updated = {
-      ...a,
-      permissions: nextPermissions,
-    }
-    return updated
-  })
-  if (!updated) return { accessList, logs, access: null }
+  const target = accessList.find((a) => a.id === accessId)
+  if (!target) return { accessList, logs, access: null }
+  const nextPermissions = normalizePermissions(permissions)
+  assertEmergencyWriteGrantHasExpiry(nextPermissions, target.expiresAt)
+  const updated: PetProfessionalAccess = {
+    ...target,
+    permissions: nextPermissions,
+  }
+  const next = accessList.map((a) => (a.id === accessId ? updated : a))
 
   const entry = createAccessLogEntry({
     petId: updated.petId,

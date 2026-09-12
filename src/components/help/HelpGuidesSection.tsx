@@ -103,7 +103,7 @@ const HELP_TOPICS: {
       },
       {
         q: 'Kde upravím typ upozornění?',
-        a: 'V Nastavení → Připomínky a upozornění si zapněte nebo vypněte push, SMS, schůzky a další typy notifikací.',
+        a: 'V Nastavení → Připomínky a upozornění si zapněte nebo vypněte lokální (DEMO) typy upozornění. Push a SMS zatím nejsou napojené na skutečné doručení.',
       },
     ],
   },
@@ -114,11 +114,11 @@ const HELP_TOPICS: {
     items: [
       {
         q: 'Jak exportuji zdravotní záznamy pro veterináře?',
-        a: 'V hlavičce profilu mazlíčka použijte Sdílet / Dokumenty a exportujte ověřený zdravotní souhrn.',
+        a: 'V hlavičce profilu mazlíčka použijte Sdílet / Dokumenty a exportujte zdravotní souhrn (DEMO).',
       },
       {
         q: 'Mohu veterináři poslat záznamy ve Zprávách?',
-        a: 'Ano. V konverzaci s ověřeným veterinářem otevřete sdílení zdravotních údajů a vyberte konkrétní záznamy k odeslání.',
+        a: 'Ano. V konverzaci s veterinářem otevřete sdílení zdravotních údajů a vyberte konkrétní záznamy k odeslání (lokální DEMO messaging).',
       },
       {
         q: 'Jak omezím, co veterinář vidí?',
@@ -137,7 +137,7 @@ const HELP_TOPICS: {
       },
       {
         q: 'Jsou zdravotní data šifrovaná?',
-        a: `${BRAND_NAME} uchovává zdravotní a klinické záznamy v šifrované podobě. Přístup ověřených veterinářů řídíte vy.`,
+        a: `Produkční šifrování dat v úložišti bude zajištěno serverovou storage vrstvou před ostrým provozem. V součém DEMO režimu ${BRAND_NAME} ukládá klinická data lokálně v prohlížeči. Přístup veterinářů řídíte vy.`,
       },
       {
         q: 'Jak odeberu přístup veterináři?',
@@ -156,7 +156,7 @@ const HELP_TOPICS: {
     items: [
       {
         q: 'Jak kontaktuji podporu?',
-        a: `Klikněte na tlačítko podpory vpravo dole a napište dotaz nebo připomínku. Alternativně e-mail support@lovedandknown.cz. Pro asistenci s péčí o mazlíčka použijte Concierge. Odpovídáme obvykle do 1 pracovního dne.`,
+        a: `Klikněte na tlačítko podpory vpravo dole a napište dotaz. Formulář je DEMO — zpráva se uloží jen lokálně, neodesílá se na server. E-mail support@lovedandknown.cz bude dostupný až s produkční infrastrukturou.`,
       },
       {
         q: 'Co mám uvést v požadavku?',

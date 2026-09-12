@@ -891,5 +891,51 @@ check('DEMO authority ≠ production', () => {
   assert.equal(service.authority, 'demo')
 })
 
+check('LAUNCH01 – medication complete goes through ClinicalService (deny stranger)', () => {
+  const { adapter, service } = freshService()
+  const created = service.createRecord({
+    context: ctxForAccount(SELF_OWNER_ID),
+    pets,
+    input: {
+      petId: bella.id,
+      type: 'medication',
+      title: 'Antibiotika',
+      subtitle: 'Kurz',
+      date: '1. 1. 2020',
+      status: 'active',
+      reminderDays: 3,
+      reminderEnabled: true,
+    },
+  })
+  assert.equal(created.ok, true)
+  const updated = service.updateRecord({
+    context: ctxForAccount(SELF_OWNER_ID),
+    pets,
+    expectedVersion: 1,
+    input: {
+      recordId: created.data.id,
+      updates: { status: 'completed', reminderEnabled: false },
+    },
+  })
+  assert.equal(updated.ok, true)
+  assert.equal(updated.data.status, 'completed')
+  assert.equal(updated.data.reminderEnabled, false)
+  assert.equal(adapter.findHealthRecord(created.data.id)?.status, 'completed')
+
+  expectClinicalCode(
+    () =>
+      service.updateRecord({
+        context: ctxForAccount(viewer.id),
+        pets,
+        expectedVersion: 2,
+        input: {
+          recordId: created.data.id,
+          updates: { status: 'active' },
+        },
+      }),
+    'FORBIDDEN',
+  )
+})
+
 console.log(`\nK56 clinical service: ${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

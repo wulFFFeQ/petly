@@ -5,6 +5,8 @@
 **Datum auditu:** 2026-09-12  
 **Pokrytí:** architektura K1–K39 vs dlouhodobá vize pet-care ekosystému.
 
+> **LAUNCH 01 doc correction:** Organizations are no longer stub-only. Source of truth is the codebase (`src/lib/organization/*` — membership, invitations, OrganizationPetAccess). Sections below that still say “org stub” are historical K40 text and should not override current code.
+
 ---
 
 ## Shrnutí verdiktu (sekce 1–20)
@@ -14,7 +16,7 @@
 | 1 | Pet jako centrální entita | **OK** |
 | 2 | Identity + Account | **WARNING** (DEMO session) |
 | 3 | Ownership + Access | **OK** |
-| 4 | Organizations | **CRITICAL gap** (stub only) |
+| 4 | Organizations | **IMPLEMENTED (DEMO)** — membership + OrganizationPetAccess in code; K40 “stub only” claim is **stale** (see note below) |
 | 5 | Professional workforce | **WARNING** (solo-ready, team-not) |
 | 6 | Veterinary data | **WARNING** (consumer health, not EMR) |
 | 7 | Audit trail | **WARNING** (access logs only; clinical/security MISSING) |

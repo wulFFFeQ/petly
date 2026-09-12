@@ -99,8 +99,6 @@ function applyPriceFields(
   }
   if (currency?.trim()) {
     target.currency = currency.trim()
-  } else if (priceType !== 'on_request' && !target.currency) {
-    // leave unset
   }
 }
 

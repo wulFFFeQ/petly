@@ -58,6 +58,7 @@ import {
 } from '../src/lib/notifications/index.ts'
 import type { Account } from '../src/types/professional.ts'
 import type { ProfessionalProfile } from '../src/types/professional.ts'
+import type { Conversation } from '../src/types/index.ts'
 
 function installMemoryStorage() {
   const store = new Map<string, string>()
@@ -636,6 +637,60 @@ check('Seed demo conversations', () => {
     },
   })
   assert.ok(getConversation('conv_seed_vet') || getConversation('conv_seed_completed'))
+})
+
+check('LAUNCH01 – missing participantAccountIds denies (fail closed)', () => {
+  const legacyOpen: Conversation = {
+    id: 'conv_legacy_no_participants',
+    name: 'Legacy Vet',
+    role: 'Veterinář',
+    petContext: 'Demo',
+    contactType: 'vet',
+    avatar: '',
+    lastMessage: 'Ahoj',
+    time: 'Teď',
+    unread: 0,
+    messages: [],
+  }
+  assert.equal(canAccessConversation(OWNER_ID, legacyOpen), false)
+  assert.equal(canAccessConversation(STRANGER_ID, legacyOpen), false)
+  assert.equal(canAccessConversation(OWNER_ID, { ...legacyOpen, contactType: 'community' }), false)
+  assert.equal(canAccessConversation(OWNER_ID, { ...legacyOpen, participantAccountIds: [] }), false)
+})
+
+check('LAUNCH01 – participant allow / non-participant deny / forged deny', () => {
+  const withParticipants: Conversation = {
+    id: 'conv_acl_participants',
+    name: 'ACL Thread',
+    role: 'Veterinář',
+    petContext: 'Demo',
+    contactType: 'professional',
+    avatar: '',
+    lastMessage: 'Ahoj',
+    time: 'Teď',
+    unread: 0,
+    messages: [],
+    participantAccountIds: [OWNER_ID, PRO_ACCOUNT],
+    bookingId: 'booking_forged_does_not_grant',
+  }
+  assert.equal(canAccessConversation(OWNER_ID, withParticipants), true)
+  assert.equal(canAccessConversation(PRO_ACCOUNT, withParticipants), true)
+  assert.equal(canAccessConversation(STRANGER_ID, withParticipants), false)
+  // Forged: attacker puts themselves in a client-claimed copy — authoritative list still checked.
+  const forgedSelf: Conversation = {
+    ...withParticipants,
+    participantAccountIds: [STRANGER_ID, 'forged_other'],
+  }
+  assert.equal(canAccessConversation(OWNER_ID, forgedSelf), false)
+  assert.equal(canAccessConversation(STRANGER_ID, forgedSelf), true)
+  // Viewer not on list even if bookingId present.
+  assert.equal(
+    canAccessConversation(STRANGER_ID, {
+      ...withParticipants,
+      participantAccountIds: [OWNER_ID, PRO_ACCOUNT],
+    }),
+    false,
+  )
 })
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`)

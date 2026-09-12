@@ -107,7 +107,7 @@ export function FoundPetPage() {
 
           {sent && (
             <div className="rounded-xl border border-[#D1E0D8] bg-[#EBF2EE]/70 px-3 py-2.5 text-xs font-medium text-[#2C4A3E]">
-              Zpráva byla odeslána majiteli. Děkujeme, že pomáháte.
+              Zpráva byla uložena lokálně (DEMO). Majiteli se nedoručuje mimo tento prohlížeč.
             </div>
           )}
 

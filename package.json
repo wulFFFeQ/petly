@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "generate:breed-images": "node scripts/generate-breed-images.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:assert": "node scripts/run-assert-all.mjs",
+    "test:e2e": "node scripts/run-e2e-all.mjs"
   },
   "dependencies": {
     "@lucide/lab": "^0.2.0",

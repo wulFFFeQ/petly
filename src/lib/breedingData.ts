@@ -135,7 +135,7 @@ export function setBreedingInfo(
   current: PetBreedingData | undefined,
   info: BreedingInfo,
 ): PetBreedingData {
-  const cleaned = pruneEmptyStrings(info) as BreedingInfo
+  const cleaned = pruneEmptyStrings(info as unknown as Record<string, unknown>) as BreedingInfo
   const next = patchBreedingData(current, {
     info: Object.keys(cleaned).length > 0 ? cleaned : undefined,
   })

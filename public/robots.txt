@@ -1,0 +1,31 @@
+# LOVED & KNOWN — robots for static / GitHub Pages DEMO hosting.
+# SPA caveat: Disallow is advisory for crawlers that ignore client routes;
+# private app surfaces also set noindex via AppLayout when gated.
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /discover
+Allow: /professionals
+Allow: /found/
+Allow: /lost/
+Allow: /pet/
+
+Disallow: /settings
+Disallow: /messages
+Disallow: /health
+Disallow: /bookings
+Disallow: /calendar
+Disallow: /pets
+Disallow: /membership
+Disallow: /payment/
+Disallow: /organization-invitations
+Disallow: /professional
+Disallow: /onboarding
+Disallow: /contacts
+Disallow: /concierge
+Disallow: /travel
+Disallow: /community
+Disallow: /help
+
+Sitemap: ./sitemap.xml

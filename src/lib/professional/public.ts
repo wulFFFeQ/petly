@@ -138,7 +138,7 @@ export function toPublicProfessionalProfile(
 }
 
 export function assertPublicProfessionalSafe(pub: PublicProfessionalProfile): void {
-  const record = pub as Record<string, unknown>
+  const record = pub as unknown as Record<string, unknown>
   for (const key of PUBLIC_PROFESSIONAL_FORBIDDEN_KEYS) {
     if (key in record && record[key] != null) {
       throw new Error(`PublicProfessionalProfile must not include ${key}`)

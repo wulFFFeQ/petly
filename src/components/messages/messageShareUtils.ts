@@ -1,7 +1,6 @@
 /**
- * Legacy share display helpers.
- * K61 production share path is createClinicalShare / sendClinicalShareRequest —
- * do not use buildHealthShareMessage as a clinical SSOT bypass.
+ * Share display helpers for inbox UI.
+ * K61 production share path is createClinicalShare / sendClinicalShareRequest.
  */
 import { conversations as initialConversations } from '../../data/mockData'
 import { loadConversationPrefs } from '../../lib/archivedConversations'
@@ -37,25 +36,6 @@ export function getShareCategory(record: HealthRecord): ShareCategory {
     return 'results'
   }
   return 'visit'
-}
-
-export function buildHealthShareMessage(record: HealthRecord, index: number) {
-  const now = new Date()
-  const timeString = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-  return {
-    id: `m_share_${Date.now()}_${index}`,
-    sender: 'me' as const,
-    text: `Sdílen zdravotní záznam: ${record.title}`,
-    time: timeString,
-    attachment: {
-      kind: 'health_record' as const,
-      recordId: record.id,
-      title: record.title,
-      subtitle: record.subtitle,
-      date: record.date,
-      category: getShareCategory(record),
-    },
-  }
 }
 
 export function buildInitialConversations(): Conversation[] {

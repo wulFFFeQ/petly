@@ -63,7 +63,7 @@ export const HOUSEHOLD_VIEW_FORBIDDEN_KEYS = [
 ] as const
 
 export function assertHouseholdViewSafe(view: HouseholdPetView): void {
-  const record = view as Record<string, unknown>
+  const record = view as unknown as Record<string, unknown>
   for (const key of HOUSEHOLD_VIEW_FORBIDDEN_KEYS) {
     if (key in record && record[key] != null) {
       throw new Error(`HouseholdPetView must not include ${key}`)

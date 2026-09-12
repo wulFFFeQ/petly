@@ -889,7 +889,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         title="Sdílet profil"
-        subtitle={`Ověřený profil ${pet.name} pro veterináře, pet-sitting nebo nouzové situace`}
+        subtitle={`Profil ${pet.name} pro veterináře, pet-sitting nebo nouzové situace (DEMO sdílení)`}
         maxWidth="lg"
       >
         <div className="space-y-4">
@@ -905,7 +905,7 @@ export function PetProfileHeader({ pet }: PetProfileHeaderProps) {
               </p>
               {hasMicrochip(microchipValue) && (
                 <Badge variant="gold" size="sm" className="mt-1.5">
-                  Ověřený profil {BRAND_NAME}
+                  Profil {BRAND_NAME}
                 </Badge>
               )}
             </div>

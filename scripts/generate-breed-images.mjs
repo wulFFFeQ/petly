@@ -41,10 +41,11 @@ const DOG_CURATED_IMAGES = {
   // Distinct from husky — Malamute editorial on dark bokeh (not snow full-body).
   'Aljašský malamut': '/breeds/aljasky-malamut.jpg?v=2',
   // Alpine Dachsbracke — dark short-coat hound on golden bokeh (not dachshund snap).
-  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=3',
+  'Alpský jezevčíkovitý brakýř': '/breeds/alpsky-jezevcikovity-brakyr.jpg?v=4',
   'Australský ovčák': UNSPLASH('photo-1587300003388-59208cc962cb'),
-  'Australský honácký pes': UNSPLASH('photo-1769117086709-7507034281fa'),
-  'Australský honácký pes s krátkým ocasem': UNSPLASH('photo-1769117086709-7507034281fa'),
+  'Australský honácký pes': '/breeds/australsky-honacky-pes.jpg?v=1',
+  'Australský honácký pes s krátkým ocasem': '/breeds/australsky-honacky-pes-s-kratkym-ocasem.jpg?v=1',
+  'Australská kelpie': '/breeds/australska-kelpie.jpg?v=1',
   'Kolie dlouhosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   'Kolie krátkosrstá': UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
   Sheltie: UNSPLASH('photo-1503256207526-0d5d80fa2f47'),
@@ -102,7 +103,7 @@ const DOG_CURATED_IMAGES = {
   // Basset artésien normand — editorial basset portrait (not nose crop).
   'Artésko-normandský basset': '/breeds/artesko-normandsky-basset.jpg?v=1',
   // Chien d'Artois — tricolor French hound portrait (not basset nose crop).
-  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=3',
+  'Artoisský honič': '/breeds/artoissky-honic.jpg?v=4',
 }
 
 /** Exact Czech CMKU name → dog.ceo slug (preferred over fuzzy rules). */

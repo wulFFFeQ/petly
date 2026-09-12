@@ -46,7 +46,7 @@ export function openProfessionalConversationRequest(
 
 function resolveShareNotificationMeta(
   conversation: Conversation,
-  senderAccountId: string,
+  _senderAccountId: string,
   recipientAccountId: string,
 ): {
   recipientIsProfessional: boolean

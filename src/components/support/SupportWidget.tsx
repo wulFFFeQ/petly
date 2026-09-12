@@ -108,9 +108,9 @@ export function SupportWidget() {
     const subjectLabel =
       SUBJECT_OPTIONS[messageType].find((opt) => opt.value === subject)?.label ?? subject
     showToast(
-      'Zpráva odeslána',
-      `Děkujeme. Odpovíme obvykle do 1 pracovního dne${typeLabel ? ` · ${typeLabel}` : ''} · ${subjectLabel}.`,
-      'gold',
+      'Demo: zpráva zaznamenána lokálně',
+      `Zpráva nebyla odeslána na server${typeLabel ? ` · ${typeLabel}` : ''} · ${subjectLabel}.`,
+      'info',
     )
     resetForm()
     setOpen(false)
@@ -142,7 +142,7 @@ export function SupportWidget() {
                   <p className="mt-2 max-w-[17rem] text-xs leading-relaxed text-white/85">
                     Dotazy, připomínky i technické problémy.
                     <br />
-                    Ozveme se do 1 pracovního dne.
+                    DEMO: zpráva zůstane jen v tomto prohlížeči.
                   </p>
                 </div>
                 <button

@@ -66,7 +66,10 @@ export function DocumentLinkPicker({
                   <span className="block text-[11px] text-[#7D8B82]">
                     {getDocumentCategoryLabel(doc.category)}
                     {doc.documentType
-                      ? ` · ${getDocumentTypeLabel(doc.category, doc.documentType)}`
+                      ? ` · ${getDocumentTypeLabel(
+                          doc.category,
+                          doc.documentType as Parameters<typeof getDocumentTypeLabel>[1],
+                        )}`
                       : ''}
                   </span>
                 </span>

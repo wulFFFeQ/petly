@@ -273,7 +273,7 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         title="Sdílet profil"
-        subtitle={`Ověřený profil ${pet.name}`}
+        subtitle={`Profil ${pet.name} (DEMO sdílení)`}
         maxWidth="lg"
       >
         <div className="space-y-4">
@@ -291,7 +291,7 @@ export function PetGridCardMenu({ pet }: PetGridCardMenuProps) {
               </p>
               {hasMicrochip(microchipValue) && (
                 <Badge variant="gold" size="sm" className="mt-1.5">
-                  Ověřený profil {BRAND_NAME}
+                  Profil {BRAND_NAME}
                 </Badge>
               )}
             </div>

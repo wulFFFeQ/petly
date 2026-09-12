@@ -3,20 +3,20 @@ const NOTIFICATION_PREFS_KEY = 'loved-known-notification-prefs'
 export const NOTIFICATION_PREF_ITEMS = [
   {
     id: 'push_meds',
-    title: 'Pushová upozornění na očkování a léky',
-    desc: 'Připomínky 48 hodin a 2 hodiny před termínem',
+    title: 'Lokální připomínky očkování a léků (DEMO)',
+    desc: 'In-app připomínky — push doručení zatím není napojené',
     defaultEnabled: true,
   },
   {
     id: 'sms_vet',
-    title: 'SMS připomínky veterinárních termínů',
-    desc: 'Upozornění na objednané návštěvy u veterináře',
+    title: 'Připomínky veterinárních termínů (DEMO)',
+    desc: 'Lokální preference — SMS se neodesílají',
     defaultEnabled: true,
   },
   {
     id: 'meetings',
     title: 'Upozornění na schůzky',
-    desc: 'Připomínky treninků, agility lekcí a dalších plánovaných aktivit',
+    desc: 'Připomínky treninků, agility lekcí a dalších plánovaných aktivit (in-app DEMO)',
     defaultEnabled: true,
   },
   {

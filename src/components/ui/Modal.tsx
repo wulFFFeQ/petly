@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 
 interface ModalProps {
@@ -21,6 +21,9 @@ const maxSizes = {
   xl: 'max-w-3xl',
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export function Modal({
   open,
   onClose,
@@ -31,17 +34,59 @@ export function Modal({
   maxWidth = 'md',
   closeOnBackdrop = true,
 }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const restoreFocusRef = useRef<HTMLElement | null>(null)
+
   useEffect(() => {
+    if (!open) return
+
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    if (open) {
-      document.addEventListener('keydown', handleEsc)
-      document.body.style.overflow = 'hidden'
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ).filter((el) => !el.hasAttribute('disabled') && el.tabIndex !== -1)
+      if (focusable.length === 0) {
+        e.preventDefault()
+        panelRef.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
+
+    document.addEventListener('keydown', handleEsc)
+    document.addEventListener('keydown', handleTab)
+    document.body.style.overflow = 'hidden'
+
+    // Initial focus: close button, else first focusable, else panel.
+    requestAnimationFrame(() => {
+      const panel = panelRef.current
+      if (!panel) return
+      const closeBtn = panel.querySelector<HTMLElement>('[data-modal-close]')
+      const first = panel.querySelector<HTMLElement>(FOCUSABLE)
+      ;(closeBtn ?? first ?? panel).focus()
+    })
+
     return () => {
       document.removeEventListener('keydown', handleEsc)
+      document.removeEventListener('keydown', handleTab)
       document.body.style.overflow = ''
+      restoreFocusRef.current?.focus()
+      restoreFocusRef.current = null
     }
   }, [open, onClose])
 
@@ -57,11 +102,13 @@ export function Modal({
         aria-hidden
       />
       <div
+        ref={panelRef}
         role="dialog"
-        aria-modal
+        aria-modal="true"
         aria-labelledby="modal-title"
+        tabIndex={-1}
         className={cn(
-          'relative z-10 w-full overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white p-6 sm:p-8 shadow-[0_20px_50px_rgba(25,30,27,0.15)] animate-in zoom-in-95 duration-200 my-auto',
+          'relative z-10 w-full overflow-hidden rounded-2xl border border-[#E8E4DC] bg-white p-6 sm:p-8 shadow-[0_20px_50px_rgba(25,30,27,0.15)] animate-in zoom-in-95 duration-200 my-auto outline-none',
           maxSizes[maxWidth],
           className,
         )}
@@ -78,6 +125,8 @@ export function Modal({
             )}
           </div>
           <button
+            type="button"
+            data-modal-close
             onClick={onClose}
             className="rounded-xl p-1.5 text-[#7D8B82] transition-colors hover:bg-[#FAF8F5] hover:text-[#191E1B] active:scale-95"
             aria-label="Zavřít"

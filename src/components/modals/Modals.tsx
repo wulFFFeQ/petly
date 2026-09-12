@@ -158,7 +158,6 @@ export function Modals() {
   }
 
   const petOptions = pets.map((p) => ({ value: p.id, label: p.name }))
-  const petNameOptions = pets.map((p) => ({ value: p.name, label: p.name }))
 
   return (
     <>

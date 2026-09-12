@@ -63,7 +63,7 @@ export const ORGANIZATION_PET_VIEW_FORBIDDEN_KEYS = [
 ] as const
 
 export function assertOrganizationPetViewSafe(view: OrganizationPetView): void {
-  const record = view as Record<string, unknown>
+  const record = view as unknown as Record<string, unknown>
   for (const key of ORGANIZATION_PET_VIEW_FORBIDDEN_KEYS) {
     if (key in record && record[key] != null) {
       throw new Error(`OrganizationPetView must not include ${key}`)

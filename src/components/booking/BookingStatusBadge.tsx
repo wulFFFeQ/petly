@@ -3,6 +3,7 @@ import { Badge } from '../ui/Badge'
 
 const LABELS: Record<BookingStatus, string> = {
   requested: 'Čeká na potvrzení',
+  payment_pending: 'Čeká na platbu',
   confirmed: 'Potvrzeno',
   declined: 'Odmítnuto',
   cancelled_by_owner: 'Zrušeno',
@@ -16,6 +17,7 @@ const VARIANTS: Record<
   'gold' | 'success' | 'danger' | 'warning' | 'default' | 'primary'
 > = {
   requested: 'gold',
+  payment_pending: 'gold',
   confirmed: 'success',
   declined: 'danger',
   cancelled_by_owner: 'default',
